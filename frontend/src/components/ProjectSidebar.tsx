@@ -1,6 +1,6 @@
 import { Content, Portal, Root, Trigger } from "@radix-ui/react-tooltip";
 import { useState, type ReactNode } from "react";
-import type { Board, ProjectRef } from "../shared/api";
+import type { Board, ProjectRef, Session } from "../shared/api";
 import { dayColor, eventsTip } from "../shared/format";
 import { LayoutGrid, Menu, X } from "../ui/icons";
 import { Link } from "./common/Link";
@@ -10,7 +10,13 @@ import { Tip } from "./Tip";
 
 // ProjectSidebar switches between projects. Each project's square is colored
 // by its events in the last 24 hours; the number is its issues.
-export function ProjectSidebar({ board, project, create }: { board: Board | null; project?: ProjectRef | null; create: ReactNode }) {
+export function ProjectSidebar({ board, project, session, profile, create }: {
+  board: Board | null;
+  project?: ProjectRef | null;
+  session: Session | null;
+  profile?: boolean;
+  create: ReactNode;
+}) {
   const [expanded, setExpanded] = useState(false);
   const row =
     "flex min-w-0 items-center rounded-control text-cinder no-underline hover:bg-rule-soft aria-[current=page]:bg-rule-soft aria-[current=page]:font-semibold aria-[current=page]:text-soot";
@@ -38,7 +44,7 @@ export function ProjectSidebar({ board, project, create }: { board: Board | null
         aria-label="Projects"
         className={`flex min-h-0 min-w-0 flex-1 flex-col max-lg:pt-4 ${expanded ? "" : "max-lg:hidden"}`}
       >
-        <Link to="/" className={`${item} shrink-0`} aria-current={!project ? "page" : undefined}>
+        <Link to="/" className={`${item} shrink-0`} aria-current={!project && !profile ? "page" : undefined}>
           <LayoutGrid aria-hidden="true" />
           <span className="flex-1">All issues</span>
           {board && <span className="text-xs tabular-nums">{board.openTotal}</span>}
@@ -73,8 +79,26 @@ export function ProjectSidebar({ board, project, create }: { board: Board | null
         </div>
         <div className="mt-3 mb-3 shrink-0">{create}</div>
       </nav>
+      {/* The divider sits on this wrapper, so each row's hover box only
+          covers the row. The avatar is centered on the icon column. */}
       <div className={`mt-auto flex shrink-0 items-center gap-1 border-t border-rule pt-3 ${expanded ? "" : "max-lg:hidden"}`}>
-        <span className="flex-1 px-3 text-xs text-cinder">Theme</span>
+        {session?.user ? (
+          <Link
+            to="/profile"
+            className={`${row} min-w-0 flex-1 gap-1.5 py-1.5 pr-3 pl-1.5`}
+            aria-current={profile ? "page" : undefined}
+            aria-label={`Profile: ${session.user.displayName || session.user.email}`}
+          >
+            <span className="grid size-7 shrink-0 place-items-center rounded-full border border-rule bg-ash text-xs font-semibold text-soot">
+              {(session.user.displayName || session.user.email).slice(0, 1).toUpperCase()}
+            </span>
+            <Tip content={session.user.email} side="right">
+              <span className="min-w-0 flex-1 truncate text-xs">{session.user.displayName || session.user.email}</span>
+            </Tip>
+          </Link>
+        ) : (
+          <span className="flex-1" />
+        )}
         <ThemeSwitch />
       </div>
     </aside>

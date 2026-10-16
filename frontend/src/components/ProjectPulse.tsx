@@ -22,7 +22,7 @@ export function ProjectPulseLine({ project }: { project: ProjectRef & { pulse: P
     parts.push(
       <>
         No events yet.{" "}
-        <Link to={`/p/${project.id}/settings`} className="text-soot">
+        <Link to={`/p/${project.id}/settings/dsn`} className="text-soot">
           Set up the DSN
         </Link>{" "}
         to start reporting.

@@ -58,7 +58,7 @@ export function recordEvent(
   projectId: number,
   event: SentryEvent,
   now = Date.now(),
-): { eventId: string; issueId: number } {
+): { eventId: string; issueId: number; isNew: boolean; title: string } {
   const s = summarize(event);
   db.exec("BEGIN");
   try {
@@ -68,9 +68,9 @@ export function recordEvent(
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
          ON CONFLICT (project_id, fingerprint) DO UPDATE SET
            level = excluded.level, last_seen = excluded.last_seen, count = count + 1
-         RETURNING id`,
+         RETURNING id, count, title`,
       )
-      .get(projectId, s.fingerprint, s.title, s.culprit, s.level, s.platform, now, now) as { id: number };
+      .get(projectId, s.fingerprint, s.title, s.culprit, s.level, s.platform, now, now) as { id: number; count: number; title: string };
     db.prepare(
       `INSERT INTO events (project_id, issue_id, event_id, received_at, release, environment, payload)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -84,7 +84,7 @@ export function recordEvent(
       JSON.stringify({ ...event, event_id: s.eventId }),
     );
     db.exec("COMMIT");
-    return { eventId: s.eventId, issueId: issue.id };
+    return { eventId: s.eventId, issueId: issue.id, isNew: issue.count === 1, title: issue.title };
   } catch (e) {
     db.exec("ROLLBACK");
     throw e;

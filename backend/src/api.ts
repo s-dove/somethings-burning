@@ -1,29 +1,24 @@
 import { Hono, type Context } from "hono";
+import { Access, atLeast, setGrant, type Role } from "./access.js";
+import type { Authenticator, User } from "./auth.js";
 import { board, type Sort } from "./board.js";
 import type { Db } from "./db.js";
 import { eventView } from "./event-view.js";
-import {
-  eventPage,
-  getEvent,
-  getIssue,
-  hoursByIssue,
-  listIssues,
-  releasesOf,
-  storedEventCount,
-} from "./issues.js";
+import { eventPage, getEvent, getIssue, hoursByIssue, listIssues, releasesOf, storedEventCount } from "./issues.js";
+import type { Senders } from "./notify/deliver.js";
 import { createProject, deleteProject, getProject, listProjects, renameProject } from "./projects.js";
+import { profileRoutes } from "./profile-api.js";
+import { routingRoutes } from "./routing-api.js";
+import { settingsRoutes } from "./settings-api.js";
+import { dsn } from "./url.js";
 
-/** The URL SDKs reach this server at: PUBLIC_URL, or what the browser used. */
-function publicUrl(c: Context): URL {
-  if (process.env.PUBLIC_URL) return new URL(process.env.PUBLIC_URL);
-  const host = c.req.header("x-forwarded-host") ?? c.req.header("host") ?? "localhost";
-  const proto = c.req.header("x-forwarded-proto") ?? new URL(c.req.url).protocol.replace(":", "");
-  return new URL(`${proto}://${host}`);
-}
+export type AppEnv = { Variables: { user?: User } };
 
-function dsn(c: Context, projectId: number, key: string): string {
-  const u = publicUrl(c);
-  return `${u.protocol}//${key}@${u.host}${u.pathname.replace(/\/$/, "")}/${projectId}`;
+export interface ApiDeps {
+  auth: Authenticator;
+  access: Access;
+  senders: Senders;
+  baseURL: string;
 }
 
 async function nameFrom(c: Context): Promise<string | undefined> {
@@ -34,62 +29,108 @@ async function nameFrom(c: Context): Promise<string | undefined> {
 
 const SORTS: Sort[] = ["hot", "latest", "count"];
 
-export function apiRoutes(db: Db): Hono {
-  const r = new Hono();
+/** The JSON API the web app reads, under /api. */
+export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
+  const { auth, access } = deps;
+  const app = new Hono<AppEnv>();
 
-  r.get("/health", (c) => c.json({ status: "ok" }));
+  app.get("/health", (c) => c.json({ status: "ok" }));
 
-  r.get("/board", (c) => {
-    const sort = SORTS.includes(c.req.query("sort") as Sort) ? (c.req.query("sort") as Sort) : "hot";
-    const projectId = Number(c.req.query("project")) || undefined;
-    if (projectId && !getProject(db, projectId)) return c.json({ detail: "not found" }, 404);
-    return c.json(board(db, { projectId, sort, q: (c.req.query("q") ?? "").trim().slice(0, 200) }));
+  // How to sign in, and who is signed in. Readable without a session.
+  app.get("/session", async (c) => c.json({ methods: auth.methods, user: await auth.user(c) }));
+
+  // Everything below needs a session.
+  app.use("*", async (c, next) => {
+    const user = await auth.user(c);
+    if (!user) return c.json({ detail: "sign in first" }, 401);
+    c.set("user", user);
+    return next();
   });
 
-  r.get("/projects", (c) => c.json({ projects: listProjects(db) }));
+  /** The project and the caller's role in it, or null when they cannot see it. */
+  const load = (c: Context<AppEnv>) => {
+    const project = getProject(db, Number(c.req.param("id")));
+    const role = project ? access.role(project.id, c.get("user")) : null;
+    return project && role ? { project, role } : null;
+  };
+  const notFound = (c: Context) => c.json({ detail: "not found" }, 404);
+  const needs = (c: Context, role: Role) =>
+    c.json({ detail: role === "admin" ? "this needs the admin role" : "this needs the member role" }, 403);
 
-  r.post("/projects", async (c) => {
+  // One board for both views: every project's issues, or one project's.
+  // Only projects the person has a role in are listed or counted.
+  app.get("/board", (c) => {
+    const sort = SORTS.includes(c.req.query("sort") as Sort) ? (c.req.query("sort") as Sort) : "hot";
+    const all = (db.prepare("SELECT id FROM projects").all() as { id: number }[]).map((r) => r.id);
+    const roles = access.roles(all, c.get("user"));
+    const scope = [...roles.keys()];
+    const projectId = Number(c.req.query("project")) || undefined;
+    if (projectId && !roles.has(projectId)) return notFound(c);
+    const b = board(db, { projectId, sort, q: (c.req.query("q") ?? "").trim().slice(0, 200), scope });
+    return c.json({
+      ...b,
+      project: b.project && { ...b.project, role: roles.get(b.project.id) },
+      projects: b.projects.map((p) => ({ ...p, role: roles.get(p.id) })),
+    });
+  });
+
+  app.get("/projects", (c) => {
+    const all = listProjects(db);
+    const roles = access.roles(all.map((p) => p.id), c.get("user"));
+    return c.json({ projects: all.filter((p) => roles.has(p.id)).map((p) => ({ ...p, role: roles.get(p.id) })) });
+  });
+
+  // Whoever creates a project is its first admin.
+  app.post("/projects", async (c) => {
     const name = await nameFrom(c);
     if (!name) return c.json({ detail: "name is required (up to 80 characters)" }, 400);
     const p = createProject(db, name);
-    return c.json({ project: { ...p, dsn: dsn(c, p.id, p.publicKey) } }, 201);
+    const user = c.get("user");
+    if (user) setGrant(db, p.id, "user", user.email, "admin");
+    return c.json({ project: { ...p, dsn: dsn(c, deps.baseURL, p.id, p.publicKey), role: "admin" } }, 201);
   });
 
-  r.get("/projects/:id{[0-9]+}", (c) => {
-    const p = getProject(db, Number(c.req.param("id")));
-    if (!p) return c.json({ detail: "not found" }, 404);
-    return c.json({ project: { ...p, dsn: dsn(c, p.id, p.publicKey) } });
+  app.get("/projects/:id{[0-9]+}", (c) => {
+    const found = load(c);
+    if (!found) return notFound(c);
+    const p = found.project;
+    return c.json({ project: { ...p, dsn: dsn(c, deps.baseURL, p.id, p.publicKey), role: found.role } });
   });
 
-  r.patch("/projects/:id{[0-9]+}", async (c) => {
+  app.patch("/projects/:id{[0-9]+}", async (c) => {
+    const found = load(c);
+    if (!found) return notFound(c);
+    if (!atLeast(found.role, "admin")) return needs(c, "admin");
     const name = await nameFrom(c);
     if (!name) return c.json({ detail: "name is required (up to 80 characters)" }, 400);
-    const p = renameProject(db, Number(c.req.param("id")), name);
-    if (!p) return c.json({ detail: "not found" }, 404);
-    return c.json({ project: { ...p, dsn: dsn(c, p.id, p.publicKey) } });
+    const p = renameProject(db, found.project.id, name)!;
+    return c.json({ project: { ...p, dsn: dsn(c, deps.baseURL, p.id, p.publicKey), role: found.role } });
   });
 
-  r.delete("/projects/:id{[0-9]+}", (c) => {
-    if (!deleteProject(db, Number(c.req.param("id")))) return c.json({ detail: "not found" }, 404);
+  app.delete("/projects/:id{[0-9]+}", (c) => {
+    const found = load(c);
+    if (!found) return notFound(c);
+    if (!atLeast(found.role, "admin")) return needs(c, "admin");
+    deleteProject(db, found.project.id);
     return c.body(null, 204);
   });
 
-  r.get("/projects/:id{[0-9]+}/issues", (c) => {
-    const id = Number(c.req.param("id"));
-    if (!getProject(db, id)) return c.json({ detail: "not found" }, 404);
-    return c.json({ issues: listIssues(db, id) });
+  app.get("/projects/:id{[0-9]+}/issues", (c) => {
+    const found = load(c);
+    if (!found) return notFound(c);
+    return c.json({ issues: listIssues(db, found.project.id) });
   });
 
   // The issue page: the issue, its releases, the latest stored events, and
   // one event in full (?event=<id>, or the latest).
-  r.get("/projects/:id{[0-9]+}/issues/:issue{[0-9]+}", (c) => {
-    const project = getProject(db, Number(c.req.param("id")));
-    const issue = project && getIssue(db, project.id, Number(c.req.param("issue")));
-    if (!project || !issue) return c.json({ detail: "not found" }, 404);
+  app.get("/projects/:id{[0-9]+}/issues/:issue{[0-9]+}", (c) => {
+    const found = load(c);
+    const issue = found && getIssue(db, found.project.id, Number(c.req.param("issue")));
+    if (!found || !issue) return notFound(c);
     const page = eventPage(db, issue.id);
     const stored = getEvent(db, issue.id, Number(c.req.query("event")) || undefined);
     return c.json({
-      project: { id: project.id, name: project.name },
+      project: { id: found.project.id, name: found.project.name, role: found.role },
       issue: { ...issue, hours: hoursByIssue(db, [issue.id]).get(issue.id) },
       releases: releasesOf(db, issue.id),
       events: page.events,
@@ -99,11 +140,16 @@ export function apiRoutes(db: Db): Hono {
     });
   });
 
-  r.get("/projects/:id{[0-9]+}/issues/:issue{[0-9]+}/events", (c) => {
-    const issue = getIssue(db, Number(c.req.param("id")), Number(c.req.param("issue")));
-    if (!issue) return c.json({ detail: "not found" }, 404);
+  app.get("/projects/:id{[0-9]+}/issues/:issue{[0-9]+}/events", (c) => {
+    const found = load(c);
+    const issue = found && getIssue(db, found.project.id, Number(c.req.param("issue")));
+    if (!found || !issue) return notFound(c);
     return c.json(eventPage(db, issue.id, Number(c.req.query("before")) || undefined));
   });
 
-  return r;
+  app.route("/", settingsRoutes(db, access, deps.baseURL));
+  app.route("/", routingRoutes(db, access, deps.senders));
+  app.route("/", profileRoutes(db, deps.senders));
+
+  return app;
 }

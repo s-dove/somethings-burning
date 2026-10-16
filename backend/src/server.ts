@@ -1,10 +1,34 @@
 import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
+import { Auth, OidcLogin, Sessions, sessionSecret } from "./auth.js";
 import { openDb } from "./db.js";
+import { loadEnvFile, readConfig } from "./env.js";
+import { requeueStuck } from "./notify/store.js";
+import { PasswordLogin } from "./passwords.js";
 
-const port = Number(process.env.PORT ?? 8195);
-const db = openDb(process.env.DATABASE_PATH ?? "data/burning.db");
+loadEnvFile(".env");
+const config = readConfig();
+const db = openDb(config.db);
 
-serve({ fetch: createApp(db).fetch, port }, (info) => {
+// Sign-in: OIDC, passwords, both, or neither (then no one can use the app).
+let sso: OidcLogin | null = null;
+if (config.oidc.issuer) {
+  const missing = (["clientId", "redirectURL"] as const).filter((k) => !config.oidc[k]);
+  if (missing.length) throw new Error(`OIDC is half configured: set ${missing.join(", ")} too`);
+  sso = await OidcLogin.create(config.oidc);
+  console.log(`sign-in with OIDC: ${config.oidc.issuer}`);
+}
+const password = config.passwordFile ? new PasswordLogin(config.passwordFile) : null;
+if (password) console.log(`sign-in with passwords: ${config.passwordFile}`);
+if (!sso && !password) console.warn("no sign-in configured (BURNING_OIDC_ISSUER or BURNING_PASSWORD_FILE): no one can use the app");
+const secure = (config.baseURL || config.oidc.redirectURL).startsWith("https:");
+const auth = new Auth(new Sessions(db, sessionSecret(db, config.sessionSecret), secure), sso, password);
+
+const { app, outbox } = createApp(db, { auth, config });
+requeueStuck(db);
+outbox.kick();
+setInterval(() => outbox.kick(), 30_000).unref();
+
+serve({ fetch: app.fetch, port: config.port }, (info) => {
   console.log(`backend listening on http://localhost:${info.port}`);
 });
