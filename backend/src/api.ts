@@ -1,16 +1,19 @@
 import { Hono, type Context } from "hono";
 import { Access, atLeast, setGrant, type Role } from "./access.js";
 import type { Authenticator, User } from "./auth.js";
-import { board, type Sort } from "./board.js";
+import { listActivity } from "./activity.js";
+import { board, type Sort, type StatusFilter } from "./board.js";
 import type { Db } from "./db.js";
 import { eventView } from "./event-view.js";
-import { eventPage, getEvent, getIssue, hoursByIssue, listIssues, releasesOf, storedEventCount } from "./issues.js";
+import { eventPage, getEvent, getIssue, hoursByIssue, latestRelease, listIssues, mute, NotFound, releasesOf, reopenByHand, resolve, storedEventCount } from "./issues.js";
 import type { Senders } from "./notify/deliver.js";
 import { createProject, deleteProject, getProject, listProjects, renameProject } from "./projects.js";
 import { profileRoutes } from "./profile-api.js";
 import { routingRoutes } from "./routing-api.js";
 import { settingsRoutes } from "./settings-api.js";
+import { MUTE_OPTIONS, muteOption } from "./triage.js";
 import { dsn } from "./url.js";
+import { people } from "./users.js";
 
 export type AppEnv = { Variables: { user?: User } };
 
@@ -28,6 +31,8 @@ async function nameFrom(c: Context): Promise<string | undefined> {
 }
 
 const SORTS: Sort[] = ["hot", "latest", "count"];
+const STATUSES: StatusFilter[] = ["open", "resolved", "muted", "all"];
+const pick = <T extends string>(v: string | undefined, of: T[], def: T): T => (of.includes(v as T) ? (v as T) : def);
 
 /** The JSON API the web app reads, under /api. */
 export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
@@ -60,17 +65,19 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
   // One board for both views: every project's issues, or one project's.
   // Only projects the person has a role in are listed or counted.
   app.get("/board", (c) => {
-    const sort = SORTS.includes(c.req.query("sort") as Sort) ? (c.req.query("sort") as Sort) : "hot";
+    const sort = pick(c.req.query("sort"), SORTS, "hot");
+    const status = pick(c.req.query("status"), STATUSES, "open");
     const all = (db.prepare("SELECT id FROM projects").all() as { id: number }[]).map((r) => r.id);
     const roles = access.roles(all, c.get("user"));
     const scope = [...roles.keys()];
     const projectId = Number(c.req.query("project")) || undefined;
     if (projectId && !roles.has(projectId)) return notFound(c);
-    const b = board(db, { projectId, sort, q: (c.req.query("q") ?? "").trim().slice(0, 200), scope });
+    const b = board(db, { projectId, status, sort, q: (c.req.query("q") ?? "").trim().slice(0, 200), scope });
     return c.json({
       ...b,
       project: b.project && { ...b.project, role: roles.get(b.project.id) },
       projects: b.projects.map((p) => ({ ...p, role: roles.get(p.id) })),
+      issues: b.issues.map((i) => ({ ...i, role: roles.get(i.projectId) })),
     });
   });
 
@@ -129,9 +136,14 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
     if (!found || !issue) return notFound(c);
     const page = eventPage(db, issue.id);
     const stored = getEvent(db, issue.id, Number(c.req.query("event")) || undefined);
+    const history = listActivity(db, issue.id);
+    const actors = people(db, history.map((a) => a.actor));
     return c.json({
       project: { id: found.project.id, name: found.project.name, role: found.role },
       issue: { ...issue, hours: hoursByIssue(db, [issue.id]).get(issue.id) },
+      activity: history.map((a) => ({ ...a, actorName: a.actor ? (actors.get(a.actor)?.displayName ?? a.actor) : "" })),
+      muteOptions: MUTE_OPTIONS.map(({ value, label }) => ({ value, label })),
+      latestRelease: latestRelease(db, found.project.id),
       releases: releasesOf(db, issue.id),
       events: page.events,
       moreEvents: page.more,
@@ -147,9 +159,37 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
     return c.json(eventPage(db, issue.id, Number(c.req.query("before")) || undefined));
   });
 
+  // Triage needs the member role. The signed-in person is recorded as who did it.
+  const action = (fn: (projectId: number, issueId: number, actor: string, c: Context<AppEnv>) => Promise<void> | void) => async (c: Context<AppEnv>) => {
+    const found = load(c);
+    if (!found) return notFound(c);
+    if (!atLeast(found.role, "member")) return c.json({ detail: "triage needs the member role" }, 403);
+    try {
+      await fn(found.project.id, Number(c.req.param("issue")), c.get("user")?.email ?? "", c);
+      return c.json({ ok: true });
+    } catch (err) {
+      if (err instanceof NotFound) return c.json({ detail: "issue not found" }, 404);
+      if (err instanceof BadRequest) return c.json({ detail: err.message }, 400);
+      throw err;
+    }
+  };
+  app.post("/projects/:id{[0-9]+}/issues/:issue{[0-9]+}/resolve", action((p, i, actor) => resolve(db, p, i, actor)));
+  app.post("/projects/:id{[0-9]+}/issues/:issue{[0-9]+}/reopen", action((p, i, actor) => reopenByHand(db, p, i, actor)));
+  app.post(
+    "/projects/:id{[0-9]+}/issues/:issue{[0-9]+}/mute",
+    action(async (p, i, actor, c) => {
+      const body = (await c.req.json().catch(() => ({}))) as { for?: string };
+      const opt = muteOption(body.for ?? "");
+      if (!opt) throw new BadRequest("choose how long to mute");
+      mute(db, p, i, opt, actor);
+    }),
+  );
+
   app.route("/", settingsRoutes(db, access, deps.baseURL));
   app.route("/", routingRoutes(db, access, deps.senders));
   app.route("/", profileRoutes(db, deps.senders));
 
   return app;
 }
+
+class BadRequest extends Error {}

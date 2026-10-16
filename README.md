@@ -84,20 +84,30 @@ Sessions last 12 hours. The cookie holds only a session id and is signed with `B
 Each project grants roles to users (by email) and to groups (by name, from the groups claim). The highest matching role wins.
 
 - viewer: sees issues and events
-- member: also gets alerts by the default route
+- member: also resolves, mutes, and reopens issues, and gets alerts by the default route
 - admin: also changes access, notifications, and the project
 
 Whoever creates a project is its admin, and a project always keeps at least one user as admin. People in `BURNING_SITE_ADMINS` (emails or groups) are admin on every project.
 
+## Triage
+
+An issue is open, resolved, or muted.
+
+- **Resolve** says everything so far is handled. The next event fires the issue again: it goes back to open and alerts.
+- **Mute** keeps counting events without alerting: for 1 hour, 1 day, or 1 week; until the next release (an event from a release first seen after the mute ends it); or until unmuted. When a timed mute ends, the issue goes back to open and its next event alerts.
+- **Reopen** (or **Unmute**) puts it back to open by hand.
+
+Members and admins triage, one issue at a time or several from the list. Every change is in the issue's history, with who made it.
+
 ## Notifications
 
-A new issue alerts. Each project has a routing table in the style of Alertmanager: routes are tried from the top, a route matches when all its conditions do, and matching stops at the first route that matches unless it says continue. A sink route drops what it matches. When no route matches, the default route sends to the project's members and admins.
+A new issue, an issue firing again, and an issue firing after a mute are alerts. Each project has a routing table in the style of Alertmanager: routes are tried from the top, a route matches when all its conditions do, and matching stops at the first route that matches unless it says continue. A sink route drops what it matches. When no route matches, the default route sends to the project's members and admins.
 
-Conditions test `trigger`, `env`, `release`, `level`, `type`, `message`, `culprit`, `path` (any in-app frame's file), or `tag.<name>`, with `=`, `!=`, `=~`, `!~` (regexes match the whole value), or whether the field has a value, is empty, or is absent.
+Conditions test `trigger` (`new`, `fired_again`, `unmuted`), `env`, `release`, `level`, `type`, `message`, `culprit`, `path` (any in-app frame's file), or `tag.<name>`, with `=`, `!=`, `=~`, `!~` (regexes match the whole value), or whether the field has a value, is empty, or is absent.
 
 A route sends to people, email addresses, Mattermost channels, or webhooks (a JSON post). A person gets alerts the way their own routing on their profile says: by email or Mattermost direct message, or not at all. It starts as everything by email.
 
-Email needs `BURNING_SMTP_HOST` and `BURNING_SMTP_FROM`; Mattermost needs `BURNING_MATTERMOST_URL` and a bot token. Messages go through an outbox and are retried up to five times.
+Email needs `BURNING_SMTP_HOST` and `BURNING_SMTP_FROM`; Mattermost needs `BURNING_MATTERMOST_URL` and a bot token. Messages go through an outbox and are retried up to five times. The issue's history records who was notified and by which route.
 
 ## API
 
@@ -109,12 +119,15 @@ The API needs a session, except `/api/session`, `/api/health`, and the ingest pa
 
 - `GET /api/health`
 - `GET /api/session`: the ways to sign in, and who is signed in
-- `GET /api/board?project=<id>&sort=hot|latest|count&q=<text>`
+- `GET /api/board?project=<id>&status=open|resolved|muted|all&sort=hot|latest|count&q=<text>`
 - `GET /api/projects`: the projects you can see
 - `POST /api/projects` with `{ "name": "<name>" }`: creates a project, with you as admin
 - `GET /api/projects/<id>`, `PATCH` with `{ "name": "<name>" }` (admin), `DELETE` (admin)
 - `GET /api/projects/<id>/issues`
-- `GET /api/projects/<id>/issues/<issue>?event=<id>`: the issue, its releases, its latest events, and one event in full
+- `GET /api/projects/<id>/issues/<issue>?event=<id>`: the issue, its releases, history, latest events, and one event in full
+- `POST /api/projects/<id>/issues/<issue>/resolve` (member)
+- `POST /api/projects/<id>/issues/<issue>/reopen` (member): reopens or unmutes
+- `POST /api/projects/<id>/issues/<issue>/mute` with `{ "for": "1h" | "1d" | "1w" | "release" | "forever" }` (member)
 - `GET /api/projects/<id>/issues/<issue>/events?before=<id>`: the next 10 older events
 - `GET /api/projects/<id>/settings`: the DSN, grants, and your role
 - `PUT /api/projects/<id>/access` with `{ "kind": "user" | "group", "subject": "<email or group>", "role": "viewer" | "member" | "admin" }` (admin)

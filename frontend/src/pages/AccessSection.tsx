@@ -9,7 +9,7 @@ import { Tip } from "../components/Tip";
 
 const ROLE_HELP: Record<Role, string> = {
   viewer: "Sees issues and events.",
-  member: "Also receives alerts by the default route.",
+  member: "Also resolves, mutes, and reopens issues, and gets alerts by the default route.",
   admin: "Also changes access, notifications, and the project.",
 };
 const roleLabel = (role: Role) => role[0]!.toUpperCase() + role.slice(1);

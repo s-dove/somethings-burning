@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useParams, useSearchParams } from "react-router";
+import { Link } from "../components/common/Link";
 import { Select, type SelectOption } from "../components/common/Select";
 import { Layout } from "../components/Layout";
 import { Loading } from "../components/Loading";
@@ -11,6 +12,8 @@ import { input } from "../shared/ui";
 import { Activity, Search } from "../ui/icons";
 import { IssueList } from "./IssueList";
 
+const TABS = [["open", "Open"], ["resolved", "Resolved"], ["muted", "Muted"], ["all", "All"]] as const;
+
 const SORT_OPTIONS: SelectOption<string>[] = [
   { value: "hot", label: "Hottest (24h)", hint: "Most events lately, recent hours count more." },
   { value: "latest", label: "Latest", hint: "Most recently seen first." },
@@ -21,19 +24,21 @@ const SORT_OPTIONS: SelectOption<string>[] = [
 export function BoardPage() {
   const { id } = useParams();
   const [params, setParams] = useSearchParams();
+  const status = params.get("status") || "open";
   const sort = params.get("sort") || "hot";
   const q = params.get("q") ?? "";
-  const query = new URLSearchParams({ sort, q, ...(id ? { project: id } : {}) });
+  const query = new URLSearchParams({ status, sort, q, ...(id ? { project: id } : {}) });
   const { data, error, reload } = useApi<Board>(`/board?${query}`, 30_000);
   const [search, setSearch] = useState(q);
   useEffect(() => {
     setSearch(q);
   }, [q]);
-  const update = (changes: Record<string, string>) => {
-    const next = new URLSearchParams({ sort, q, ...changes });
+  const link = (changes: Record<string, string>) => {
+    const next = new URLSearchParams({ status, sort, q, ...changes });
     if (!next.get("q")) next.delete("q");
-    setParams(next);
+    return `?${next}`;
   };
+  const update = (changes: Record<string, string>) => setParams(new URLSearchParams(link(changes).slice(1)));
   const current = data?.project ?? null;
   return (
     <Layout project={current} nav="issues">
@@ -67,8 +72,8 @@ export function BoardPage() {
                 )}
                 <div className="mt-8 grid border-y border-rule max-sm:divide-y max-sm:divide-rule sm:grid-cols-2 sm:divide-x sm:divide-rule">
                   <Stat
-                    value={data.counts.open}
-                    label="issues"
+                    value={data.counts.open ?? 0}
+                    label="open issues"
                     detail={
                       <>
                         <span className={`size-2 rounded-full ${data.burning ? "bg-heat-4" : "bg-rule"}`} />
@@ -78,7 +83,7 @@ export function BoardPage() {
                   />
                   <Stat
                     value={data.events.day}
-                    label="events in the last 24 hours"
+                    label="unresolved events in the last 24 hours"
                     detail={
                       <>
                         <span
@@ -93,7 +98,20 @@ export function BoardPage() {
               </>
             }
           >
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule pt-4">
+            <nav className="flex gap-6 overflow-x-auto border-b border-rule max-sm:gap-4" aria-label="Status">
+              {TABS.map(([value, label]) => (
+                <Link
+                  key={value}
+                  to={link({ status: value })}
+                  aria-current={value === status ? "page" : undefined}
+                  className="flex shrink-0 items-center gap-2 border-b-2 border-transparent pb-3 text-[13px] text-cinder no-underline hover:text-soot aria-[current=page]:border-soot aria-[current=page]:font-semibold aria-[current=page]:text-soot"
+                >
+                  {label}
+                  <span className="rounded-full bg-rule-soft px-2 py-0.5 text-[11px] tabular-nums">{data.counts[value] ?? 0}</span>
+                </Link>
+              ))}
+            </nav>
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
               <form
                 role="search"
                 className="relative w-full sm:w-[320px]"
@@ -121,7 +139,15 @@ export function BoardPage() {
               </div>
             </div>
           </PageHeader>
-          <IssueList issues={data.issues} showProject={!current} query={q} noProjects={!data.projects.length} />
+          <IssueList
+            key={`${status}|${q}|${sort}|${current?.id ?? 0}`}
+            issues={data.issues}
+            showProject={!current}
+            status={status}
+            query={q}
+            noProjects={!data.projects.length}
+            muteOptions={data.muteOptions}
+          />
           {data.issues.length > 0 && (
             <div className="mt-4 flex justify-between gap-3 text-xs text-cinder">
               <span>{plural(data.issues.length, "issue")} shown</span>

@@ -41,6 +41,29 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS events_issue_id ON events (issue_id, id DESC);
 CREATE INDEX IF NOT EXISTS events_project_received ON events (project_id, received_at);
 
+-- When each release was first seen in a project, so a "next release" mute
+-- can tell a new release from one that was already running.
+CREATE TABLE IF NOT EXISTS releases (
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  version    TEXT NOT NULL,
+  first_seen INTEGER NOT NULL,
+  PRIMARY KEY (project_id, version)
+);
+
+-- An issue's history: created, resolved, muted, fired again, notified, ...
+-- actor is the email of who did it; empty for what Burning did on its own.
+CREATE TABLE IF NOT EXISTS activity (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  issue_id    INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  at          INTEGER NOT NULL,
+  kind        TEXT NOT NULL,
+  text        TEXT NOT NULL,
+  release     TEXT NOT NULL DEFAULT '',
+  environment TEXT NOT NULL DEFAULT '',
+  actor       TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS activity_issue ON activity (issue_id, at DESC);
+
 -- People who have signed in, from their ID token claims. notify_routes is
 -- their own notification routing (JSON); NULL means never saved.
 CREATE TABLE IF NOT EXISTS users (
@@ -111,7 +134,28 @@ export function openDb(path: string): Db {
   const db = new DatabaseSync(path);
   db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
   db.exec(schema);
+  addColumns(db, "issues", ISSUE_TRIAGE_COLUMNS);
   return db;
+}
+
+// Triage state, added to issues after the table first shipped. An issue is
+// open, resolved, or muted; see triage.ts.
+const ISSUE_TRIAGE_COLUMNS: Record<string, string> = {
+  status: "TEXT NOT NULL DEFAULT 'open'",
+  resolved_at: "INTEGER NOT NULL DEFAULT 0",
+  mute_kind: "TEXT NOT NULL DEFAULT ''",
+  mute_until: "INTEGER NOT NULL DEFAULT 0",
+  muted_at: "INTEGER NOT NULL DEFAULT 0",
+  notify_next: "INTEGER NOT NULL DEFAULT 0", // the next event alerts, because a mute ended
+  reopen_reason: "TEXT NOT NULL DEFAULT ''", // why it last fired again
+};
+
+/** Adds the columns a table is missing, so an older database keeps working. */
+function addColumns(db: Db, table: string, columns: Record<string, string>): void {
+  const have = new Set((db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name));
+  for (const [name, type] of Object.entries(columns)) {
+    if (!have.has(name)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`);
+  }
 }
 
 /** Runs fn in a transaction. node:sqlite is synchronous, so fn must be too. */

@@ -1,3 +1,5 @@
+import type { Mute } from "./api";
+
 const HOUR = 3_600_000;
 
 export function plural(n: number, word: string): string {
@@ -63,12 +65,19 @@ export function eventsTip(n: number): string {
   return `${plural(n, "event")} in the last 24 hours`;
 }
 
-// edgeBg colors a row's left edge with the busiest of its last three hours.
-export function edgeBg(issue: { hours: number[] }): string {
+type EdgeIssue = { hours: number[]; status: "open" | "resolved" | "muted" };
+
+// edgeBg colors a row's left edge. Resolved is doused, muted is a flat rule,
+// and an open issue takes the busiest of its last three hours.
+export function edgeBg(issue: EdgeIssue): string {
+  if (issue.status === "resolved") return "bg-doused";
+  if (issue.status === "muted") return "bg-rule";
   return HEAT_BG[heatLevel(Math.max(0, ...issue.hours.slice(-3)))] ?? "bg-heat-0";
 }
 
-export function edgeTip(issue: { hours: number[] }): string {
+export function edgeTip(issue: EdgeIssue): string {
+  if (issue.status === "resolved") return "Resolved. The edge stays blue until a new event fires it again.";
+  if (issue.status === "muted") return "Muted. The edge stays gray while events keep counting.";
   const n = Math.max(0, ...issue.hours.slice(-3));
   if (n <= 0) return "No events in the last 3 hours.";
   return `Busiest hour of the last 3: ${plural(n, "event")}.`;
@@ -91,4 +100,22 @@ export const sentence = (s: string): string => (s ? s[0]!.toUpperCase() + s.slic
 export function shortRelease(release: string): string {
   const at = release.lastIndexOf("@");
   return at > 0 && at < release.length - 1 ? release.slice(at + 1) : release;
+}
+
+function humanDuration(ms: number): string {
+  if (ms < 60_000) return "less than a minute";
+  const minutes = Math.ceil(ms / 60_000);
+  if (minutes < 60) return plural(minutes, "minute");
+  const hours = Math.ceil(ms / HOUR);
+  if (hours < 48) return plural(hours, "hour");
+  return plural(Math.ceil(ms / (24 * HOUR)), "day");
+}
+
+export function muteSummary(m: Mute): string {
+  if (m.kind === "for") {
+    const left = m.until - Date.now();
+    return left <= 0 ? "mute ending" : `muted for ${humanDuration(left)} more`;
+  }
+  if (m.kind === "release") return "muted until a new release reports it";
+  return "muted until unmuted";
 }
