@@ -1,6 +1,8 @@
 import type { Db } from "./db.js";
 import { summarize, type SentryEvent } from "./event.js";
 
+const HOUR = 3_600_000;
+
 export type Issue = {
   id: number;
   projectId: number;
@@ -8,17 +10,21 @@ export type Issue = {
   culprit: string;
   level: string;
   platform: string;
-  firstSeen: string;
-  lastSeen: string;
-  count: number;
+  firstSeen: number;
+  lastSeen: number;
+  eventCount: number;
 };
 
 export type StoredEvent = {
   id: number;
   eventId: string;
-  receivedAt: string;
+  receivedAt: number;
+  release: string;
+  environment: string;
   payload: SentryEvent;
 };
+
+export type EventRow = Omit<StoredEvent, "payload">;
 
 type IssueRow = {
   id: number;
@@ -27,12 +33,12 @@ type IssueRow = {
   culprit: string;
   level: string;
   platform: string;
-  first_seen: string;
-  last_seen: string;
+  first_seen: number;
+  last_seen: number;
   count: number;
 };
 
-const toIssue = (r: IssueRow): Issue => ({
+export const toIssue = (r: IssueRow): Issue => ({
   id: r.id,
   projectId: r.project_id,
   title: r.title,
@@ -41,13 +47,19 @@ const toIssue = (r: IssueRow): Issue => ({
   platform: r.platform,
   firstSeen: r.first_seen,
   lastSeen: r.last_seen,
-  count: r.count,
+  eventCount: r.count,
 });
 
+const str = (v: unknown) => (typeof v === "string" ? v.slice(0, 200) : "");
+
 /** Stores an event and adds it to its issue, creating the issue on first sight. */
-export function recordEvent(db: Db, projectId: number, event: SentryEvent): { eventId: string; issueId: number } {
+export function recordEvent(
+  db: Db,
+  projectId: number,
+  event: SentryEvent,
+  now = Date.now(),
+): { eventId: string; issueId: number } {
   const s = summarize(event);
-  const now = new Date().toISOString();
   db.exec("BEGIN");
   try {
     const issue = db
@@ -55,14 +67,22 @@ export function recordEvent(db: Db, projectId: number, event: SentryEvent): { ev
         `INSERT INTO issues (project_id, fingerprint, title, culprit, level, platform, first_seen, last_seen, count)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
          ON CONFLICT (project_id, fingerprint) DO UPDATE SET
-           title = excluded.title, culprit = excluded.culprit, level = excluded.level,
-           platform = excluded.platform, last_seen = excluded.last_seen, count = count + 1
+           level = excluded.level, last_seen = excluded.last_seen, count = count + 1
          RETURNING id`,
       )
       .get(projectId, s.fingerprint, s.title, s.culprit, s.level, s.platform, now, now) as { id: number };
     db.prepare(
-      "INSERT INTO events (project_id, issue_id, event_id, received_at, payload) VALUES (?, ?, ?, ?, ?)",
-    ).run(projectId, issue.id, s.eventId, now, JSON.stringify({ ...event, event_id: s.eventId }));
+      `INSERT INTO events (project_id, issue_id, event_id, received_at, release, environment, payload)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      projectId,
+      issue.id,
+      s.eventId,
+      now,
+      str(event.release),
+      str(event.environment),
+      JSON.stringify({ ...event, event_id: s.eventId }),
+    );
     db.exec("COMMIT");
     return { eventId: s.eventId, issueId: issue.id };
   } catch (e) {
@@ -85,14 +105,72 @@ export function getIssue(db: Db, projectId: number, issueId: number): Issue | un
   return row && toIssue(row);
 }
 
-export function latestEvents(db: Db, issueId: number, limit = 10): StoredEvent[] {
+/**
+ * Hourly event counts for the last 24 hours, oldest first, per issue. The
+ * last cell is the current (partial) hour.
+ */
+export function hoursByIssue(db: Db, issueIds: number[], now = Date.now()): Map<number, number[]> {
+  const out = new Map<number, number[]>(issueIds.map((id) => [id, new Array<number>(24).fill(0)]));
+  if (issueIds.length === 0) return out;
+  const current = Math.floor(now / HOUR);
   const rows = db
-    .prepare("SELECT id, event_id, received_at, payload FROM events WHERE issue_id = ? ORDER BY id DESC LIMIT ?")
-    .all(issueId, limit) as { id: number; event_id: string; received_at: string; payload: string }[];
-  return rows.map((r) => ({
-    id: r.id,
-    eventId: r.event_id,
-    receivedAt: r.received_at,
-    payload: JSON.parse(r.payload) as SentryEvent,
-  }));
+    .prepare(
+      `SELECT issue_id, received_at / ${HOUR} AS h, COUNT(*) AS n FROM events
+        WHERE received_at >= ? AND issue_id IN (${issueIds.map(() => "?").join(",")})
+        GROUP BY issue_id, h`,
+    )
+    .all((current - 23) * HOUR, ...issueIds) as { issue_id: number; h: number; n: number }[];
+  for (const r of rows) {
+    const i = 23 - (current - Math.floor(r.h));
+    const cells = out.get(r.issue_id);
+    if (cells && i >= 0 && i < 24) cells[i] = r.n;
+  }
+  return out;
+}
+
+type EventRowDb = { id: number; event_id: string; received_at: number; release: string; environment: string };
+const toRow = (r: EventRowDb): EventRow => ({
+  id: r.id,
+  eventId: r.event_id,
+  receivedAt: r.received_at,
+  release: r.release,
+  environment: r.environment,
+});
+
+/** A page of an issue's stored events, newest first, older than `before` when given. */
+export function eventPage(db: Db, issueId: number, before?: number, limit = 10): { events: EventRow[]; more: boolean } {
+  const rows = db
+    .prepare(
+      `SELECT id, event_id, received_at, release, environment FROM events
+        WHERE issue_id = ? AND id < ? ORDER BY id DESC LIMIT ?`,
+    )
+    .all(issueId, before ?? Number.MAX_SAFE_INTEGER, limit + 1) as EventRowDb[];
+  return { events: rows.slice(0, limit).map(toRow), more: rows.length > limit };
+}
+
+export function storedEventCount(db: Db, issueId: number): number {
+  return (db.prepare("SELECT COUNT(*) AS n FROM events WHERE issue_id = ?").get(issueId) as { n: number }).n;
+}
+
+/** One stored event of an issue: `eventRowId`, or the latest. */
+export function getEvent(db: Db, issueId: number, eventRowId?: number): StoredEvent | undefined {
+  const row = (
+    eventRowId
+      ? db.prepare("SELECT * FROM events WHERE issue_id = ? AND id = ?").get(issueId, eventRowId)
+      : db.prepare("SELECT * FROM events WHERE issue_id = ? ORDER BY id DESC LIMIT 1").get(issueId)
+  ) as (EventRowDb & { payload: string }) | undefined;
+  return row && { ...toRow(row), payload: JSON.parse(row.payload) as SentryEvent };
+}
+
+/** Events per release and environment, busiest release first. */
+export function releasesOf(db: Db, issueId: number) {
+  const rows = db
+    .prepare(
+      `SELECT release, environment, COUNT(*) AS n, MAX(received_at) AS last FROM events
+        WHERE issue_id = ? GROUP BY release, environment ORDER BY MAX(received_at) DESC`,
+    )
+    .all(issueId) as { release: string; environment: string; n: number; last: number }[];
+  return rows
+    .filter((r) => r.release || r.environment)
+    .map((r) => ({ release: r.release, environment: r.environment, eventCount: r.n, lastSeen: r.last }));
 }

@@ -26,19 +26,24 @@ describe("ingest", () => {
       expect(res.status).toBe(200);
     }
     const { issues } = (await (await app.request(`/api/projects/${project.id}/issues`)).json()) as {
-      issues: { id: number; title: string; culprit: string; count: number }[];
+      issues: { id: number; title: string; culprit: string; eventCount: number }[];
     };
     expect(issues).toHaveLength(1);
     expect(issues[0]).toMatchObject({
       title: "ZeroDivisionError: division by zero",
       culprit: "app.views in ratio",
-      count: 2,
+      eventCount: 2,
     });
 
     const detail = (await (await app.request(`/api/projects/${project.id}/issues/${issues[0]!.id}`)).json()) as {
       events: unknown[];
+      storedEvents: number;
+      event: { exceptions: { type: string; frames: { location: string; inApp: boolean }[] }[] };
     };
     expect(detail.events).toHaveLength(2);
+    expect(detail.storedEvents).toBe(2);
+    // Newest call first.
+    expect(detail.event.exceptions[0]!.frames.map((f) => f.location)).toEqual(["app/views.py", "lib/runner.py"]);
   });
 
   it("accepts the legacy store endpoint with gzip", async () => {

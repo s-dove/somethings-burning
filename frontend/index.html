@@ -4,7 +4,22 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#252930" />
     <title>Something's burning</title>
+    <script>
+      // Apply the saved theme before the first paint, so the page does not
+      // flash the default one. ThemeSwitch.tsx keeps it in step.
+      // The code theme is chosen on its own. Nothing saved yet means Burning dark.
+      try {
+        var t = localStorage.getItem("burning-theme");
+        if (t) document.documentElement.dataset.theme = t;
+        var known = ["burning-light", "burning-dark", "github-light", "github-dark"];
+        var c = localStorage.getItem("burning-code-theme");
+        if (c === "system") c = window.matchMedia("(prefers-color-scheme: dark)").matches ? "burning-dark" : "burning-light";
+        else if (known.indexOf(c) < 0) c = "burning-dark";
+        document.documentElement.dataset.codeTheme = c;
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

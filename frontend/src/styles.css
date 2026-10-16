@@ -1,1 +1,237 @@
+/* Something is burning.
+   Color carries meaning: the ember scale is heat (events per hour), doused
+   blue is resolved, and everything else is smoke and soot. Buttons and links
+   stay soot so orange always means something is burning.
+   Type: one family, Recursive. Mono for the app, proportional and
+   slightly casual for the compact Burning wordmark. */
 @import "tailwindcss";
+
+/* Themes come from daisyUI. Burning's own palette is the default light
+   theme ("burning") and its dark twin ("burning-dark"); a few of daisyUI's
+   built-in themes are offered too. Only the theme colors are used: the app
+   keeps its own components, and daisyUI's are prefixed "dui-" so none of
+   its class names can clash with ours. */
+@plugin "daisyui" {
+  themes: nord, corporate, dim, night, coffee, sunset;
+  prefix: "dui-";
+}
+@plugin "daisyui/theme" {
+  name: "burning";
+  default: true;
+  color-scheme: light;
+  --color-base-100: #fcfcfd;
+  --color-base-200: #f4f5f7;
+  --color-base-300: #dfe2e7;
+  --color-base-content: #252930;
+  --color-primary: #252930;
+  --color-primary-content: #fcfcfd;
+}
+@plugin "daisyui/theme" {
+  name: "burning-dark";
+  prefersdark: true;
+  color-scheme: dark;
+  --color-base-100: #1b1e23;
+  --color-base-200: #22262c;
+  --color-base-300: #353a42;
+  --color-base-content: #e6e8eb;
+  --color-primary: #e6e8eb;
+  --color-primary-content: #1b1e23;
+}
+
+@font-face {
+  font-family: "Recursive";
+  src: url("./fonts/recursive-latin-full-normal.woff2") format("woff2");
+  font-weight: 300 1000;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: "Recursive", system-ui, sans-serif;
+  --font-mono: "Recursive", ui-monospace, "SF Mono", Menlo, monospace;
+  /* The neutrals follow the theme. Soot is text, ash the card surface,
+     smoke the page and quiet fills, rule the lines. */
+  --color-smoke: var(--color-base-200);
+  --color-ash: var(--color-base-100);
+  --color-soot: var(--color-base-content);
+  --color-cinder: color-mix(in oklab, var(--color-base-content) 64%, var(--color-base-100));
+  --color-rule: var(--color-base-300);
+  --color-rule-soft: color-mix(in oklab, var(--color-base-300) 55%, var(--color-base-200));
+  /* Code always sits on a dark panel, whatever the theme. */
+  --color-ink: #252930;
+  --color-heat-0: color-mix(in oklab, var(--color-base-300) 80%, var(--color-base-content) 6%);
+  --color-heat-1: #ffe3c4;
+  --color-heat-2: #ffc078;
+  --color-heat-3: #ff922b;
+  --color-heat-4: #f2620f;
+  --color-heat-5: #c2341b;
+  /* Heat stays heat in every theme; its soft fills mix into the surface. */
+  --color-ember-soft: color-mix(in oklab, #f2620f 12%, var(--color-base-100));
+  --color-ember-ink: color-mix(in oklab, #c2341b 70%, var(--color-base-content));
+  --color-glow: color-mix(in oklab, #ff922b 10%, var(--color-base-100));
+  --color-doused: color-mix(in oklab, #2e6a86 75%, var(--color-base-content));
+  --color-doused-soft: color-mix(in oklab, #2e6a86 14%, var(--color-base-100));
+  --radius-control: 6px;
+  --radius-card: 10px;
+  --animate-smolder: smolder 2.6s ease-in-out infinite;
+  --animate-alert: alert-ring 1.4s ease-in-out infinite;
+}
+
+/* The theme colors above are worked out once on <html>, and children
+   inherit the result. Any element with its own data-theme (a theme preview)
+   works them out again from its own base colors. */
+[data-theme] {
+  --color-smoke: var(--color-base-200);
+  --color-ash: var(--color-base-100);
+  --color-soot: var(--color-base-content);
+  --color-cinder: color-mix(in oklab, var(--color-base-content) 64%, var(--color-base-100));
+  --color-rule: var(--color-base-300);
+  --color-rule-soft: color-mix(in oklab, var(--color-base-300) 55%, var(--color-base-200));
+  --color-heat-0: color-mix(in oklab, var(--color-base-300) 80%, var(--color-base-content) 6%);
+  --color-ember-soft: color-mix(in oklab, #f2620f 12%, var(--color-base-100));
+  --color-ember-ink: color-mix(in oklab, #c2341b 70%, var(--color-base-content));
+  --color-glow: color-mix(in oklab, #ff922b 10%, var(--color-base-100));
+  --color-doused: color-mix(in oklab, #2e6a86 75%, var(--color-base-content));
+  --color-doused-soft: color-mix(in oklab, #2e6a86 14%, var(--color-base-100));
+}
+
+@keyframes alert-ring {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgba(210, 59, 47, 0.9);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(210, 59, 47, 0);
+  }
+}
+
+@keyframes smolder {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 4px rgba(242, 98, 15, 0.16);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 0 7px rgba(242, 98, 15, 0.06);
+  }
+}
+
+.brand-wordmark {
+  font-variation-settings: "MONO" 0, "CASL" 0.35;
+  font-weight: 850;
+  letter-spacing: -0.065em;
+  line-height: 1.05;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* Sticky headers resize while scrolling; anchoring would nudge the offset. */
+    overflow-anchor: none;
+  }
+  body {
+    @apply bg-ash font-mono text-[13px] leading-normal text-soot antialiased;
+    font-variation-settings: "MONO" 1, "CASL" 0;
+  }
+  a {
+    @apply text-inherit underline decoration-rule underline-offset-[3px] hover:decoration-current;
+  }
+  :focus-visible {
+    @apply rounded-sm outline-2 outline-offset-2 outline-heat-4;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply m-0 font-semibold tracking-tight;
+  }
+  h1 {
+    @apply text-[28px] leading-tight tracking-tight;
+  }
+  h2 {
+    @apply text-base;
+  }
+  pre {
+    @apply m-0 wrap-break-word whitespace-pre-wrap;
+  }
+  button:disabled {
+    @apply cursor-default opacity-60;
+  }
+  ::placeholder {
+    color: color-mix(in oklab, var(--color-base-content) 50%, var(--color-base-100));
+    opacity: 1;
+  }
+}
+
+@utility mono {
+  font-variation-settings: "MONO" 1, "CASL" 0;
+}
+
+/* Buttons (ui/components/Button). Colors stay in Burning's soot scale. */
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ui-button-md {
+  height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+.ui-button-sm {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+.ui-button:focus-visible {
+  outline: 2px solid var(--color-heat-4);
+  outline-offset: 2px;
+}
+.ui-button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.ui-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.ui-button-primary {
+  border-color: var(--color-soot);
+  background: var(--color-soot);
+  color: var(--color-ash);
+}
+.ui-button-primary:hover:not(:disabled) {
+  border-color: color-mix(in oklab, var(--color-soot) 88%, var(--color-ash));
+  background: color-mix(in oklab, var(--color-soot) 88%, var(--color-ash));
+}
+.ui-button-secondary {
+  border-color: var(--color-rule);
+  background: var(--color-ash);
+  color: var(--color-soot);
+}
+.ui-button-secondary:hover:not(:disabled) {
+  border-color: var(--color-cinder);
+}
+.ui-button-ghost {
+  background: transparent;
+  color: var(--color-cinder);
+}
+.ui-button-ghost:hover:not(:disabled) {
+  color: var(--color-soot);
+}
+.ui-button-danger {
+  border-color: var(--color-heat-5);
+  background: var(--color-heat-5);
+  color: var(--color-ash);
+}
+
+/* Native checkboxes and radios in soot, not the browser's blue. */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--color-soot);
+}
