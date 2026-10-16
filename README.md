@@ -99,6 +99,12 @@ An issue is open, resolved, or muted.
 
 Members and admins triage, one issue at a time or several from the list. Every change is in the issue's history, with who made it.
 
+## Comments
+
+Anyone with a role on a project can comment on its issues, viewers too, since a comment does not change the issue. Comments are GitHub-flavoured Markdown (tables, task lists, fenced code with highlighting); raw HTML is not rendered. `@username` is highlighted, and clicking a commenter's name starts a reply that mentions them; mentions do not notify anyone yet.
+
+Only the author can edit a comment, and earlier texts are kept (not shown). The author or a project admin can delete it.
+
 ## Notifications
 
 A new issue, an issue firing again, and an issue firing after a mute are alerts. Each project has a routing table in the style of Alertmanager: routes are tried from the top, a route matches when all its conditions do, and matching stops at the first route that matches unless it says continue. A sink route drops what it matches. When no route matches, the default route sends to the project's members and admins.
@@ -124,7 +130,10 @@ The API needs a session, except `/api/session`, `/api/health`, and the ingest pa
 - `POST /api/projects` with `{ "name": "<name>" }`: creates a project, with you as admin
 - `GET /api/projects/<id>`, `PATCH` with `{ "name": "<name>" }` (admin), `DELETE` (admin)
 - `GET /api/projects/<id>/issues`
-- `GET /api/projects/<id>/issues/<issue>?event=<id>`: the issue, its releases, history, latest events, and one event in full
+- `GET /api/projects/<id>/issues/<issue>?event=<id>`: the issue, its releases, history, comments, latest events, and one event in full
+- `POST /api/projects/<id>/issues/<issue>/comments` with `{ "body": "<markdown>" }` (anyone with a role)
+- `PATCH /api/projects/<id>/issues/<issue>/comments/<comment>` with `{ "body": "<markdown>" }` (the author)
+- `DELETE /api/projects/<id>/issues/<issue>/comments/<comment>` (the author or an admin)
 - `POST /api/projects/<id>/issues/<issue>/resolve` (member)
 - `POST /api/projects/<id>/issues/<issue>/reopen` (member): reopens or unmutes
 - `POST /api/projects/<id>/issues/<issue>/mute` with `{ "for": "1h" | "1d" | "1w" | "release" | "forever" }` (member)

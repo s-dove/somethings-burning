@@ -64,6 +64,26 @@ CREATE TABLE IF NOT EXISTS activity (
 );
 CREATE INDEX IF NOT EXISTS activity_issue ON activity (issue_id, at DESC);
 
+-- Comments on issues: Markdown, by the commenter's email. Earlier texts of
+-- an edited comment are kept in comment_edits.
+CREATE TABLE IF NOT EXISTS comments (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  issue_id   INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  author     TEXT NOT NULL DEFAULT '',
+  body       TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  edited_at  INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS comments_by_issue ON comments (issue_id, created_at);
+
+CREATE TABLE IF NOT EXISTS comment_edits (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  comment_id  INTEGER NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+  body        TEXT NOT NULL,
+  replaced_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS comment_edits_by_comment ON comment_edits (comment_id, replaced_at);
+
 -- People who have signed in, from their ID token claims. notify_routes is
 -- their own notification routing (JSON); NULL means never saved.
 CREATE TABLE IF NOT EXISTS users (

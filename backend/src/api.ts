@@ -3,6 +3,7 @@ import { Access, atLeast, setGrant, type Role } from "./access.js";
 import type { Authenticator, User } from "./auth.js";
 import { listActivity } from "./activity.js";
 import { board, type Sort, type StatusFilter } from "./board.js";
+import { commentRoutes, commentsView } from "./comments-api.js";
 import type { Db } from "./db.js";
 import { eventView } from "./event-view.js";
 import { eventPage, getEvent, getIssue, hoursByIssue, latestRelease, listIssues, mute, NotFound, releasesOf, reopenByHand, resolve, storedEventCount } from "./issues.js";
@@ -142,6 +143,7 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
       project: { id: found.project.id, name: found.project.name, role: found.role },
       issue: { ...issue, hours: hoursByIssue(db, [issue.id]).get(issue.id) },
       activity: history.map((a) => ({ ...a, actorName: a.actor ? (actors.get(a.actor)?.displayName ?? a.actor) : "" })),
+      comments: commentsView(db, issue.id, c.get("user")?.email.toLowerCase() ?? "", found.role),
       muteOptions: MUTE_OPTIONS.map(({ value, label }) => ({ value, label })),
       latestRelease: latestRelease(db, found.project.id),
       releases: releasesOf(db, issue.id),
@@ -185,6 +187,7 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
     }),
   );
 
+  app.route("/", commentRoutes(db, access));
   app.route("/", settingsRoutes(db, access, deps.baseURL));
   app.route("/", routingRoutes(db, access, deps.senders));
   app.route("/", profileRoutes(db, deps.senders));

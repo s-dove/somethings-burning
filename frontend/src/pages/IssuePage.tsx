@@ -8,6 +8,7 @@ import { Tip, TimeTip } from "../components/Tip";
 import { useApi, type IssueDetail } from "../shared/api";
 import { ago } from "../shared/format";
 import { section, sectionTitle } from "../shared/ui";
+import { Comments } from "./Comments";
 import { EventList } from "./EventList";
 import { EventPanels, RawJson } from "./EventPanels";
 import { IssueHeader, IssueSummary } from "./IssueHeader";
@@ -73,6 +74,7 @@ export function IssuePage() {
               The counts above are kept.
             </div>
           )}
+          <Comments key={issue.id} projectId={project.id} issueId={issue.id} comments={data.comments} />
         </div>
 
         <aside className="min-w-0">

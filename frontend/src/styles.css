@@ -6,6 +6,8 @@
    slightly casual for the compact Burning wordmark. */
 @import "tailwindcss";
 
+@plugin "@tailwindcss/typography";
+
 /* Themes come from daisyUI. Burning's own palette is the default light
    theme ("burning") and its dark twin ("burning-dark"); a few of daisyUI's
    built-in themes are offered too. Only the theme colors are used: the app
@@ -228,6 +230,75 @@
   border-color: var(--color-heat-5);
   background: var(--color-heat-5);
   color: var(--color-ash);
+}
+
+/* Prose (Markdown in comments) in Burning's palette: soot text, cinder for
+   quotes and captions, links underlined in soot, no orange. */
+.prose-burning {
+  --tw-prose-body: var(--color-soot);
+  --tw-prose-headings: var(--color-soot);
+  --tw-prose-bold: var(--color-soot);
+  --tw-prose-links: var(--color-soot);
+  --tw-prose-quotes: var(--color-cinder);
+  --tw-prose-quote-borders: var(--color-rule);
+  --tw-prose-code: var(--color-soot);
+  --tw-prose-bullets: var(--color-cinder);
+  --tw-prose-counters: var(--color-cinder);
+  --tw-prose-hr: var(--color-rule);
+  --tw-prose-th-borders: var(--color-rule);
+  --tw-prose-td-borders: var(--color-rule-soft);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.prose-burning :where(p, ul, ol, blockquote, table):not(:where(.not-prose *)) {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+.prose-burning > :first-child { margin-top: 0; }
+.prose-burning > :last-child { margin-bottom: 0; }
+.prose-burning :where(blockquote):not(:where(.not-prose *)) {
+  font-style: normal;
+  font-weight: 400;
+}
+.prose-burning :where(blockquote p):not(:where(.not-prose *))::before,
+.prose-burning :where(blockquote p):not(:where(.not-prose *))::after {
+  content: none;
+}
+.prose-burning :where(code):not(:where(pre *, .not-prose *)) {
+  border-radius: 4px;
+  background: var(--color-smoke);
+  padding: 0.1em 0.35em;
+  font-weight: 500;
+}
+.prose-burning :where(code):not(:where(pre *, .not-prose *))::before,
+.prose-burning :where(code):not(:where(pre *, .not-prose *))::after {
+  content: none;
+}
+/* A code block inside a list item sits close to the item's text. */
+.prose-burning li > pre.not-prose {
+  margin-top: 0.375rem;
+  margin-bottom: 0.375rem;
+}
+
+/* Keep single line breaks, and drop the bullet in front of task-list
+   checkboxes, as GitHub does. */
+.prose-burning :where(p, li):not(:where(.not-prose *)) {
+  white-space: pre-wrap;
+}
+.prose-burning :where(ul):has(> li > input[type="checkbox"]) {
+  list-style: none;
+  padding-left: 0.25em;
+}
+.prose-burning :where(li) > input[type="checkbox"] {
+  margin: 0 0.5em 0 0;
+}
+/* An @mention in a comment. */
+.prose-burning .mention {
+  border-radius: 4px;
+  background: var(--color-smoke);
+  padding: 0.05em 0.3em;
+  font-weight: 600;
+  color: var(--color-soot);
 }
 
 /* Native checkboxes and radios in soot, not the browser's blue. */
