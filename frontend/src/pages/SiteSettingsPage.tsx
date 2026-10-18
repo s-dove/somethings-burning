@@ -4,7 +4,7 @@ import { Layout } from "../components/Layout";
 import { Loading } from "../components/Loading";
 import { PageHeader } from "../components/PageHeader";
 import { useApi } from "../shared/api";
-import { ArrowLeft, KeyRound, Mail, MessageCircle } from "../ui/icons";
+import { ArrowLeft, Code, KeyRound, Mail, MessageCircle } from "../ui/icons";
 
 interface SiteSettings {
   signIn: {
@@ -34,6 +34,7 @@ interface SiteSettings {
     passwordSet: boolean;
   };
   mattermost: { enabled: boolean; url: string; tokenSet: boolean };
+  git: { hosts: string[]; sshKey: boolean };
 }
 
 const SECURITY = { none: "None (plain SMTP)", starttls: "STARTTLS", ssl: "SSL/TLS from the start" } as const;
@@ -70,6 +71,7 @@ export function SiteSettingsPage() {
           <SignInSection s={data.signIn} />
           <EmailSection email={data.email} />
           <MattermostSection mm={data.mattermost} />
+          <GitSection git={data.git} />
         </div>
       )}
     </Layout>
@@ -154,6 +156,18 @@ function MattermostSection({ mm }: { mm: SiteSettings["mattermost"] }) {
       <dl className="m-0 divide-y divide-rule overflow-hidden rounded-card border border-rule bg-ash">
         <Row label="Server" env="BURNING_MATTERMOST_URL">{mm.url ? mono(mm.url) : unset}</Row>
         <Row label="Bot token" env="BURNING_MATTERMOST_TOKEN">{mm.tokenSet ? "Set" : unset}</Row>
+      </dl>
+    </Section>
+  );
+}
+
+function GitSection({ git }: { git: SiteSettings["git"] }) {
+  const on = git.hosts.length > 0 || git.sshKey;
+  return (
+    <Section id="git" icon={<Code aria-hidden="true" />} title="Code access" hint="How projects' code sources are read. Public repositories need nothing." status={on ? "Set" : "Public only"} on={on}>
+      <dl className="m-0 divide-y divide-rule overflow-hidden rounded-card border border-rule bg-ash">
+        <Row label="Tokens" env="BURNING_GIT_CREDENTIALS">{git.hosts.length ? mono(git.hosts.join(", ")) : unset}</Row>
+        <Row label="SSH key" env="BURNING_GIT_SSH_KEY">{git.sshKey ? "Set" : unset}</Row>
       </dl>
     </Section>
   );

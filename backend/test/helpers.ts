@@ -8,6 +8,7 @@ import { Senders } from "../src/notify/deliver.js";
 import { Mattermost } from "../src/notify/mattermost.js";
 import type { Delivery, Message } from "../src/notify/store.js";
 import { createProject } from "../src/projects.js";
+import type { CodeSources } from "../src/source/index.js";
 import { recordLogin } from "../src/users.js";
 
 export const ADMIN = "admin@example.com";
@@ -42,11 +43,11 @@ export class FakeSenders extends Senders {
  * A fresh app. By default requests are signed in as a site admin; with
  * auth: true only the X-Test-User header signs anyone in.
  */
-export function setup(opts: { auth?: boolean; siteAdmins?: string } = {}) {
+export function setup(opts: { auth?: boolean; siteAdmins?: string; code?: CodeSources } = {}) {
   const db = openDb(":memory:");
   const senders = new FakeSenders();
   const config = readConfig({ BURNING_SITE_ADMINS: [ADMIN, opts.siteAdmins ?? ""].join(",") });
-  const { app, outbox, queue, live } = createApp(db, { auth: testAuth(opts.auth ? null : ADMIN), config, senders });
+  const { app, outbox, queue, live } = createApp(db, { auth: testAuth(opts.auth ? null : ADMIN), config, senders, code: opts.code });
   const project = createProject(db, "web");
   return { db, app, outbox, queue, live, senders, project };
 }

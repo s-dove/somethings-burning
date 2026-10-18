@@ -3,6 +3,7 @@ import type { AppEnv } from "./api.js";
 import { CLIENT_AUTH } from "./auth.js";
 import type { Config } from "./env.js";
 import type { Senders } from "./notify/deliver.js";
+import type { CodeSources } from "./source/index.js";
 
 /**
  * The server settings page. It is read-only: the values come from the
@@ -10,7 +11,7 @@ import type { Senders } from "./notify/deliver.js";
  * they are set. Who gets alerts is set per project (routing) and per person,
  * not here.
  */
-export function siteRoutes(config: Config, senders: Senders): Hono<AppEnv> {
+export function siteRoutes(config: Config, senders: Senders, code: CodeSources): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
   app.get("/site/settings", (c) => {
     const { smtp, oidc, mattermost } = config;
@@ -48,6 +49,7 @@ export function siteRoutes(config: Config, senders: Senders): Hono<AppEnv> {
         url: mattermost.url,
         tokenSet: mattermost.token !== "",
       },
+      git: { hosts: code.credentials.hosts, sshKey: code.sshKey },
     });
   });
   return app;

@@ -88,6 +88,15 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
       tls: env.BURNING_SMTP_TLS === "true",
       ssl: env.BURNING_SMTP_SSL === "true",
     },
+    // Reading code sources. Credentials are git-credentials lines
+    // (https://user:token@host), matched by host; the SSH key is a path to a
+    // private key for ssh clone URLs. Git mirrors live in dir (default: a
+    // git folder next to the database).
+    git: {
+      credentials: env.BURNING_GIT_CREDENTIALS ?? "",
+      sshKey: env.BURNING_GIT_SSH_KEY ?? "",
+      dir: env.BURNING_GIT_DIR ?? "",
+    },
     // A Mattermost bot account for direct messages and channel posts.
     mattermost: {
       url: env.BURNING_MATTERMOST_URL ?? "",

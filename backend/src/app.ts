@@ -10,11 +10,13 @@ import { Outbox, Senders } from "./notify/deliver.js";
 import { Mattermost } from "./notify/mattermost.js";
 import { LiveAlerts } from "./live.js";
 import { IngestQueue, TokenBucket } from "./queue.js";
+import { CodeSources } from "./source/index.js";
 
 export interface AppDeps {
   auth?: Authenticator | null;
   config?: Config;
   senders?: Senders;
+  code?: CodeSources;
 }
 
 /**
@@ -30,6 +32,7 @@ export function createApp(db: Db, deps: AppDeps = {}): { app: Hono; outbox: Outb
   // Sentry's ingest paths (/api/<project id>/envelope/ and /store/) and the
   // web app's own JSON API share the /api prefix, as they do in Sentry.
   const live = new LiveAlerts();
+  const code = deps.code ?? new CodeSources({ ...config.git }, config.db);
   const queue = new IngestQueue(db, new Alerter(db, outbox), 2000, live);
   app.route("/api", ingestRoutes(db, { queue, limiter: new TokenBucket(config.rate, config.burst), baseURL: config.baseURL }));
 
@@ -46,7 +49,7 @@ export function createApp(db: Db, deps: AppDeps = {}): { app: Hono; outbox: Outb
   });
   const auth = deps.auth ?? noAuth;
   app.route("/", auth.routes());
-  app.route("/api", apiRoutes(db, { auth, access: new Access(db, config.siteAdmins), senders, baseURL: config.baseURL, config, live }));
+  app.route("/api", apiRoutes(db, { auth, access: new Access(db, config.siteAdmins), senders, baseURL: config.baseURL, config, live, code }));
   app.all("/api/*", (c) => c.json({ detail: "not found" }, 404));
   return { app, outbox, queue, live };
 }

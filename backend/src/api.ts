@@ -3,6 +3,10 @@ import { Access, atLeast, setGrant, type Role } from "./access.js";
 import type { Authenticator, User } from "./auth.js";
 import type { Config } from "./env.js";
 import { alertEvents, type LiveAlerts } from "./live.js";
+import type { CodeSources } from "./source/index.js";
+import { attachLinks } from "./source/links.js";
+import { getSources } from "./sources.js";
+import { sourcesRoutes } from "./sources-api.js";
 import { listActivity } from "./activity.js";
 import { board, type Sort, type StatusFilter } from "./board.js";
 import { commentRoutes, commentsView } from "./comments-api.js";
@@ -28,6 +32,7 @@ export interface ApiDeps {
   baseURL: string;
   config: Config;
   live: LiveAlerts;
+  code: CodeSources;
 }
 
 async function nameFrom(c: Context): Promise<string | undefined> {
@@ -140,12 +145,14 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
 
   // The issue page: the issue, its releases, the latest stored events, and
   // one event in full (?event=<id>, or the latest).
-  app.get("/projects/:id{[0-9]+}/issues/:issue{[0-9]+}", (c) => {
+  app.get("/projects/:id{[0-9]+}/issues/:issue{[0-9]+}", async (c) => {
     const found = load(c);
     const issue = found && getIssue(db, found.project.id, Number(c.req.param("issue")));
     if (!found || !issue) return notFound(c);
     const page = eventPage(db, issue.id);
     const stored = getEvent(db, issue.id, Number(c.req.query("event")) || undefined);
+    const event = stored ? eventView(stored) : null;
+    if (event && stored) await attachLinks(event, stored.payload, getSources(db, found.project.id), deps.code);
     const history = listActivity(db, issue.id);
     const actors = people(db, history.map((a) => a.actor));
     return c.json({
@@ -159,7 +166,7 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
       events: page.events,
       moreEvents: page.more,
       storedEvents: storedEventCount(db, issue.id),
-      event: stored ? eventView(stored) : null,
+      event,
     });
   });
 
@@ -197,7 +204,8 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
   );
 
   app.route("/", commentRoutes(db, access));
-  app.route("/", siteRoutes(deps.config, deps.senders));
+  app.route("/", sourcesRoutes(db, access, deps.code));
+  app.route("/", siteRoutes(deps.config, deps.senders, deps.code));
   app.route("/", settingsRoutes(db, access, deps.baseURL));
   app.route("/", routingRoutes(db, access, deps.senders));
   app.route("/", profileRoutes(db, deps.senders));
