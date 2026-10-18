@@ -2,6 +2,7 @@ import type { Alerter } from "./alert.js";
 import type { Db } from "./db.js";
 import type { SentryEvent } from "./event.js";
 import { recordEvent } from "./issues.js";
+import type { LiveAlerts } from "./live.js";
 import type { Project } from "./projects.js";
 
 /**
@@ -48,6 +49,7 @@ export class IngestQueue {
     private db: Db,
     private alerter: Alerter | null,
     private limit = 2000,
+    private live: LiveAlerts | null = null,
   ) {}
 
   get length(): number {
@@ -71,7 +73,10 @@ export class IngestQueue {
       const job = this.jobs.shift()!;
       try {
         const res = recordEvent(this.db, job.project.id, job.event, job.received);
-        if (res.alert) this.alerter?.notify(job.project, res, job.event, job.baseURL);
+        if (res.alert) {
+          this.alerter?.notify(job.project, res, job.event, job.baseURL);
+          this.live?.publish(job.project.id);
+        }
       } catch (err) {
         console.error(`ingest event project=${job.project.name}:`, err);
       }

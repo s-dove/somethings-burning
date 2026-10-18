@@ -61,8 +61,8 @@ function mix(a: readonly number[], b: readonly number[], f: number): string {
 }
 
 export function eventsTip(n: number): string {
-  if (!n) return "No events in the last 24 hours";
-  return `${plural(n, "event")} in the last 24 hours`;
+  if (!n) return "No unresolved events in the last 24 hours";
+  return `${plural(n, "unresolved event")} in the last 24 hours`;
 }
 
 type EdgeIssue = { hours: number[]; status: "open" | "resolved" | "muted" };
