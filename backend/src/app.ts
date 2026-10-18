@@ -8,6 +8,7 @@ import { readConfig, type Config } from "./env.js";
 import { ingestRoutes } from "./ingest.js";
 import { Outbox, Senders } from "./notify/deliver.js";
 import { Mattermost } from "./notify/mattermost.js";
+import { IngestQueue, TokenBucket } from "./queue.js";
 
 export interface AppDeps {
   auth?: Authenticator | null;
@@ -19,7 +20,7 @@ export interface AppDeps {
  * createApp puts it all together: Sentry ingest (by project key), sign-in,
  * and the web app's JSON API. With no auth, no one can sign in.
  */
-export function createApp(db: Db, deps: AppDeps = {}): { app: Hono; outbox: Outbox } {
+export function createApp(db: Db, deps: AppDeps = {}): { app: Hono; outbox: Outbox; queue: IngestQueue } {
   const config = deps.config ?? readConfig({});
   const senders = deps.senders ?? new Senders(config.smtp, new Mattermost(config.mattermost));
   const outbox = new Outbox(db, senders);
@@ -27,7 +28,8 @@ export function createApp(db: Db, deps: AppDeps = {}): { app: Hono; outbox: Outb
 
   // Sentry's ingest paths (/api/<project id>/envelope/ and /store/) and the
   // web app's own JSON API share the /api prefix, as they do in Sentry.
-  app.route("/api", ingestRoutes(db, { alerter: new Alerter(db, outbox), baseURL: config.baseURL }));
+  const queue = new IngestQueue(db, new Alerter(db, outbox));
+  app.route("/api", ingestRoutes(db, { queue, limiter: new TokenBucket(config.rate, config.burst), baseURL: config.baseURL }));
 
   // Reject cross-site writes to the app and sign-in routes. Ingest is exempt:
   // browser SDKs post from other sites.
@@ -44,5 +46,5 @@ export function createApp(db: Db, deps: AppDeps = {}): { app: Hono; outbox: Outb
   app.route("/", auth.routes());
   app.route("/api", apiRoutes(db, { auth, access: new Access(db, config.siteAdmins), senders, baseURL: config.baseURL, config }));
   app.all("/api/*", (c) => c.json({ detail: "not found" }, 404));
-  return { app, outbox };
+  return { app, outbox, queue };
 }

@@ -41,6 +41,26 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS events_issue_id ON events (issue_id, id DESC);
 CREATE INDEX IF NOT EXISTS events_project_received ON events (project_id, received_at);
 
+-- Running counts, kept as events arrive, so heat and release numbers stay
+-- right when payloads are sampled or pruned.
+CREATE TABLE IF NOT EXISTS issue_hours (
+  issue_id    INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  hour        INTEGER NOT NULL, -- start of the hour, Unix ms
+  event_count INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (issue_id, hour)
+);
+CREATE INDEX IF NOT EXISTS issue_hours_hour ON issue_hours (hour);
+
+CREATE TABLE IF NOT EXISTS issue_releases (
+  issue_id    INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  release     TEXT NOT NULL DEFAULT '',
+  environment TEXT NOT NULL DEFAULT '',
+  event_count INTEGER NOT NULL DEFAULT 0,
+  first_seen  INTEGER NOT NULL,
+  last_seen   INTEGER NOT NULL,
+  PRIMARY KEY (issue_id, release, environment)
+);
+
 -- When each release was first seen in a project, so a "next release" mute
 -- can tell a new release from one that was already running.
 CREATE TABLE IF NOT EXISTS releases (
@@ -155,7 +175,34 @@ export function openDb(path: string): Db {
   db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
   db.exec(schema);
   addColumns(db, "issues", ISSUE_TRIAGE_COLUMNS);
+  addColumns(db, "issues", ISSUE_STORAGE_COLUMNS);
+  backfillCounts(db);
   return db;
+}
+
+// How many payloads an issue keeps, and when it last kept one (sampling).
+const ISSUE_STORAGE_COLUMNS: Record<string, string> = {
+  stored_count: "INTEGER NOT NULL DEFAULT 0",
+  last_stored: "INTEGER NOT NULL DEFAULT 0",
+};
+
+/**
+ * A database from before the running counts gets them from its stored
+ * events, once: then every event had its payload, so the events are the
+ * counts.
+ */
+function backfillCounts(db: Db): void {
+  const done = db.prepare("SELECT 1 FROM issue_hours LIMIT 1").get() || db.prepare("SELECT 1 FROM issue_releases LIMIT 1").get();
+  const any = db.prepare("SELECT 1 FROM events LIMIT 1").get();
+  if (done || !any) return;
+  tx(db, () => {
+    db.exec(`INSERT INTO issue_hours (issue_id, hour, event_count)
+             SELECT issue_id, (received_at / 3600000) * 3600000, COUNT(*) FROM events GROUP BY issue_id, received_at / 3600000`);
+    db.exec(`INSERT INTO issue_releases (issue_id, release, environment, event_count, first_seen, last_seen)
+             SELECT issue_id, release, environment, COUNT(*), MIN(received_at), MAX(received_at) FROM events GROUP BY issue_id, release, environment`);
+    db.exec(`UPDATE issues SET stored_count = (SELECT COUNT(*) FROM events e WHERE e.issue_id = issues.id),
+                               last_stored = COALESCE((SELECT MAX(received_at) FROM events e WHERE e.issue_id = issues.id), 0)`);
+  });
 }
 
 // Triage state, added to issues after the table first shipped. An issue is

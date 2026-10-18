@@ -5,6 +5,14 @@ import { muteBroken, MuteFor, MuteNextRelease, type Mute, type MuteOption } from
 
 const HOUR = 3_600_000;
 
+/**
+ * Payloads kept per issue: the first `firstN` always, then at most one per
+ * `everyMs`, so a burst keeps counting without filling the disk; past `max`
+ * the oldest go. An event that alerts is always kept. The counts (events,
+ * hours, releases) include every event either way.
+ */
+export const STORE = { firstN: 50, everyMs: 60_000, max: 500 };
+
 export type Status = "open" | "resolved" | "muted";
 
 export type Issue = {
@@ -54,6 +62,8 @@ type IssueRow = {
   first_seen: number;
   last_seen: number;
   count: number;
+  stored_count: number;
+  last_stored: number;
 };
 
 export const toIssue = (r: IssueRow): Issue => ({
@@ -95,6 +105,7 @@ export function recordEvent(db: Db, projectId: number, event: SentryEvent, now =
   return tx(db, () => {
     if (release) db.prepare("INSERT OR IGNORE INTO releases (project_id, version, first_seen) VALUES (?, ?, ?)").run(projectId, release, now);
     const res: Recorded = { eventId: s.eventId, issueId: 0, title: s.title, alert: null, reason: "" };
+    let stored = { count: 0, last: 0 };
     const found = db.prepare("SELECT * FROM issues WHERE project_id = ? AND fingerprint = ?").get(projectId, s.fingerprint) as IssueRow | undefined;
     if (!found) {
       const row = db
@@ -109,13 +120,31 @@ export function recordEvent(db: Db, projectId: number, event: SentryEvent, now =
     } else {
       res.issueId = found.id;
       res.title = found.title;
+      stored = { count: found.stored_count, last: found.last_stored };
       triageEvent(db, projectId, toIssue(found), found.notify_next === 1, release, environment, now, res);
       db.prepare("UPDATE issues SET level = ?, last_seen = MAX(last_seen, ?), count = count + 1 WHERE id = ?").run(s.level, now, found.id);
     }
+    const rel = release.slice(0, 200);
+    const env = environment.slice(0, 200);
     db.prepare(
-      `INSERT INTO events (project_id, issue_id, event_id, received_at, release, environment, payload)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).run(projectId, res.issueId, s.eventId, now, release.slice(0, 200), environment.slice(0, 200), JSON.stringify({ ...event, event_id: s.eventId }));
+      `INSERT INTO issue_hours (issue_id, hour, event_count) VALUES (?, ?, 1)
+       ON CONFLICT (issue_id, hour) DO UPDATE SET event_count = event_count + 1`,
+    ).run(res.issueId, Math.floor(now / HOUR) * HOUR);
+    db.prepare(
+      `INSERT INTO issue_releases (issue_id, release, environment, event_count, first_seen, last_seen) VALUES (?, ?, ?, 1, ?, ?)
+       ON CONFLICT (issue_id, release, environment) DO UPDATE SET event_count = event_count + 1, last_seen = MAX(last_seen, excluded.last_seen)`,
+    ).run(res.issueId, rel, env, now, now);
+    if (res.alert || stored.count < STORE.firstN || now - stored.last >= STORE.everyMs) {
+      db.prepare(
+        `INSERT INTO events (project_id, issue_id, event_id, received_at, release, environment, payload)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ).run(projectId, res.issueId, s.eventId, now, rel, env, JSON.stringify({ ...event, event_id: s.eventId }));
+      // Past the cap, drop the oldest payloads. The counts keep the full number.
+      db.prepare(
+        `DELETE FROM events WHERE issue_id = ? AND id NOT IN (SELECT id FROM events WHERE issue_id = ? ORDER BY received_at DESC, id DESC LIMIT ?)`,
+      ).run(res.issueId, res.issueId, STORE.max);
+      db.prepare("UPDATE issues SET stored_count = (SELECT COUNT(*) FROM events WHERE issue_id = ?), last_stored = ? WHERE id = ?").run(res.issueId, now, res.issueId);
+    }
     return res;
   });
 }
@@ -247,16 +276,12 @@ export function hoursByIssue(db: Db, issueIds: number[], now = Date.now()): Map<
   if (issueIds.length === 0) return out;
   const current = Math.floor(now / HOUR);
   const rows = db
-    .prepare(
-      `SELECT issue_id, received_at / ${HOUR} AS h, COUNT(*) AS n FROM events
-        WHERE received_at >= ? AND issue_id IN (${issueIds.map(() => "?").join(",")})
-        GROUP BY issue_id, h`,
-    )
-    .all((current - 23) * HOUR, ...issueIds) as { issue_id: number; h: number; n: number }[];
+    .prepare(`SELECT issue_id, hour, event_count FROM issue_hours WHERE hour >= ? AND issue_id IN (${issueIds.map(() => "?").join(",")})`)
+    .all((current - 23) * HOUR, ...issueIds) as { issue_id: number; hour: number; event_count: number }[];
   for (const r of rows) {
-    const i = 23 - (current - Math.floor(r.h));
+    const i = 23 - (current - Math.floor(r.hour / HOUR));
     const cells = out.get(r.issue_id);
-    if (cells && i >= 0 && i < 24) cells[i] = r.n;
+    if (cells && i >= 0 && i < 24) cells[i] = r.event_count;
   }
   return out;
 }
@@ -295,15 +320,26 @@ export function getEvent(db: Db, issueId: number, eventRowId?: number): StoredEv
   return row && { ...toRow(row), payload: JSON.parse(row.payload) as SentryEvent };
 }
 
-/** Events per release and environment, busiest release first. */
+/** Events per release and environment, most recent first. Every event counts, kept or not. */
 export function releasesOf(db: Db, issueId: number) {
   const rows = db
-    .prepare(
-      `SELECT release, environment, COUNT(*) AS n, MAX(received_at) AS last FROM events
-        WHERE issue_id = ? GROUP BY release, environment ORDER BY MAX(received_at) DESC`,
-    )
-    .all(issueId) as { release: string; environment: string; n: number; last: number }[];
+    .prepare("SELECT release, environment, event_count, last_seen FROM issue_releases WHERE issue_id = ? ORDER BY last_seen DESC")
+    .all(issueId) as { release: string; environment: string; event_count: number; last_seen: number }[];
   return rows
     .filter((r) => r.release || r.environment)
-    .map((r) => ({ release: r.release, environment: r.environment, eventCount: r.n, lastSeen: r.last }));
+    .map((r) => ({ release: r.release, environment: r.environment, eventCount: r.event_count, lastSeen: r.last_seen }));
+}
+
+/**
+ * Deletes payloads older than the retention period, and hourly counts as
+ * old. Issues and their totals are kept.
+ */
+export function prune(db: Db, retentionMs: number, now = Date.now()): number {
+  const cutoff = now - retentionMs;
+  return tx(db, () => {
+    const n = Number(db.prepare("DELETE FROM events WHERE received_at < ?").run(cutoff).changes);
+    if (n > 0) db.exec("UPDATE issues SET stored_count = (SELECT COUNT(*) FROM events e WHERE e.issue_id = issues.id)");
+    db.prepare("DELETE FROM issue_hours WHERE hour < ?").run(cutoff);
+    return n;
+  });
 }

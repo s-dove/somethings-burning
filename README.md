@@ -36,7 +36,15 @@ SDKs post to the same paths Sentry uses:
 - `POST /api/<project id>/envelope/`
 - `POST /api/<project id>/store/`
 
-The key is read from the `X-Sentry-Auth` header, the `sentry_key` query parameter, or the envelope's DSN. Bodies may be gzip, deflate, or brotli encoded. Only error events are stored; other envelope items are accepted and dropped.
+The key is read from the `X-Sentry-Auth` header, the `sentry_key` query parameter, or the envelope's DSN. Only error events are stored; other envelope items are accepted and dropped.
+
+### Limits and storage
+
+- **Rate limit**: the whole server takes `BURNING_RATE` events a second (50), with bursts up to `BURNING_BURST` (500). Over it, SDKs get a 429 with `Retry-After` and `X-Sentry-Rate-Limits` and pause.
+- **Queue**: a request is answered with the event id at once, and events are written in order right after. Past 2000 waiting events, SDKs get a 429 too.
+- **Bodies**: up to 10 MB, plain or gzip, deflate (zlib or raw), brotli, or zstd encoded.
+- **Payload sampling**: an issue keeps every payload for its first 50 events, then at most one a minute, and at most 500; past that the oldest go. A payload that starts an alert is always kept. Event counts, the hourly heat, and the per-release numbers count every event either way.
+- **Retention**: payloads older than `BURNING_RETENTION_DAYS` (30) are deleted once an hour, with hourly counts as old. Issues and their totals stay.
 
 ### Grouping
 

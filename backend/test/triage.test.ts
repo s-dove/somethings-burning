@@ -70,8 +70,10 @@ describe("triage", () => {
   it("notifies when an issue fires again, and records who was told", async () => {
     const s = setup();
     setGrant(s.db, s.project.id, "user", "ana@example.com", "admin");
-    const post = () =>
-      s.app.request(`/api/${s.project.id}/store/?sentry_key=${s.project.publicKey}`, { method: "POST", headers: { host: "burning.example.com" }, body: JSON.stringify(pythonError) });
+    const post = async () => {
+      await s.app.request(`/api/${s.project.id}/store/?sentry_key=${s.project.publicKey}`, { method: "POST", headers: { host: "burning.example.com" }, body: JSON.stringify(pythonError) });
+      await s.queue.idle();
+    };
     await post();
     resolve(s.db, s.project.id, 1);
     await post();

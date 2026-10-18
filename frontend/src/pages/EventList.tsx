@@ -43,7 +43,7 @@ export function EventList({ detail }: { detail: IssueDetail }) {
         Events of this issue <span className="text-xs font-normal text-cinder">{events.length} of {detail.storedEvents}</span>
       </h2>
       <p className="-mt-1.5 mb-2 text-xs text-cinder">
-        {detail.storedEvents} of {issue.eventCount} events kept. Every event's payload is kept for now.
+        {detail.storedEvents} of {issue.eventCount} events kept. Payloads are sampled during bursts and expire with retention.
       </p>
       <div className="-mx-2 flex flex-col gap-1">
         {events.map(e => (
