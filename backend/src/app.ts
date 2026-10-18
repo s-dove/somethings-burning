@@ -42,7 +42,7 @@ export function createApp(db: Db, deps: AppDeps = {}): { app: Hono; outbox: Outb
   });
   const auth = deps.auth ?? noAuth;
   app.route("/", auth.routes());
-  app.route("/api", apiRoutes(db, { auth, access: new Access(db, config.siteAdmins), senders, baseURL: config.baseURL }));
+  app.route("/api", apiRoutes(db, { auth, access: new Access(db, config.siteAdmins), senders, baseURL: config.baseURL, config }));
   app.all("/api/*", (c) => c.json({ detail: "not found" }, 404));
   return { app, outbox };
 }
