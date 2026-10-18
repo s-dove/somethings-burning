@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { fingerprint } from "./grouping.js";
 
 // The parts of a Sentry event that Burning reads. Everything else is kept in
 // the stored payload as is.
@@ -71,30 +71,6 @@ function frameLabel(f: Frame): string {
   return f.function ? `${where} in ${f.function}` : where;
 }
 
-const sha1 = (parts: string[]) => createHash("sha1").update(parts.join("\n")).digest("hex");
-
-/**
- * Groups events into issues. An explicit fingerprint wins; otherwise the
- * exception type and its in-app frames (so the same bug with a different
- * message is one issue), then the type and value, then the message template.
- */
-function fingerprintOf(event: SentryEvent, main: ExceptionValue | undefined): string {
-  const fp = event.fingerprint;
-  if (fp && fp.length > 0 && !(fp.length === 1 && fp[0] === "{{ default }}")) {
-    return sha1(["custom", ...fp]);
-  }
-  if (main) {
-    const frames = main.stacktrace?.frames ?? [];
-    const inApp = frames.filter((f) => f.in_app);
-    const use = (inApp.length > 0 ? inApp : frames).map(
-      (f) => `${f.module || f.filename || f.abs_path || ""}:${f.function ?? ""}`,
-    );
-    if (use.length > 0) return sha1(["stack", main.type ?? "", ...use]);
-    return sha1(["exception", main.type ?? "", main.value ?? ""]);
-  }
-  return sha1(["message", messageOf(event)?.template ?? ""]);
-}
-
 export function summarize(event: SentryEvent): Summary {
   const all = exceptions(event);
   // Sentry lists chained exceptions oldest first; the last one is what was raised.
@@ -114,6 +90,6 @@ export function summarize(event: SentryEvent): Summary {
     culprit: culprit.slice(0, 500),
     level: event.level ?? "error",
     platform: event.platform ?? "",
-    fingerprint: fingerprintOf(event, main),
+    fingerprint: fingerprint(event),
   };
 }
