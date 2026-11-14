@@ -1,0 +1,11 @@
+{
+  "name": "somethings-burning",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.1",
+  "scripts": {
+    "dev": "pnpm --filter frontend dev",
+    "build": "pnpm --filter frontend build",
+    "typecheck": "pnpm -r typecheck"
+  }
+}
