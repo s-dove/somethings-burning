@@ -1,0 +1,84 @@
+/* Code colors come from the code theme, set apart from the page theme:
+   data-code-theme on <html> (or on a preview) picks one set of variables.
+   ThemeSwitch.tsx sets it. Text keeps the page's font size. */
+:root,
+[data-code-theme="burning-dark"] {
+  --code-bg: #252930;
+  --code-fg: #e8ebed;
+  --code-border: transparent;
+  --code-line: #7d8590;
+  --code-punct: #8d949e;
+  --code-comment: #8d949e;
+  --code-key: #8cc4dc;
+  --code-string: #ffc078;
+  --code-number: #ff922b;
+  --code-keyword: #f28b6b;
+  --code-func: #c9b6f2;
+}
+[data-code-theme="burning-light"] {
+  --code-bg: #f4f5f7;
+  --code-fg: #1f2328;
+  --code-border: #dfe2e7;
+  --code-line: #9aa0a8;
+  --code-punct: #6b7280;
+  --code-comment: #7c8490;
+  --code-key: #0b6e99;
+  --code-string: #9a4a00;
+  --code-number: #c2410c;
+  --code-keyword: #b42318;
+  --code-func: #6d3fc0;
+}
+[data-code-theme="github-light"] {
+  --code-bg: #f6f8fa;
+  --code-fg: #1f2328;
+  --code-border: #d1d9e0;
+  --code-line: #8c959f;
+  --code-punct: #1f2328;
+  --code-comment: #59636e;
+  --code-key: #0550ae;
+  --code-string: #0a3069;
+  --code-number: #0550ae;
+  --code-keyword: #cf222e;
+  --code-func: #6639ba;
+}
+[data-code-theme="github-dark"] {
+  --code-bg: #0d1117;
+  --code-fg: #e6edf3;
+  --code-border: #30363d;
+  --code-line: #6e7681;
+  --code-punct: #e6edf3;
+  --code-comment: #8b949e;
+  --code-key: #79c0ff;
+  --code-string: #a5d6ff;
+  --code-number: #79c0ff;
+  --code-keyword: #ff7b72;
+  --code-func: #d2a8ff;
+}
+
+pre[class*="language-"] {
+  margin: 0;
+  overflow: auto;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  /* A hairline on light themes, drawn inside so sizes do not change. */
+  box-shadow: inset 0 0 0 1px var(--code-border);
+  font-size: inherit;
+  line-height: 1.6;
+  tab-size: 2;
+  white-space: pre;
+}
+
+pre[class*="language-"] code {
+  display: block;
+  background: transparent;
+  color: inherit;
+}
+
+.token.property, .token.attr-name, .token.tag { color: var(--code-key); }
+.token.string, .token.char, .token.attr-value, .token.regex { color: var(--code-string); }
+.token.number { color: var(--code-number); }
+.token.boolean, .token.constant { color: var(--code-number); font-weight: 600; }
+.token.null, .token.keyword, .token.important { color: var(--code-keyword); font-style: italic; }
+.token.function, .token.class-name, .token.decorator, .token.builtin { color: var(--code-func); }
+.token.punctuation, .token.operator { color: var(--code-punct); }
+.token.comment, .token.prolog { color: var(--code-comment); font-style: italic; }

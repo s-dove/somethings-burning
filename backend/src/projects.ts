@@ -5,16 +5,16 @@ export type Project = {
   id: number;
   name: string;
   publicKey: string;
-  createdAt: string;
+  createdAt: number;
 };
 
 export type ProjectSummary = Project & {
   issueCount: number;
   eventCount: number;
-  lastSeen: string | null;
+  lastSeen: number | null;
 };
 
-type ProjectRow = { id: number; name: string; public_key: string; created_at: string };
+type ProjectRow = { id: number; name: string; public_key: string; created_at: number };
 
 const toProject = (r: ProjectRow): Project => ({
   id: r.id,
@@ -31,7 +31,7 @@ export function listProjects(db: Db): ProjectSummary[] {
          FROM projects p LEFT JOIN issues i ON i.project_id = p.id
         GROUP BY p.id ORDER BY p.name COLLATE NOCASE`,
     )
-    .all() as (ProjectRow & { issue_count: number; event_count: number; last_seen: string | null })[];
+    .all() as (ProjectRow & { issue_count: number; event_count: number; last_seen: number | null })[];
   return rows.map((r) => ({
     ...toProject(r),
     issueCount: r.issue_count,
@@ -48,7 +48,7 @@ export function getProject(db: Db, id: number): Project | undefined {
 export function createProject(db: Db, name: string): Project {
   const row = db
     .prepare("INSERT INTO projects (name, public_key, created_at) VALUES (?, ?, ?) RETURNING *")
-    .get(name, randomBytes(16).toString("hex"), new Date().toISOString()) as ProjectRow;
+    .get(name, randomBytes(16).toString("hex"), Date.now()) as ProjectRow;
   return toProject(row);
 }
 
