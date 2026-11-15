@@ -111,19 +111,31 @@ export async function enqueue(db: Db, projectId: number, issueId: number, list: 
 }
 
 export const MAX_ATTEMPTS = 5;
+// How long a server may take to send one message before another takes over.
+export const SEND_LEASE_MS = 2 * 60_000;
 
 /**
- * Messages that are due, marked as being sent. The update only takes rows
- * still pending, so two sends that overlap never take the same message.
+ * Takes up to limit messages that are due, or whose sender went away
+ * mid-send, and marks them as being sent until the lease ends. With several
+ * servers, each message goes to one of them: rows another is claiming are
+ * skipped.
  */
 export function claim(db: Db, now = Date.now(), limit = 20): Promise<OutboxRow[]> {
   return db.tx(async (t) => {
-    const ids = await t.all<{ id: number }>("SELECT id FROM notifications WHERE status = 'pending' AND next_at <= ? ORDER BY id LIMIT ?", now, limit);
+    const ids = await t.all<{ id: number }>(
+      `SELECT id FROM notifications
+        WHERE (status = 'pending' AND next_at <= ?) OR (status = 'sending' AND locked_until < ?)
+        ORDER BY id LIMIT ? ${t.skipLocked}`,
+      now,
+      now,
+      limit,
+    );
     if (!ids.length) return [];
     const list = ids.map((r) => r.id);
     return t.all<OutboxRow>(
-      `UPDATE notifications SET status = 'sending' WHERE status = 'pending' AND id IN (${list.map(() => "?").join(",")})
+      `UPDATE notifications SET status = 'sending', locked_until = ? WHERE id IN (${list.map(() => "?").join(",")})
        RETURNING id, kind, target, subject, text, json, attempts`,
+      now + SEND_LEASE_MS,
       ...list,
     );
   });
@@ -132,20 +144,15 @@ export function claim(db: Db, now = Date.now(), limit = 20): Promise<OutboxRow[]
 /** Records one attempt. A failure is retried later, a minute more each time, until MAX_ATTEMPTS. */
 export async function settle(db: Db, id: number, attempts: number, error: string, now = Date.now()): Promise<void> {
   if (!error) {
-    await db.run("UPDATE notifications SET status = 'sent', attempts = ?, last_error = '', sent_at = ? WHERE id = ?", attempts, now, id);
+    await db.run("UPDATE notifications SET status = 'sent', attempts = ?, last_error = '', sent_at = ?, locked_until = 0 WHERE id = ?", attempts, now, id);
     return;
   }
   await db.run(
-    "UPDATE notifications SET status = ?, attempts = ?, last_error = ?, next_at = ? WHERE id = ?",
+    "UPDATE notifications SET status = ?, attempts = ?, last_error = ?, next_at = ?, locked_until = 0 WHERE id = ?",
     attempts >= MAX_ATTEMPTS ? "failed" : "pending",
     attempts,
     error.slice(0, 500),
     now + attempts * 60_000,
     id,
   );
-}
-
-/** Rows left as 'sending' by a server that stopped go back to the queue. */
-export async function requeueStuck(db: Db): Promise<void> {
-  await db.run("UPDATE notifications SET status = 'pending' WHERE status = 'sending'");
 }

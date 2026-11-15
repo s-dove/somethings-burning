@@ -1,18 +1,69 @@
 import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
+import pg from "pg";
 
 type Listener = (projectId: number) => void;
+
+const CHANNEL = "burning_live";
+const RECONNECT_MS = 5000;
 
 /**
  * LiveAlerts fans a project id out to the open browser streams when one of
  * its issues alerts. The payload stays that small on purpose: the sidebar dot
- * only needs to know which project fired. One server, so it lives in memory.
+ * only needs to know which project fired. On Postgres it goes out through
+ * NOTIFY, so the browsers connected to every server hear it, not only this
+ * one's.
  */
 export class LiveAlerts {
   private listeners = new Set<Listener>();
+  private client: pg.Client | null = null;
+  private stopped = false;
 
   publish(projectId: number): void {
+    if (!this.client) return this.emit(projectId);
+    this.client.query("SELECT pg_notify($1, $2)", [CHANNEL, String(projectId)]).catch((err: Error) => {
+      console.error(`live notify failed, telling this server only: ${err.message}`);
+      this.emit(projectId);
+    });
+  }
+
+  private emit(projectId: number): void {
     for (const listener of this.listeners) listener(projectId);
+  }
+
+  /** Keeps one connection listening. If it drops, alerts reach this server's browsers only until it is back. */
+  async listenPostgres(url: string): Promise<void> {
+    const client = new pg.Client({ connectionString: url });
+    const retry = () => {
+      if (this.client === client) this.client = null;
+      client.removeAllListeners();
+      void client.end().catch(() => undefined);
+      if (!this.stopped) setTimeout(() => void this.listenPostgres(url), RECONNECT_MS).unref();
+    };
+    client.on("error", (err) => {
+      console.error(`live listener: ${err.message}`);
+      retry();
+    });
+    client.on("notification", (m) => {
+      const id = Number(m.payload);
+      if (m.channel === CHANNEL && Number.isInteger(id)) this.emit(id);
+    });
+    try {
+      await client.connect();
+      await client.query(`LISTEN ${CHANNEL}`);
+      this.client = client;
+    } catch (err) {
+      console.error(`live listener: ${(err as Error).message}`);
+      retry();
+    }
+  }
+
+  async close(): Promise<void> {
+    this.stopped = true;
+    const c = this.client;
+    this.client = null;
+    c?.removeAllListeners();
+    await c?.end().catch(() => undefined);
   }
 
   subscribe(listener: Listener): () => void {
