@@ -64,3 +64,12 @@ describe("grouping", () => {
     expect(fingerprint(chain("Timeout"))).not.toBe(fingerprint(chain("ConnectionReset")));
   });
 });
+
+describe("culprit", () => {
+  it("prefers the transaction, then the innermost frame of your code", () => {
+    const e = { exception: { values: [{ type: "KeyError", value: "x", stacktrace: { frames: [{ module: "app.views", function: "get", in_app: true }] } }] } };
+    expect(summarize({ ...e, transaction: "/manage/alerts/{alert_id}" }).culprit).toBe("/manage/alerts/{alert_id}");
+    expect(summarize(e).culprit).toBe("app.views in get");
+    expect(summarize({ message: "hi", culprit: "legacy.place" }).culprit).toBe("legacy.place");
+  });
+});
