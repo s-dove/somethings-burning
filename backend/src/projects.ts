@@ -18,6 +18,9 @@ type ProjectRow = { id: number; name: string; public_key: string; created_at: nu
 
 const toProject = (r: ProjectRow): Project => ({ id: r.id, name: r.name, publicKey: r.public_key, createdAt: r.created_at });
 
+/** A project name is taken, ignoring case. */
+export class NameTaken extends Error {}
+
 export async function listProjects(db: Db): Promise<ProjectSummary[]> {
   const rows = await db.all<ProjectRow & { issue_count: number; event_count: number; last_seen: number | null }>(
     `SELECT p.id, p.name, p.public_key, p.created_at, COUNT(i.id) AS issue_count, COALESCE(SUM(i.count), 0) AS event_count,
@@ -39,19 +42,38 @@ export async function projectByKey(db: Db, key: string): Promise<Project | undef
   return row && toProject(row);
 }
 
+async function nameTaken(db: Db, name: string, except = 0): Promise<boolean> {
+  return !!(await db.get("SELECT 1 AS t FROM projects WHERE lower(name) = lower(?) AND id != ?", name, except));
+}
+
+const unique = (err: unknown) => /UNIQUE|duplicate key/i.test(String(err));
+
+/** Creates a project. Throws NameTaken when another has the name. */
 export async function createProject(db: Db, name: string): Promise<Project> {
-  const row = await db.get<ProjectRow>(
-    "INSERT INTO projects (name, public_key, created_at) VALUES (?, ?, ?) RETURNING *",
-    name,
-    randomBytes(16).toString("hex"),
-    Date.now(),
-  );
-  return toProject(row!);
+  if (await nameTaken(db, name)) throw new NameTaken();
+  try {
+    const row = await db.get<ProjectRow>(
+      "INSERT INTO projects (name, public_key, created_at) VALUES (?, ?, ?) RETURNING *",
+      name,
+      randomBytes(16).toString("hex"),
+      Date.now(),
+    );
+    return toProject(row!);
+  } catch (err) {
+    if (unique(err)) throw new NameTaken();
+    throw err;
+  }
 }
 
 export async function renameProject(db: Db, id: number, name: string): Promise<Project | undefined> {
-  const row = await db.get<ProjectRow>("UPDATE projects SET name = ? WHERE id = ? RETURNING *", name, id);
-  return row && toProject(row);
+  if (await nameTaken(db, name, id)) throw new NameTaken();
+  try {
+    const row = await db.get<ProjectRow>("UPDATE projects SET name = ? WHERE id = ? RETURNING *", name, id);
+    return row && toProject(row);
+  } catch (err) {
+    if (unique(err)) throw new NameTaken();
+    throw err;
+  }
 }
 
 export async function deleteProject(db: Db, id: number): Promise<boolean> {
