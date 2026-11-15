@@ -1,6 +1,7 @@
 import { Hono, type Context } from "hono";
 import { Access, atLeast, setGrant, type Role } from "./access.js";
 import type { Authenticator, User } from "./auth.js";
+import type { Config } from "./env.js";
 import { listActivity } from "./activity.js";
 import { board, type Sort, type StatusFilter } from "./board.js";
 import { commentRoutes, commentsView } from "./comments-api.js";
@@ -12,6 +13,7 @@ import { createProject, deleteProject, getProject, listProjects, renameProject }
 import { profileRoutes } from "./profile-api.js";
 import { routingRoutes } from "./routing-api.js";
 import { settingsRoutes } from "./settings-api.js";
+import { siteRoutes } from "./site-api.js";
 import { MUTE_OPTIONS, muteOption } from "./triage.js";
 import { dsn } from "./url.js";
 import { people } from "./users.js";
@@ -23,6 +25,7 @@ export interface ApiDeps {
   access: Access;
   senders: Senders;
   baseURL: string;
+  config: Config;
 }
 
 async function nameFrom(c: Context): Promise<string | undefined> {
@@ -188,6 +191,7 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
   );
 
   app.route("/", commentRoutes(db, access));
+  app.route("/", siteRoutes(deps.config, deps.senders));
   app.route("/", settingsRoutes(db, access, deps.baseURL));
   app.route("/", routingRoutes(db, access, deps.senders));
   app.route("/", profileRoutes(db, deps.senders));

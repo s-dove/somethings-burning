@@ -115,6 +115,10 @@ A route sends to people, email addresses, Mattermost channels, or webhooks (a JS
 
 Email needs `BURNING_SMTP_HOST` and `BURNING_SMTP_FROM`; Mattermost needs `BURNING_MATTERMOST_URL` and a bot token. Messages go through an outbox and are retried up to five times. The issue's history records who was notified and by which route.
 
+## Global settings
+
+`/settings` (the Settings tab on All issues, or Global settings on a project's settings) shows how this server is set up: sign-in, email, and Mattermost. The values come from the environment and are read-only there. Passwords, secrets, and tokens are never shown, only whether they are set.
+
 ## API
 
 The API needs a session, except `/api/session`, `/api/health`, and the ingest paths.
@@ -143,5 +147,6 @@ The API needs a session, except `/api/session`, `/api/health`, and the ingest pa
 - `DELETE /api/projects/<id>/access` with `{ "kind", "subject" }` (admin)
 - `GET /api/projects/<id>/routing`, `PUT` with `{ "routes": [...] }` (admin)
 - `GET /api/people?project=<id>`: who a route can send to
+- `GET /api/site/settings`: the server's sign-in, email, and Mattermost settings, without secrets
 - `GET /api/profile`, `PUT` with `{ "displayName": "<name>" }`
 - `GET /api/profile/notifications`, `PUT` with `{ "routes": [...] }`, and `POST /api/profile/notifications/test` with one receiver

@@ -10,7 +10,8 @@ import { api, useApi, type ProjectSettings } from "../shared/api";
 import { plural, stamp } from "../shared/format";
 import { input, section, sectionTitle } from "../shared/ui";
 import { Button } from "../ui/components/Button";
-import { ArrowLeft, Bell, ChevronRight, KeyRound, Shield, Trash2 } from "../ui/icons";
+import { Tip } from "../components/Tip";
+import { ArrowLeft, Bell, ChevronRight, KeyRound, Settings2, Shield, Trash2 } from "../ui/icons";
 
 /** Loads a project's settings for the settings pages. */
 export function useSettings() {
@@ -70,7 +71,21 @@ export const backToSettings = (s: ProjectSettings | null) => (s ? { to: `/p/${s.
 export function SettingsPage() {
   const { data, error, reload } = useSettings();
   return (
-    <SettingsFrame settings={data} error={error} title={(name) => `${name} settings`} hint="Connect a service, decide who sees its errors, and where they go.">
+    <SettingsFrame
+      settings={data}
+      error={error}
+      title={(name) => `${name} settings`}
+      hint="Connect a service, decide who sees its errors, and where they go."
+      action={
+        <Tip content="Sign-in, email, and Mattermost settings for the whole server">
+          <Link to="/settings" className="ui-button ui-button-secondary ui-button-md shrink-0 no-underline">
+            <Settings2 aria-hidden="true" />
+            Global settings
+            <ChevronRight aria-hidden="true" />
+          </Link>
+        </Tip>
+      }
+    >
       {({ project, grants }) => {
         const base = `/p/${project.id}/settings`;
         const access = grants.length ? plural(grants.length, "grant") : "No one has access";

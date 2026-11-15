@@ -10,7 +10,7 @@ import { ProjectSidebar } from "./ProjectSidebar";
 
 interface Props {
   project?: ProjectRef | null;
-  nav?: "issues" | "settings" | "login" | "profile";
+  nav?: "issues" | "settings" | "login" | "profile" | "site";
   children: ReactNode;
 }
 
@@ -37,19 +37,21 @@ export function Layout({ project: given, nav, children }: Props) {
           </Link>
           <ChevronRight className="shrink-0 text-cinder" aria-hidden="true" />
           <span className="min-w-0 truncate text-[13px] font-medium">{nav === "profile" ? "Profile" : project ? project.name : "All issues"}</span>
-          {project && nav !== "profile" && (
-            <nav className="ml-auto flex gap-6" aria-label="Project">
-              <Link className={tab} to={`/p/${project.id}`} aria-current={nav === "issues" ? "page" : undefined}>
+          {/* A project has Issues and its Settings; All issues has Issues and
+              the global Settings, in the same place. */}
+          {nav !== "profile" && (
+            <nav className="ml-auto flex gap-6" aria-label={project ? "Project" : "All projects"}>
+              <Link className={tab} to={project ? `/p/${project.id}` : "/"} aria-current={nav === "issues" ? "page" : undefined}>
                 Issues
               </Link>
-              <Link className={tab} to={`/p/${project.id}/settings`} aria-current={nav === "settings" ? "page" : undefined}>
+              <Link className={tab} to={project ? `/p/${project.id}/settings` : "/settings"} aria-current={nav === "settings" || nav === "site" ? "page" : undefined}>
                 Settings
               </Link>
             </nav>
           )}
         </header>
         <div className="min-h-0 flex-1 [overflow-anchor:none] lg:overflow-y-auto">
-          <main className={`mx-auto px-5 py-7 sm:px-6 lg:px-9 lg:py-9 ${nav === "settings" || nav === "profile" ? "max-w-[1100px]" : "max-w-[1500px]"}`}>
+          <main className={`mx-auto px-5 py-7 sm:px-6 lg:px-9 lg:py-9 ${nav === "settings" || nav === "profile" || nav === "site" ? "max-w-[1100px]" : "max-w-[1500px]"}`}>
             {children}
           </main>
         </div>
