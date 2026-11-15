@@ -14,68 +14,68 @@ const opt = (v: string) => MUTE_OPTIONS.find((o) => o.value === v)!;
 const HOUR = 3_600_000;
 
 describe("triage", () => {
-  it("fires a resolved issue again on its next event", () => {
-    const { db, project } = setup();
-    const first = recordEvent(db, project.id, pythonError);
+  it("fires a resolved issue again on its next event", async () => {
+    const { db, project } = await setup();
+    const first = await recordEvent(db, project.id, pythonError);
     expect(first.alert).toBe("new");
-    expect(recordEvent(db, project.id, pythonError).alert).toBeNull();
+    expect((await recordEvent(db, project.id, pythonError)).alert).toBeNull();
 
-    resolve(db, project.id, first.issueId, "ana@example.com");
-    expect(getIssue(db, project.id, first.issueId)!.status).toBe("resolved");
+    await resolve(db, project.id, first.issueId, "ana@example.com");
+    expect((await getIssue(db, project.id, first.issueId))!.status).toBe("resolved");
 
-    const again = recordEvent(db, project.id, { ...pythonError, release: "web@2.0.0", environment: "production" });
+    const again = await recordEvent(db, project.id, { ...pythonError, release: "web@2.0.0", environment: "production" });
     expect(again).toMatchObject({ alert: "fired_again", reason: "A new event arrived in release web@2.0.0 (production) after it was resolved" });
-    const issue = getIssue(db, project.id, first.issueId)!;
+    const issue = (await getIssue(db, project.id, first.issueId))!;
     expect(issue).toMatchObject({ status: "open", reopenReason: again.reason, eventCount: 3 });
-    expect(listActivity(db, first.issueId).map((a) => [a.kind, a.actor])).toEqual([
+    expect((await listActivity(db, first.issueId)).map((a) => [a.kind, a.actor])).toEqual([
       ["fired", ""],
       ["resolved", "ana@example.com"],
       ["created", ""],
     ]);
   });
 
-  it("keeps a muted issue quiet until the mute ends, then alerts once", () => {
-    const { db, project } = setup();
-    const { issueId } = recordEvent(db, project.id, pythonError);
-    mute(db, project.id, issueId, opt("1h"));
-    expect(getIssue(db, project.id, issueId)).toMatchObject({ status: "muted", mute: { kind: "for" } });
-    expect(recordEvent(db, project.id, pythonError).alert).toBeNull();
+  it("keeps a muted issue quiet until the mute ends, then alerts once", async () => {
+    const { db, project } = await setup();
+    const { issueId } = await recordEvent(db, project.id, pythonError);
+    await mute(db, project.id, issueId, opt("1h"));
+    expect(await getIssue(db, project.id, issueId)).toMatchObject({ status: "muted", mute: { kind: "for" } });
+    expect((await recordEvent(db, project.id, pythonError)).alert).toBeNull();
 
-    expect(expireMutes(db, Date.now() + 2 * HOUR)).toBe(1);
-    expect(getIssue(db, project.id, issueId)!.status).toBe("open");
-    expect(recordEvent(db, project.id, pythonError)).toMatchObject({ alert: "unmuted", reason: "The first event since the mute ended" });
-    expect(recordEvent(db, project.id, pythonError).alert).toBeNull();
+    expect(await expireMutes(db, Date.now() + 2 * HOUR)).toBe(1);
+    expect((await getIssue(db, project.id, issueId))!.status).toBe("open");
+    expect(await recordEvent(db, project.id, pythonError)).toMatchObject({ alert: "unmuted", reason: "The first event since the mute ended" });
+    expect((await recordEvent(db, project.id, pythonError)).alert).toBeNull();
   });
 
-  it("ends a next-release mute on an event from a release newer than the mute", () => {
-    const { db, project } = setup();
+  it("ends a next-release mute on an event from a release newer than the mute", async () => {
+    const { db, project } = await setup();
     const t0 = Date.now();
-    const { issueId } = recordEvent(db, project.id, { ...pythonError, release: "web@1.0.0" }, t0);
-    mute(db, project.id, issueId, opt("release"));
+    const { issueId } = await recordEvent(db, project.id, { ...pythonError, release: "web@1.0.0" }, t0);
+    await mute(db, project.id, issueId, opt("release"));
     // A release already running when it was muted does not end it.
-    expect(recordEvent(db, project.id, { ...pythonError, release: "web@1.0.0" }, t0 + 1000).alert).toBeNull();
-    const res = recordEvent(db, project.id, { ...pythonError, release: "web@1.1.0" }, Date.now() + 1000);
+    expect((await recordEvent(db, project.id, { ...pythonError, release: "web@1.0.0" }, t0 + 1000)).alert).toBeNull();
+    const res = await recordEvent(db, project.id, { ...pythonError, release: "web@1.1.0" }, Date.now() + 1000);
     expect(res).toMatchObject({ alert: "unmuted", reason: "An event arrived from release web@1.1.0, which is newer than the mute" });
-    expect(getIssue(db, project.id, issueId)!.status).toBe("open");
+    expect((await getIssue(db, project.id, issueId))!.status).toBe("open");
   });
 
-  it("alerts on the next event after an unmute by hand", () => {
-    const { db, project } = setup();
-    const { issueId } = recordEvent(db, project.id, pythonError);
-    mute(db, project.id, issueId, opt("forever"));
-    reopenByHand(db, project.id, issueId);
-    expect(recordEvent(db, project.id, pythonError).alert).toBe("unmuted");
+  it("alerts on the next event after an unmute by hand", async () => {
+    const { db, project } = await setup();
+    const { issueId } = await recordEvent(db, project.id, pythonError);
+    await mute(db, project.id, issueId, opt("forever"));
+    await reopenByHand(db, project.id, issueId);
+    expect((await recordEvent(db, project.id, pythonError)).alert).toBe("unmuted");
   });
 
   it("notifies when an issue fires again, and records who was told", async () => {
-    const s = setup();
-    setGrant(s.db, s.project.id, "user", "ana@example.com", "admin");
+    const s = await setup();
+    await setGrant(s.db, s.project.id, "user", "ana@example.com", "admin");
     const post = async () => {
       await s.app.request(`/api/${s.project.id}/store/?sentry_key=${s.project.publicKey}`, { method: "POST", headers: { host: "burning.example.com" }, body: JSON.stringify(pythonError) });
       await s.queue.idle();
     };
     await post();
-    resolve(s.db, s.project.id, 1);
+    await resolve(s.db, s.project.id, 1);
     await post();
     await s.outbox.drain();
     expect(s.senders.sent.map((x) => x.m.subject)).toEqual([
@@ -83,18 +83,18 @@ describe("triage", () => {
       "Issue fired again: ZeroDivisionError: division by zero",
     ]);
     expect(s.senders.sent[1]!.m.text).toContain("A new event arrived after it was resolved.");
-    expect(listActivity(s.db, 1).filter((a) => a.kind === "notified").map((a) => a.text)).toEqual([
+    expect((await listActivity(s.db, 1)).filter((a) => a.kind === "notified").map((a) => a.text)).toEqual([
       "Notified ana@example.com by the default route",
       "Notified ana@example.com by the default route",
     ]);
   });
 
   it("lets members triage over the API, not viewers", async () => {
-    const s = setup({ auth: true });
-    setGrant(s.db, s.project.id, "user", "ana@example.com", "admin");
-    setGrant(s.db, s.project.id, "user", "bo@example.com", "member");
-    setGrant(s.db, s.project.id, "user", "cy@example.com", "viewer");
-    const { issueId } = recordEvent(s.db, s.project.id, pythonError);
+    const s = await setup({ auth: true });
+    await setGrant(s.db, s.project.id, "user", "ana@example.com", "admin");
+    await setGrant(s.db, s.project.id, "user", "bo@example.com", "member");
+    await setGrant(s.db, s.project.id, "user", "cy@example.com", "viewer");
+    const { issueId } = await recordEvent(s.db, s.project.id, pythonError);
     const call = (who: string, what: string, body: object = {}) =>
       s.app.request(`/api/projects/${s.project.id}/issues/${issueId}/${what}`, { method: "POST", ...json(body, as(who)) });
 
@@ -117,12 +117,12 @@ describe("triage", () => {
   });
 
   it("filters the board by status and counts each", async () => {
-    const s = setup();
-    const a = recordEvent(s.db, s.project.id, pythonError);
-    const b = recordEvent(s.db, s.project.id, { message: "slow" });
-    recordEvent(s.db, s.project.id, { message: "other" });
-    resolve(s.db, s.project.id, a.issueId);
-    mute(s.db, s.project.id, b.issueId, opt("forever"));
+    const s = await setup();
+    const a = await recordEvent(s.db, s.project.id, pythonError);
+    const b = await recordEvent(s.db, s.project.id, { message: "slow" });
+    await recordEvent(s.db, s.project.id, { message: "other" });
+    await resolve(s.db, s.project.id, a.issueId);
+    await mute(s.db, s.project.id, b.issueId, opt("forever"));
     const get = async (status: string) =>
       (await (await s.app.request(`/api/board?status=${status}`)).json()) as { issues: { title: string; status: string }[]; counts: Record<string, number>; openTotal: number };
     const open = await get("open");
@@ -133,7 +133,7 @@ describe("triage", () => {
     expect((await get("all")).issues).toHaveLength(3);
   });
 
-  it("adds the triage columns to a database made before them", () => {
+  it("adds the triage columns to a database made before them", async () => {
     const path = join(mkdtempSync(join(tmpdir(), "burning-")), "old.db");
     const old = new DatabaseSync(path);
     old.exec(`CREATE TABLE issues (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL, fingerprint TEXT NOT NULL,
@@ -141,7 +141,7 @@ describe("triage", () => {
       first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, count INTEGER NOT NULL DEFAULT 0, UNIQUE (project_id, fingerprint));
       INSERT INTO issues (project_id, fingerprint, title, first_seen, last_seen) VALUES (1, 'x', 'old', 0, 0);`);
     old.close();
-    const db = openDb(path);
-    expect(db.prepare("SELECT status, notify_next FROM issues").get()).toEqual({ status: "open", notify_next: 0 });
+    const db = await openDb(path);
+    expect(await db.get("SELECT status, notify_next FROM issues")).toEqual({ status: "open", notify_next: 0 });
   });
 });

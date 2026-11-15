@@ -61,28 +61,26 @@ export class IngestQueue {
     this.jobs.push(job);
     if (!this.draining) {
       this.draining = true;
-      setImmediate(() => this.drain());
+      setImmediate(() => void this.drain());
     }
     return true;
   }
 
-  private drain(): void {
-    // A slice per tick, so requests in between are answered.
-    const until = Date.now() + 20;
-    while (this.jobs.length && Date.now() < until) {
+  // Jobs are written one at a time, in arrival order; requests are answered in between.
+  private async drain(): Promise<void> {
+    while (this.jobs.length) {
       const job = this.jobs.shift()!;
       try {
-        const res = recordEvent(this.db, job.project.id, job.event, job.received);
+        const res = await recordEvent(this.db, job.project.id, job.event, job.received);
         if (res.alert) {
-          this.alerter?.notify(job.project, res, job.event, job.baseURL);
+          await this.alerter?.notify(job.project, res, job.event, job.baseURL);
           this.live?.publish(job.project.id);
         }
       } catch (err) {
         console.error(`ingest event project=${job.project.name}:`, err);
       }
     }
-    if (this.jobs.length) setImmediate(() => this.drain());
-    else this.draining = false;
+    this.draining = false;
   }
 
   /** Resolves once everything queued so far is written (for tests and seeding). */

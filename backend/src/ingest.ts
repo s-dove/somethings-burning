@@ -5,7 +5,7 @@ import { cors } from "hono/cors";
 import type { Db } from "./db.js";
 import { parseEnvelope } from "./envelope.js";
 import type { SentryEvent } from "./event.js";
-import { getProject } from "./projects.js";
+import { getProject, type Project } from "./projects.js";
 import type { IngestQueue, TokenBucket } from "./queue.js";
 import { publicBase } from "./url.js";
 
@@ -66,7 +66,7 @@ export function ingestRoutes(db: Db, opts: { queue: IngestQueue; limiter: TokenB
 
   // queue hands one event to the writer and answers with its id. The id is
   // settled here, since the event is written after the response.
-  const queue = (c: Context, project: NonNullable<ReturnType<typeof getProject>>, event: SentryEvent): string | null => {
+  const queue = (c: Context, project: Project, event: SentryEvent): string | null => {
     const id = typeof event.event_id === "string" && event.event_id ? event.event_id.replaceAll("-", "") : randomUUID().replaceAll("-", "");
     const ok = opts.queue.push({ project, event: { ...event, event_id: id }, received: Date.now(), baseURL: publicBase(c, opts.baseURL) });
     return ok ? id : null;
@@ -89,9 +89,9 @@ export function ingestRoutes(db: Db, opts: { queue: IngestQueue; limiter: TokenB
     return decode(raw, c.req.header("content-encoding"));
   };
 
-  const authorize = (c: Context, dsn?: unknown) => {
+  const authorize = async (c: Context, dsn?: unknown) => {
     const projectId = Number(c.req.param("projectId"));
-    const project = getProject(db, projectId);
+    const project = await getProject(db, projectId);
     if (!project) return { error: c.json({ detail: "unknown project" }, 404) };
     if (keyFrom(c, dsn) !== project.publicKey) return { error: c.json({ detail: "invalid key" }, 401) };
     return { project };
@@ -117,7 +117,7 @@ export function ingestRoutes(db: Db, opts: { queue: IngestQueue; limiter: TokenB
     } catch {
       return c.json({ detail: "malformed envelope" }, 400);
     }
-    const auth = authorize(c, env.header.dsn);
+    const auth = await authorize(c, env.header.dsn);
     if (auth.error) return auth.error;
 
     // Transactions, sessions, client reports and the rest are accepted and
@@ -143,7 +143,7 @@ export function ingestRoutes(db: Db, opts: { queue: IngestQueue; limiter: TokenB
 
   const store = async (c: Context) => {
     if (!opts.limiter.allow()) return rateLimited(c, "rate limited");
-    const auth = authorize(c);
+    const auth = await authorize(c);
     if (auth.error) return auth.error;
     const raw = await body(c);
     if (raw instanceof Response) return raw;

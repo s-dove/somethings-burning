@@ -8,19 +8,19 @@ import { openDb } from "../src/db.js";
 import { hashPassword, parseAccounts, PasswordLogin, verifyPassword } from "../src/passwords.js";
 import { json } from "./helpers.js";
 
-function app(lines: string[]) {
+async function app(lines: string[]) {
   const file = join(mkdtempSync(join(tmpdir(), "burning-")), "passwords");
   writeFileSync(file, lines.join("\n"));
-  const db = openDb(":memory:");
+  const db = await openDb(":memory:");
   const auth = new Auth(new Sessions(db, "test-secret", false), null, new PasswordLogin(file));
   return { ...createApp(db, { auth }), db, file };
 }
 
-const login = (a: ReturnType<typeof app>, email: string, password: string) =>
+const login = (a: Awaited<ReturnType<typeof app>>, email: string, password: string) =>
   a.app.request("/auth/password", { method: "POST", ...json({ email, password }) });
 
 describe("passwords", () => {
-  it("hashes and verifies", () => {
+  it("hashes and verifies", async () => {
     const h = hashPassword("correct horse");
     expect(h).toMatch(/^scrypt\$16384\$8\$1\$/);
     expect(verifyPassword("correct horse", h)).toBe(true);
@@ -28,7 +28,7 @@ describe("passwords", () => {
     expect(verifyPassword("x", "plain-text")).toBe(false);
   });
 
-  it("reads accounts with groups, skipping comments", () => {
+  it("reads accounts with groups, skipping comments", async () => {
     expect(parseAccounts("# people\nAna@Example.com:scrypt$x:eng, ops\n\nbo@example.com:scrypt$y\n")).toEqual([
       { email: "ana@example.com", hash: "scrypt$x", groups: ["eng", "ops"] },
       { email: "bo@example.com", hash: "scrypt$y", groups: [] },
@@ -36,7 +36,7 @@ describe("passwords", () => {
   });
 
   it("signs in with the right password and starts a session", async () => {
-    const a = app([`ana@example.com:${hashPassword("pw")}:eng`]);
+    const a = await app([`ana@example.com:${hashPassword("pw")}:eng`]);
     expect((await login(a, "ana@example.com", "nope")).status).toBe(401);
     const ok = await login(a, "Ana@Example.com", "pw");
     expect(ok.status).toBe(200);
@@ -55,13 +55,13 @@ describe("passwords", () => {
   });
 
   it("locks an email out after five failures", async () => {
-    const a = app([`ana@example.com:${hashPassword("pw")}`]);
+    const a = await app([`ana@example.com:${hashPassword("pw")}`]);
     for (let i = 0; i < 5; i++) expect((await login(a, "ana@example.com", "nope")).status).toBe(401);
     expect((await login(a, "ana@example.com", "pw")).status).toBe(429);
   });
 
   it("reads the file at every sign-in", async () => {
-    const a = app([]);
+    const a = await app([]);
     expect((await login(a, "new@example.com", "pw")).status).toBe(401);
     writeFileSync(a.file, `new@example.com:${hashPassword("pw")}\n`);
     expect((await login(a, "new@example.com", "pw")).status).toBe(200);

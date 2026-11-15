@@ -52,13 +52,13 @@ const event = {
 };
 
 describe("code sources", () => {
-  it("splits releases the Sentry way", () => {
+  it("splits releases the Sentry way", async () => {
     expect(splitRelease("payments-api@2.15.0+3e7cbf4")).toEqual({ version: "2.15.0+3e7cbf4", base: "2.15.0", build: "3e7cbf4" });
     expect(splitRelease("@scope/pkg@1.2.0").base).toBe("1.2.0");
     expect(splitRelease("v3").base).toBe("v3");
   });
 
-  it("turns releases into refs under each rule", () => {
+  it("turns releases into refs under each rule", async () => {
     expect(refs("auto", "api@2.15.0+3e7cbf4")).toEqual(["3e7cbf4", "2.15.0", "v2.15.0"]);
     expect(refs("auto", "3e7cbf44d1a2")).toEqual(["3e7cbf44d1a2", "v3e7cbf44d1a2"]);
     expect(refs("auto", "v2.1.0-12-g3e7cbf4")).toEqual(["3e7cbf4", "v2.1.0-12-g3e7cbf4"]);
@@ -75,7 +75,7 @@ describe("code sources", () => {
     expect(refs("tag", "a..b")).toEqual([]);
   });
 
-  it("matches frames by the longest prefix across sources", () => {
+  it("matches frames by the longest prefix across sources", async () => {
     const sources = [src("github.com/a/app", [{ prefix: "/srv/app/", dir: "backend" }]), src("github.com/a/lib", [{ prefix: "/srv/app/vendor/lib/", dir: "" }])];
     expect(matchFrame(sources, { abs_path: "/srv/app/pay/charge.py", filename: "pay/charge.py" })).toEqual({ source: 0, path: "backend/pay/charge.py" });
     expect(matchFrame(sources, { abs_path: "/srv/app/vendor/lib/x.py", filename: "" })).toEqual({ source: 1, path: "x.py" });
@@ -83,7 +83,7 @@ describe("code sources", () => {
     expect(matchFrame(sources, { abs_path: "/srv/app/../../etc/passwd", filename: "" })).toBeNull();
   });
 
-  it("checks the list from the settings page", () => {
+  it("checks the list from the settings page", async () => {
     expect(githubRepo("https://github.example.com/team/app.git")).toBe("github.example.com/team/app");
     expect(githubRepo("git@github.com:getsentry/sentry.git")).toBe("github.com/getsentry/sentry");
     expect(githubRepo("getsentry/sentry")).toBe("");
@@ -106,7 +106,7 @@ describe("code sources", () => {
     expect(bad({ kind: "github", repo: "github.com/a/b", branch: "--evil", mappings: [{ prefix: "/a" }] })).toMatch(/branch/);
   });
 
-  it("reads tokens by host from git-credentials lines", () => {
+  it("reads tokens by host from git-credentials lines", async () => {
     const code = new CodeSources({ credentials: "https://x:tok1@github.example.com, https://tok2@github.com", sshKey: "", dir: "" }, ":memory:");
     expect(code.credentials.hosts).toEqual(["github.com", "github.example.com"]);
     expect(code.credentials.token("api.github.com")).toBe("tok2");
@@ -123,10 +123,10 @@ describe("frame links", () => {
 
   it("serves sources to anyone with a role, lets admins save and test them, and links frames on the issue page", async () => {
     const calls: string[] = [];
-    const s = setup({ auth: true, code: new CodeSources({ credentials: "https://x:tok@github.com", sshKey: "", dir: "" }, ":memory:", fakeGitHub(calls)) });
-    setGrant(s.db, s.project.id, "user", "ana@example.com", "admin");
-    setGrant(s.db, s.project.id, "user", "bo@example.com", "member");
-    const { issueId } = recordEvent(s.db, s.project.id, event);
+    const s = await setup({ auth: true, code: new CodeSources({ credentials: "https://x:tok@github.com", sshKey: "", dir: "" }, ":memory:", fakeGitHub(calls)) });
+    await setGrant(s.db, s.project.id, "user", "ana@example.com", "admin");
+    await setGrant(s.db, s.project.id, "user", "bo@example.com", "member");
+    const { issueId } = await recordEvent(s.db, s.project.id, event);
     const url = `/api/projects/${s.project.id}/sources`;
     const list = [{ kind: "github", repo: "github.com/a/app", mappings: [{ prefix: "/", dir: "" }] }];
 

@@ -71,7 +71,7 @@ export class Outbox {
   /** Sends everything due. Resolves when the queue is empty, for tests. */
   async drain(): Promise<void> {
     for (;;) {
-      const rows = claim(this.db);
+      const rows = await claim(this.db);
       if (rows.length === 0) return;
       await Promise.all(
         rows.map(async (r) => {
@@ -84,7 +84,7 @@ export class Outbox {
             if (err instanceof NotConfigured) attempts = MAX_ATTEMPTS;
             console.error(`notify kind=${r.kind} target=${r.target} attempt=${attempts}: ${error}`);
           }
-          settle(this.db, r.id, attempts, error);
+          await settle(this.db, r.id, attempts, error);
         }),
       );
     }

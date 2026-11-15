@@ -21,13 +21,13 @@ const label = (routes: Route[], r: Route) => r.name || `route ${routes.indexOf(r
  * receiver is sent as is. Every address gets one message however many
  * routes lead to it.
  */
-export function planFor(db: Db, projectId: number, f: Facts): Plan {
-  const routes = getRouting(db, projectId);
+export async function planFor(db: Db, projectId: number, f: Facts): Promise<Plan> {
+  const routes = await getRouting(db, projectId);
   const hit = evaluate(routes, f);
   const sending = (hit ?? []).filter((r) => !r.sink);
   const receivers: Receiver[] = hit
     ? sending.flatMap((r) => r.receivers)
-    : defaultRecipients(db, projectId).map((email) => ({ kind: "user" as const, target: email }));
+    : (await defaultRecipients(db, projectId)).map((email) => ({ kind: "user" as const, target: email }));
 
   const plan: Plan = {
     routes: hit ? hit.map((r) => label(routes, r)) : [],
@@ -47,10 +47,10 @@ export function planFor(db: Db, projectId: number, f: Facts): Plan {
   };
 
   const users = [...new Set(receivers.filter((r) => r.kind === "user").map((r) => r.target.toLowerCase()))];
-  const names = people(db, users);
+  const names = await people(db, users);
   for (const email of users) {
     const name = names.get(email)?.displayName ?? email;
-    const own = evaluate(getPersonalRoutes(db, email).routes, f)?.filter((r) => !r.sink) ?? [];
+    const own = evaluate((await getPersonalRoutes(db, email)).routes, f)?.filter((r) => !r.sink) ?? [];
     let reached = false;
     for (const x of own.flatMap((r) => r.receivers)) {
       if (x.kind === "email" && add({ kind: "email", target: x.target })) reached = true;

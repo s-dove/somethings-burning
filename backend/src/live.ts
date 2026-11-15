@@ -32,18 +32,19 @@ export class LiveAlerts {
  * goes out as `{ "projectId": <id> }`; a ping every 25 seconds holds the
  * connection through proxies, and closing the browser unsubscribes it.
  */
-export function alertEvents(c: Context, live: LiveAlerts, visible: (projectId: number) => boolean, pingMs = 25_000): Response {
+export function alertEvents(c: Context, live: LiveAlerts, visible: (projectId: number) => boolean | Promise<boolean>, pingMs = 25_000): Response {
   return streamSSE(c, async (stream) => {
     const pending: number[] = [];
     let wake: (() => void) | null = null;
     const unsubscribe = live.subscribe((projectId) => {
-      try {
-        if (!visible(projectId)) return;
-      } catch {
-        return;
-      }
-      pending.push(projectId);
-      wake?.();
+      void Promise.resolve(visible(projectId)).then(
+        (ok) => {
+          if (!ok) return;
+          pending.push(projectId);
+          wake?.();
+        },
+        () => undefined,
+      );
     });
     const stopped = new Promise<void>((resolve) => {
       if (c.req.raw.signal.aborted) resolve();
@@ -51,7 +52,7 @@ export function alertEvents(c: Context, live: LiveAlerts, visible: (projectId: n
       stream.onAbort(() => resolve());
     });
     try {
-      // A first comment, so the browser sees the stream open at once.
+      // A first message, so the browser sees the stream open at once.
       await stream.writeSSE({ event: "ready", data: "1" });
       while (!c.req.raw.signal.aborted && !stream.aborted) {
         if (!pending.length) {

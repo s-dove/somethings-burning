@@ -18,7 +18,7 @@ describe("site settings", () => {
       BURNING_SMTP_USER: "burning",
       BURNING_SMTP_PASSWORD: "hunter2",
     });
-    const { app } = createApp(openDb(":memory:"), { auth: testAuth(null), config });
+    const { app } = createApp(await openDb(":memory:"), { auth: testAuth(null), config });
     expect((await app.request("/api/site/settings")).status).toBe(401);
     const res = await app.request("/api/site/settings", { headers: as("ana@example.com") });
     const text = await res.text();

@@ -16,9 +16,9 @@ const canDelete = (c: Pick<Comment, "author">, email: string, role: Role) => can
  * show for its author and the username to @-mention. Earlier texts are kept
  * but not sent; nothing shows them yet.
  */
-export function commentsView(db: Db, issueId: number, email: string, role: Role) {
-  const list = listComments(db, issueId);
-  const who = people(db, list.map((c) => c.author));
+export async function commentsView(db: Db, issueId: number, email: string, role: Role) {
+  const list = await listComments(db, issueId);
+  const who = await people(db, list.map((c) => c.author));
   return list.map(({ history: _, ...c }) => {
     const p = c.author ? (who.get(c.author.toLowerCase()) ?? { displayName: c.author, username: usernameFrom({}, c.author) }) : null;
     return { ...c, authorName: p?.displayName ?? "", authorUsername: p?.username ?? "", canEdit: canEdit(c, email), canDelete: canDelete(c, email, role) };
@@ -40,44 +40,44 @@ export function commentRoutes(db: Db, access: Access): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
   const base = "/projects/:id{[0-9]+}/issues/:issue{[0-9]+}/comments";
 
-  const load = (c: Context<AppEnv>) => {
+  const load = async (c: Context<AppEnv>) => {
     const projectId = Number(c.req.param("id"));
-    const role = access.role(projectId, c.get("user"));
-    const issue = role ? getIssue(db, projectId, Number(c.req.param("issue"))) : undefined;
+    const role = await access.role(projectId, c.get("user"));
+    const issue = role ? await getIssue(db, projectId, Number(c.req.param("issue"))) : undefined;
     return role && issue ? { role, issue, email: c.get("user")?.email.toLowerCase() ?? "" } : null;
   };
 
   app.post(base, async (c) => {
-    const found = load(c);
+    const found = await load(c);
     if (!found) return c.json({ detail: "issue not found" }, 404);
     if (!found.email) return c.json({ detail: "sign in to comment" }, 403);
     const body = await readBody(c);
     if (typeof body !== "string") return c.json({ detail: body.error }, 400);
-    addComment(db, found.issue.id, found.email, body);
-    return c.json(commentsView(db, found.issue.id, found.email, found.role));
+    await addComment(db, found.issue.id, found.email, body);
+    return c.json(await commentsView(db, found.issue.id, found.email, found.role));
   });
 
   // PATCH changes the text; the old text goes into the comment's history.
   app.patch(`${base}/:comment{[0-9]+}`, async (c) => {
-    const found = load(c);
+    const found = await load(c);
     if (!found) return c.json({ detail: "issue not found" }, 404);
-    const comment = getComment(db, found.issue.id, Number(c.req.param("comment")));
+    const comment = await getComment(db, found.issue.id, Number(c.req.param("comment")));
     if (!comment) return c.json({ detail: "comment not found" }, 404);
     if (!canEdit(comment, found.email)) return c.json({ detail: "only the author can edit it" }, 403);
     const body = await readBody(c);
     if (typeof body !== "string") return c.json({ detail: body.error }, 400);
-    editComment(db, comment.id, body);
-    return c.json(commentsView(db, found.issue.id, found.email, found.role));
+    await editComment(db, comment.id, body);
+    return c.json(await commentsView(db, found.issue.id, found.email, found.role));
   });
 
-  app.delete(`${base}/:comment{[0-9]+}`, (c) => {
-    const found = load(c);
+  app.delete(`${base}/:comment{[0-9]+}`, async (c) => {
+    const found = await load(c);
     if (!found) return c.json({ detail: "issue not found" }, 404);
-    const comment = getComment(db, found.issue.id, Number(c.req.param("comment")));
+    const comment = await getComment(db, found.issue.id, Number(c.req.param("comment")));
     if (!comment) return c.json({ detail: "comment not found" }, 404);
     if (!canDelete(comment, found.email, found.role)) return c.json({ detail: "only the author or an admin can delete it" }, 403);
-    deleteComment(db, comment.id);
-    return c.json(commentsView(db, found.issue.id, found.email, found.role));
+    await deleteComment(db, comment.id);
+    return c.json(await commentsView(db, found.issue.id, found.email, found.role));
   });
 
   return app;

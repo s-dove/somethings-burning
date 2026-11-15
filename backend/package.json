@@ -13,10 +13,12 @@
   "dependencies": {
     "@hono/node-server": "^2.1.8",
     "hono": "^4.13.18",
-    "openid-client": "^6.9.0"
+    "openid-client": "^6.9.0",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
+    "@types/pg": "^8.23.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"

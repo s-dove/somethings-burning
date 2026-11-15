@@ -39,23 +39,28 @@ export class FakeSenders extends Senders {
   }
 }
 
+/** A fresh, empty database: SQLite in memory. */
+export async function testDb(): Promise<Db> {
+  return openDb(":memory:");
+}
+
 /**
  * A fresh app. By default requests are signed in as a site admin; with
  * auth: true only the X-Test-User header signs anyone in.
  */
-export function setup(opts: { auth?: boolean; siteAdmins?: string; code?: CodeSources } = {}) {
-  const db = openDb(":memory:");
+export async function setup(opts: { auth?: boolean; siteAdmins?: string; code?: CodeSources } = {}) {
+  const db = await testDb();
   const senders = new FakeSenders();
   const config = readConfig({ BURNING_SITE_ADMINS: [ADMIN, opts.siteAdmins ?? ""].join(",") });
   const { app, outbox, queue, live } = createApp(db, { auth: testAuth(opts.auth ? null : ADMIN), config, senders, code: opts.code });
-  const project = createProject(db, "web");
+  const project = await createProject(db, "web");
   return { db, app, outbox, queue, live, senders, project };
 }
 
 export const as = (email: string, groups: string[] = []) => ({ "x-test-user": groups.length ? `${email}|${groups.join(",")}` : email });
 
-export function signIn(db: Db, email: string, claims: Record<string, unknown> = {}) {
-  recordLogin(db, { email, issuer: "https://issuer.example.com", claims: { sub: email, email, ...claims } });
+export async function signIn(db: Db, email: string, claims: Record<string, unknown> = {}) {
+  await recordLogin(db, { email, issuer: "https://issuer.example.com", claims: { sub: email, email, ...claims } });
 }
 
 export const json = (body: unknown, headers: Record<string, string> = {}) => ({

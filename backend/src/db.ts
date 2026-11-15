@@ -1,39 +1,179 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+import pg from "pg";
 
-export type Db = DatabaseSync;
+// Burning keeps its data in SQLite (one server) or Postgres (several servers
+// sharing it). Queries are plain SQL with ? placeholders, written once for
+// both; Db hides which one it is.
 
-// Times are Unix milliseconds.
-const schema = `
+export type Param = string | number | null | bigint;
+
+export interface Db {
+  readonly kind: "sqlite" | "postgres";
+  all<T = Record<string, unknown>>(sql: string, ...params: Param[]): Promise<T[]>;
+  get<T = Record<string, unknown>>(sql: string, ...params: Param[]): Promise<T | undefined>;
+  run(sql: string, ...params: Param[]): Promise<{ changes: number }>;
+  /** Runs fn in one transaction, or in the caller's when this is one. Use the handle fn is given. */
+  tx<T>(fn: (t: Db) => Promise<T>): Promise<T>;
+  close(): Promise<void>;
+}
+
+// Postgres gives 64-bit integers and numerics back as strings. Times are
+// Unix milliseconds and counts are small, so numbers are exact.
+pg.types.setTypeParser(20, (v) => Number(v));
+pg.types.setTypeParser(1700, (v) => Number(v));
+
+export const isPostgresURL = (target: string): boolean => /^postgres(ql)?:\/\//.test(target);
+
+// ---- SQLite ----
+
+/**
+ * One node:sqlite connection. Statements are synchronous, but a transaction
+ * spans awaits, so a lock keeps other queries out until it ends; inside it,
+ * the handle it was given runs straight through.
+ */
+class SqliteDb implements Db {
+  readonly kind = "sqlite" as const;
+  private lock: Promise<void> = Promise.resolve();
+
+  constructor(
+    private conn: DatabaseSync,
+    private inTx = false,
+  ) {}
+
+  private async serial<T>(fn: () => T | Promise<T>): Promise<T> {
+    if (this.inTx) return fn();
+    const prev = this.lock;
+    let release!: () => void;
+    this.lock = new Promise<void>((r) => (release = r));
+    await prev;
+    try {
+      return await fn();
+    } finally {
+      release();
+    }
+  }
+
+  // node:sqlite returns objects without a prototype; make them plain.
+  private plain = <T>(row: unknown): T => ({ ...(row as object) }) as T;
+
+  all<T>(sql: string, ...params: Param[]): Promise<T[]> {
+    return this.serial(() => this.conn.prepare(sql).all(...(params as SQLInputValue[])).map((r) => this.plain<T>(r)));
+  }
+  get<T>(sql: string, ...params: Param[]): Promise<T | undefined> {
+    return this.serial(() => {
+      const r = this.conn.prepare(sql).get(...(params as SQLInputValue[]));
+      return r === undefined ? undefined : this.plain<T>(r);
+    });
+  }
+  run(sql: string, ...params: Param[]): Promise<{ changes: number }> {
+    return this.serial(() => ({ changes: Number(this.conn.prepare(sql).run(...(params as SQLInputValue[])).changes) }));
+  }
+  exec(sql: string): void {
+    this.conn.exec(sql);
+  }
+  tx<T>(fn: (t: Db) => Promise<T>): Promise<T> {
+    if (this.inTx) return fn(this);
+    return this.serial(async () => {
+      this.conn.exec("BEGIN IMMEDIATE");
+      try {
+        const out = await fn(new SqliteDb(this.conn, true));
+        this.conn.exec("COMMIT");
+        return out;
+      } catch (e) {
+        this.conn.exec("ROLLBACK");
+        throw e;
+      }
+    });
+  }
+  async close(): Promise<void> {
+    await this.lock;
+    this.conn.close();
+  }
+}
+
+// ---- Postgres ----
+
+/** ? placeholders to $1, $2, ... The queries hold no ? inside string literals. */
+const numbered = (sql: string): string => {
+  let n = 0;
+  return sql.replace(/\?/g, () => `$${++n}`);
+};
+
+class PgDb implements Db {
+  readonly kind = "postgres" as const;
+
+  constructor(
+    private pool: pg.Pool,
+    private client: pg.PoolClient | null = null,
+  ) {}
+
+  private q(sql: string, params: Param[]) {
+    return (this.client ?? this.pool).query(numbered(sql), params as unknown[]);
+  }
+  async all<T>(sql: string, ...params: Param[]): Promise<T[]> {
+    return (await this.q(sql, params)).rows as T[];
+  }
+  async get<T>(sql: string, ...params: Param[]): Promise<T | undefined> {
+    return (await this.q(sql, params)).rows[0] as T | undefined;
+  }
+  async run(sql: string, ...params: Param[]): Promise<{ changes: number }> {
+    return { changes: (await this.q(sql, params)).rowCount ?? 0 };
+  }
+  async tx<T>(fn: (t: Db) => Promise<T>): Promise<T> {
+    if (this.client) return fn(this);
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const out = await fn(new PgDb(this.pool, client));
+      await client.query("COMMIT");
+      return out;
+    } catch (e) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+  async close(): Promise<void> {
+    await this.pool.end();
+  }
+}
+
+// ---- Schema ----
+
+// Times are Unix milliseconds. Written once for both databases: only the
+// id column differs, and BIGINT is INTEGER to SQLite.
+const schema = (ID: string) => `
 CREATE TABLE IF NOT EXISTS projects (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  id          ${ID},
   name        TEXT NOT NULL,
   public_key  TEXT NOT NULL UNIQUE,
-  created_at  INTEGER NOT NULL
+  created_at  BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS issues (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  fingerprint TEXT NOT NULL,
-  title       TEXT NOT NULL,
-  culprit     TEXT NOT NULL DEFAULT '',
-  level       TEXT NOT NULL DEFAULT 'error',
-  platform    TEXT NOT NULL DEFAULT '',
-  first_seen  INTEGER NOT NULL,
-  last_seen   INTEGER NOT NULL,
-  count       INTEGER NOT NULL DEFAULT 0,
+  id            ${ID},
+  project_id    BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  fingerprint   TEXT NOT NULL,
+  title         TEXT NOT NULL,
+  culprit       TEXT NOT NULL DEFAULT '',
+  level         TEXT NOT NULL DEFAULT 'error',
+  platform      TEXT NOT NULL DEFAULT '',
+  first_seen    BIGINT NOT NULL,
+  last_seen     BIGINT NOT NULL,
+  count         BIGINT NOT NULL DEFAULT 0,
   UNIQUE (project_id, fingerprint)
 );
 CREATE INDEX IF NOT EXISTS issues_project_last_seen ON issues (project_id, last_seen DESC);
 
 CREATE TABLE IF NOT EXISTS events (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  issue_id    INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  id          ${ID},
+  project_id  BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  issue_id    BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
   event_id    TEXT NOT NULL,
-  received_at INTEGER NOT NULL,
+  received_at BIGINT NOT NULL,
   release     TEXT NOT NULL DEFAULT '',
   environment TEXT NOT NULL DEFAULT '',
   payload     TEXT NOT NULL
@@ -44,38 +184,38 @@ CREATE INDEX IF NOT EXISTS events_project_received ON events (project_id, receiv
 -- Running counts, kept as events arrive, so heat and release numbers stay
 -- right when payloads are sampled or pruned.
 CREATE TABLE IF NOT EXISTS issue_hours (
-  issue_id    INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
-  hour        INTEGER NOT NULL, -- start of the hour, Unix ms
-  event_count INTEGER NOT NULL DEFAULT 0,
+  issue_id    BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  hour        BIGINT NOT NULL,
+  event_count BIGINT NOT NULL DEFAULT 0,
   PRIMARY KEY (issue_id, hour)
 );
 CREATE INDEX IF NOT EXISTS issue_hours_hour ON issue_hours (hour);
 
 CREATE TABLE IF NOT EXISTS issue_releases (
-  issue_id    INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  issue_id    BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
   release     TEXT NOT NULL DEFAULT '',
   environment TEXT NOT NULL DEFAULT '',
-  event_count INTEGER NOT NULL DEFAULT 0,
-  first_seen  INTEGER NOT NULL,
-  last_seen   INTEGER NOT NULL,
+  event_count BIGINT NOT NULL DEFAULT 0,
+  first_seen  BIGINT NOT NULL,
+  last_seen   BIGINT NOT NULL,
   PRIMARY KEY (issue_id, release, environment)
 );
 
 -- When each release was first seen in a project, so a "next release" mute
 -- can tell a new release from one that was already running.
 CREATE TABLE IF NOT EXISTS releases (
-  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   version    TEXT NOT NULL,
-  first_seen INTEGER NOT NULL,
+  first_seen BIGINT NOT NULL,
   PRIMARY KEY (project_id, version)
 );
 
--- An issue's history: created, resolved, muted, fired again, notified, ...
--- actor is the email of who did it; empty for what Burning did on its own.
+-- An issue's history. actor is the email of who did it; empty for what
+-- Burning did on its own.
 CREATE TABLE IF NOT EXISTS activity (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  issue_id    INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
-  at          INTEGER NOT NULL,
+  id          ${ID},
+  issue_id    BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  at          BIGINT NOT NULL,
   kind        TEXT NOT NULL,
   text        TEXT NOT NULL,
   release     TEXT NOT NULL DEFAULT '',
@@ -84,36 +224,35 @@ CREATE TABLE IF NOT EXISTS activity (
 );
 CREATE INDEX IF NOT EXISTS activity_issue ON activity (issue_id, at DESC);
 
--- Comments on issues: Markdown, by the commenter's email. Earlier texts of
--- an edited comment are kept in comment_edits.
+-- Comments on issues; earlier texts of an edited comment in comment_edits.
 CREATE TABLE IF NOT EXISTS comments (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  issue_id   INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  id         ${ID},
+  issue_id   BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
   author     TEXT NOT NULL DEFAULT '',
   body       TEXT NOT NULL,
-  created_at INTEGER NOT NULL,
-  edited_at  INTEGER NOT NULL DEFAULT 0
+  created_at BIGINT NOT NULL,
+  edited_at  BIGINT NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS comments_by_issue ON comments (issue_id, created_at);
 
 CREATE TABLE IF NOT EXISTS comment_edits (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  comment_id  INTEGER NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+  id          ${ID},
+  comment_id  BIGINT NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
   body        TEXT NOT NULL,
-  replaced_at INTEGER NOT NULL
+  replaced_at BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS comment_edits_by_comment ON comment_edits (comment_id, replaced_at);
 
 -- A project's code sources (see source/config.ts), in order.
 CREATE TABLE IF NOT EXISTS project_sources (
-  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  position   INTEGER NOT NULL,
+  project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  position   BIGINT NOT NULL,
   config     TEXT NOT NULL,
   PRIMARY KEY (project_id, position)
 );
 
--- People who have signed in, from their ID token claims. notify_routes is
--- their own notification routing (JSON); NULL means never saved.
+-- People who have signed in. notify_routes is their own routing (JSON);
+-- NULL means never saved.
 CREATE TABLE IF NOT EXISTS users (
   email         TEXT PRIMARY KEY,
   username      TEXT NOT NULL,
@@ -122,9 +261,9 @@ CREATE TABLE IF NOT EXISTS users (
   issuer        TEXT NOT NULL DEFAULT '',
   subject       TEXT NOT NULL DEFAULT '',
   claims        TEXT NOT NULL DEFAULT '{}',
-  token_expires INTEGER NOT NULL DEFAULT 0,
-  first_login   INTEGER NOT NULL,
-  last_login    INTEGER NOT NULL,
+  token_expires BIGINT NOT NULL DEFAULT 0,
+  first_login   BIGINT NOT NULL,
+  last_login    BIGINT NOT NULL,
   notify_routes TEXT
 );
 
@@ -133,115 +272,111 @@ CREATE TABLE IF NOT EXISTS sessions (
   email   TEXT NOT NULL,
   name    TEXT NOT NULL DEFAULT '',
   groups  TEXT NOT NULL DEFAULT '[]',
-  expires INTEGER NOT NULL
+  expires BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS project_access (
-  project_id   INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  project_id   BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   subject_kind TEXT NOT NULL,
   subject      TEXT NOT NULL,
   role         TEXT NOT NULL,
-  created_at   INTEGER NOT NULL,
+  created_at   BIGINT NOT NULL,
   PRIMARY KEY (project_id, subject_kind, subject)
 );
 
 CREATE TABLE IF NOT EXISTS project_routes (
-  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  position   INTEGER NOT NULL,
+  project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  position   BIGINT NOT NULL,
   name       TEXT NOT NULL DEFAULT '',
   matchers   TEXT NOT NULL,
   receivers  TEXT NOT NULL,
-  sink       INTEGER NOT NULL DEFAULT 0,
-  cont       INTEGER NOT NULL DEFAULT 0,
+  sink       BIGINT NOT NULL DEFAULT 0,
+  cont       BIGINT NOT NULL DEFAULT 0,
   PRIMARY KEY (project_id, position)
 );
 
 -- The outbox: one row per message to send, retried until it goes out.
 CREATE TABLE IF NOT EXISTS notifications (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  issue_id   INTEGER NOT NULL,
-  kind       TEXT NOT NULL,
-  target     TEXT NOT NULL,
-  subject    TEXT NOT NULL,
-  text       TEXT NOT NULL,
-  json       TEXT NOT NULL,
-  status     TEXT NOT NULL DEFAULT 'pending',
-  attempts   INTEGER NOT NULL DEFAULT 0,
-  next_at    INTEGER NOT NULL,
-  created_at INTEGER NOT NULL,
-  sent_at    INTEGER NOT NULL DEFAULT 0,
-  last_error TEXT NOT NULL DEFAULT ''
+  id           ${ID},
+  project_id   BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  issue_id     BIGINT NOT NULL,
+  kind         TEXT NOT NULL,
+  target       TEXT NOT NULL,
+  subject      TEXT NOT NULL,
+  text         TEXT NOT NULL,
+  json         TEXT NOT NULL,
+  status       TEXT NOT NULL DEFAULT 'pending',
+  attempts     BIGINT NOT NULL DEFAULT 0,
+  next_at      BIGINT NOT NULL,
+  created_at   BIGINT NOT NULL,
+  sent_at      BIGINT NOT NULL DEFAULT 0,
+  last_error   TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS notifications_due ON notifications (status, next_at);
+
+CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 `;
 
-/** Opens the database at \`path\` (":memory:" for tests) and creates the tables. */
-export function openDb(path: string): Db {
-  if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
-  const db = new DatabaseSync(path);
-  db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
-  db.exec(schema);
-  addColumns(db, "issues", ISSUE_TRIAGE_COLUMNS);
-  addColumns(db, "issues", ISSUE_STORAGE_COLUMNS);
-  backfillCounts(db);
-  return db;
-}
+// Columns added after their table first shipped, so an older database keeps working.
+const ADDED_COLUMNS: [string, string, string][] = [
+  // Triage: open, resolved, or muted; see triage.ts.
+  ["issues", "status", "TEXT NOT NULL DEFAULT 'open'"],
+  ["issues", "resolved_at", "BIGINT NOT NULL DEFAULT 0"],
+  ["issues", "mute_kind", "TEXT NOT NULL DEFAULT ''"],
+  ["issues", "mute_until", "BIGINT NOT NULL DEFAULT 0"],
+  ["issues", "muted_at", "BIGINT NOT NULL DEFAULT 0"],
+  ["issues", "notify_next", "BIGINT NOT NULL DEFAULT 0"], // the next event alerts, because a mute ended
+  ["issues", "reopen_reason", "TEXT NOT NULL DEFAULT ''"], // why it last fired again
+  // Payload sampling: how many an issue keeps, and when it last kept one.
+  ["issues", "stored_count", "BIGINT NOT NULL DEFAULT 0"],
+  ["issues", "last_stored", "BIGINT NOT NULL DEFAULT 0"],
+];
 
-// How many payloads an issue keeps, and when it last kept one (sampling).
-const ISSUE_STORAGE_COLUMNS: Record<string, string> = {
-  stored_count: "INTEGER NOT NULL DEFAULT 0",
-  last_stored: "INTEGER NOT NULL DEFAULT 0",
-};
+async function migrate(db: Db, exec: (sql: string) => Promise<void>): Promise<void> {
+  await exec(schema(db.kind === "postgres" ? "BIGSERIAL PRIMARY KEY" : "INTEGER PRIMARY KEY AUTOINCREMENT"));
+  for (const [table, column, type] of ADDED_COLUMNS) {
+    if (db.kind === "postgres") {
+      await exec(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${column} ${type}`);
+    } else {
+      const have = (await db.all<{ name: string }>(`PRAGMA table_info(${table})`)).map((c) => c.name);
+      if (!have.includes(column)) await exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+    }
+  }
+  await backfillCounts(db);
+}
 
 /**
  * A database from before the running counts gets them from its stored
- * events, once: then every event had its payload, so the events are the
- * counts.
+ * events, once: then every event had its payload, so the events are the counts.
  */
-function backfillCounts(db: Db): void {
-  const done = db.prepare("SELECT 1 FROM issue_hours LIMIT 1").get() || db.prepare("SELECT 1 FROM issue_releases LIMIT 1").get();
-  const any = db.prepare("SELECT 1 FROM events LIMIT 1").get();
-  if (done || !any) return;
-  tx(db, () => {
-    db.exec(`INSERT INTO issue_hours (issue_id, hour, event_count)
-             SELECT issue_id, (received_at / 3600000) * 3600000, COUNT(*) FROM events GROUP BY issue_id, received_at / 3600000`);
-    db.exec(`INSERT INTO issue_releases (issue_id, release, environment, event_count, first_seen, last_seen)
-             SELECT issue_id, release, environment, COUNT(*), MIN(received_at), MAX(received_at) FROM events GROUP BY issue_id, release, environment`);
-    db.exec(`UPDATE issues SET stored_count = (SELECT COUNT(*) FROM events e WHERE e.issue_id = issues.id),
-                               last_stored = COALESCE((SELECT MAX(received_at) FROM events e WHERE e.issue_id = issues.id), 0)`);
+async function backfillCounts(db: Db): Promise<void> {
+  const done = (await db.get("SELECT 1 AS d FROM issue_hours LIMIT 1")) || (await db.get("SELECT 1 AS d FROM issue_releases LIMIT 1"));
+  if (done || !(await db.get("SELECT 1 AS d FROM events LIMIT 1"))) return;
+  await db.tx(async (t) => {
+    await t.run(`INSERT INTO issue_hours (issue_id, hour, event_count)
+                 SELECT issue_id, (received_at / 3600000) * 3600000, COUNT(*) FROM events GROUP BY issue_id, received_at / 3600000`);
+    await t.run(`INSERT INTO issue_releases (issue_id, release, environment, event_count, first_seen, last_seen)
+                 SELECT issue_id, release, environment, COUNT(*), MIN(received_at), MAX(received_at) FROM events GROUP BY issue_id, release, environment`);
+    await t.run(`UPDATE issues SET stored_count = (SELECT COUNT(*) FROM events e WHERE e.issue_id = issues.id),
+                                   last_stored = COALESCE((SELECT MAX(received_at) FROM events e WHERE e.issue_id = issues.id), 0)`);
   });
 }
 
-// Triage state, added to issues after the table first shipped. An issue is
-// open, resolved, or muted; see triage.ts.
-const ISSUE_TRIAGE_COLUMNS: Record<string, string> = {
-  status: "TEXT NOT NULL DEFAULT 'open'",
-  resolved_at: "INTEGER NOT NULL DEFAULT 0",
-  mute_kind: "TEXT NOT NULL DEFAULT ''",
-  mute_until: "INTEGER NOT NULL DEFAULT 0",
-  muted_at: "INTEGER NOT NULL DEFAULT 0",
-  notify_next: "INTEGER NOT NULL DEFAULT 0", // the next event alerts, because a mute ended
-  reopen_reason: "TEXT NOT NULL DEFAULT ''", // why it last fired again
-};
-
-/** Adds the columns a table is missing, so an older database keeps working. */
-function addColumns(db: Db, table: string, columns: Record<string, string>): void {
-  const have = new Set((db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name));
-  for (const [name, type] of Object.entries(columns)) {
-    if (!have.has(name)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`);
+/**
+ * Opens Postgres for a postgres:// URL, else a SQLite file (or ":memory:"),
+ * and brings the schema up to date.
+ */
+export async function openDb(target: string): Promise<Db> {
+  if (isPostgresURL(target)) {
+    const pool = new pg.Pool({ connectionString: target, max: 10 });
+    const db = new PgDb(pool);
+    await db.tx((t) => migrate(t, async (sql) => void (await t.run(sql))));
+    return db;
   }
-}
-
-/** Runs fn in a transaction. node:sqlite is synchronous, so fn must be too. */
-export function tx<T>(db: Db, fn: () => T): T {
-  db.exec("BEGIN");
-  try {
-    const out = fn();
-    db.exec("COMMIT");
-    return out;
-  } catch (e) {
-    db.exec("ROLLBACK");
-    throw e;
-  }
+  if (target !== ":memory:") mkdirSync(dirname(target), { recursive: true });
+  const conn = new DatabaseSync(target);
+  conn.exec("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000; PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL;");
+  const db = new SqliteDb(conn);
+  await migrate(db, async (sql) => db.exec(sql));
+  return db;
 }

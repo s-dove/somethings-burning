@@ -3,13 +3,13 @@ import { setup } from "./helpers.js";
 
 describe("api", () => {
   it("reports health", async () => {
-    const { app } = setup();
+    const { app } = await setup();
     const res = await app.request("/api/health");
     expect(await res.json()).toEqual({ status: "ok" });
   });
 
   it("creates, lists, renames, and deletes projects", async () => {
-    const { app } = setup();
+    const { app } = await setup();
     const created = await app.request("/api/projects", {
       method: "POST",
       headers: { "content-type": "application/json", host: "burning.example.com" },
@@ -35,7 +35,7 @@ describe("api", () => {
   });
 
   it("rejects a project without a name", async () => {
-    const { app } = setup();
+    const { app } = await setup();
     const res = await app.request("/api/projects", {
       method: "POST",
       headers: { "content-type": "application/json" },

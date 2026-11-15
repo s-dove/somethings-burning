@@ -11,17 +11,25 @@ pnpm test
 pnpm typecheck
 ```
 
-The backend keeps its data in SQLite at `backend/data/burning.db`. It reads settings from the environment and from `backend/.env`; see `backend/.env.example`.
+The backend reads settings from the environment and from `backend/.env`; see `backend/.env.example`.
 
-### Sign-in in development
+## Running it
 
-For passwords, make an accounts file and point `BURNING_PASSWORD_FILE` at it:
+`pnpm build && pnpm start` serves the API and the built web app on one port (`BURNING_PORT`, 8195), with `GET /healthz` for health checks. Or as a container:
 
 ```sh
-echo "you@example.com:$(echo -n 'a password' | pnpm --silent --filter backend hash-password)" > backend/passwords.local.txt
+docker build -t burning .
+docker run -p 8195:8195 -v burning-data:/data --env-file backend/.env burning
 ```
 
-For single sign-on you need an OpenID Connect provider. Any will do; `dev/dex.yaml` runs [Dex](https://dexidp.io) in Docker as a throwaway local one with two users. The file says how to start it and what to put in `backend/.env`.
+The image keeps SQLite in `/data`, and has git for code sources on git servers.
+
+## Storage
+
+- **SQLite** (default): `BURNING_DB` is the file, `data/burning.db` by default.
+- **Postgres**: set `BURNING_DATABASE_URL=postgres://user:password@host:5432/db`. It wins over `BURNING_DB`.
+
+The schema is created and brought up to date at startup; an existing database is upgraded in place. Run one server per database for now.
 
 ## Reporting errors
 

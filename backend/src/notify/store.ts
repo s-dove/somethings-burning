@@ -1,31 +1,38 @@
 import { listGrants } from "../access.js";
-import { tx, type Db } from "../db.js";
+import type { Db } from "../db.js";
 import type { Receiver, Route } from "./routing.js";
 
 // ---- Project routing ----
 
-export function getRouting(db: Db, projectId: number): Route[] {
-  const rows = db
-    .prepare("SELECT name, matchers, receivers, sink, cont FROM project_routes WHERE project_id = ? ORDER BY position")
-    .all(projectId) as { name: string; matchers: string; receivers: string; sink: number; cont: number }[];
+export async function getRouting(db: Db, projectId: number): Promise<Route[]> {
+  const rows = await db.all<{ name: string; matchers: string; receivers: string; sink: number; cont: number }>(
+    "SELECT name, matchers, receivers, sink, cont FROM project_routes WHERE project_id = ? ORDER BY position",
+    projectId,
+  );
   return rows.map((r) => ({
     name: r.name,
     matchers: JSON.parse(r.matchers) as Route["matchers"],
     receivers: JSON.parse(r.receivers) as Receiver[],
-    sink: r.sink === 1,
-    continue: r.cont === 1,
+    sink: Number(r.sink) === 1,
+    continue: Number(r.cont) === 1,
   }));
 }
 
-export function saveRouting(db: Db, projectId: number, routes: Route[]): void {
-  tx(db, () => {
-    db.prepare("DELETE FROM project_routes WHERE project_id = ?").run(projectId);
-    const insert = db.prepare(
-      "INSERT INTO project_routes (project_id, position, name, matchers, receivers, sink, cont) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    );
-    routes.forEach((r, i) =>
-      insert.run(projectId, i, r.name, JSON.stringify(r.matchers), JSON.stringify(r.sink ? [] : r.receivers), r.sink ? 1 : 0, r.continue ? 1 : 0),
-    );
+export function saveRouting(db: Db, projectId: number, routes: Route[]): Promise<void> {
+  return db.tx(async (t) => {
+    await t.run("DELETE FROM project_routes WHERE project_id = ?", projectId);
+    for (const [i, r] of routes.entries()) {
+      await t.run(
+        "INSERT INTO project_routes (project_id, position, name, matchers, receivers, sink, cont) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        projectId,
+        i,
+        r.name,
+        JSON.stringify(r.matchers),
+        JSON.stringify(r.sink ? [] : r.receivers),
+        r.sink ? 1 : 0,
+        r.continue ? 1 : 0,
+      );
+    }
   });
 }
 
@@ -34,8 +41,8 @@ export function saveRouting(db: Db, projectId: number, routes: Route[]): void {
  * directly. Groups are left out, or one person in three groups would get
  * three copies; viewers are left out as onlookers.
  */
-export function defaultRecipients(db: Db, projectId: number): string[] {
-  return listGrants(db, projectId)
+export async function defaultRecipients(db: Db, projectId: number): Promise<string[]> {
+  return (await listGrants(db, projectId))
     .filter((g) => g.kind === "user" && (g.role === "member" || g.role === "admin"))
     .map((g) => g.subject.toLowerCase());
 }
@@ -57,18 +64,15 @@ export const initialRoutes = (email: string): Route[] => [
   },
 ];
 
-export function getPersonalRoutes(db: Db, email: string): { routes: Route[]; initial: boolean } {
-  const r = db.prepare("SELECT notify_routes FROM users WHERE email = ?").get(email.toLowerCase()) as
-    | { notify_routes: string | null }
-    | undefined;
+export async function getPersonalRoutes(db: Db, email: string): Promise<{ routes: Route[]; initial: boolean }> {
+  const r = await db.get<{ notify_routes: string | null }>("SELECT notify_routes FROM users WHERE email = ?", email.toLowerCase());
   if (!r || r.notify_routes === null) return { routes: initialRoutes(email), initial: true };
   return { routes: JSON.parse(r.notify_routes) as Route[], initial: false };
 }
 
 /** Needs a users row, so only people who have signed in have their own routing. */
-export function savePersonalRoutes(db: Db, email: string, routes: Route[]): boolean {
-  const r = db.prepare("UPDATE users SET notify_routes = ? WHERE email = ?").run(JSON.stringify(routes), email.toLowerCase());
-  return Number(r.changes) > 0;
+export async function savePersonalRoutes(db: Db, email: string, routes: Route[]): Promise<boolean> {
+  return (await db.run("UPDATE users SET notify_routes = ? WHERE email = ?", JSON.stringify(routes), email.toLowerCase())).changes > 0;
 }
 
 // ---- Outbox ----
@@ -88,38 +92,51 @@ export interface OutboxRow extends Delivery, Message {
   attempts: number;
 }
 
-export function enqueue(db: Db, projectId: number, issueId: number, list: Delivery[], m: Message, now = Date.now()): void {
-  const insert = db.prepare(
-    `INSERT INTO notifications (project_id, issue_id, kind, target, subject, text, json, next_at, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  );
-  for (const d of list) insert.run(projectId, issueId, d.kind, d.target, m.subject, m.text, m.json, now, now);
+export async function enqueue(db: Db, projectId: number, issueId: number, list: Delivery[], m: Message, now = Date.now()): Promise<void> {
+  for (const d of list) {
+    await db.run(
+      `INSERT INTO notifications (project_id, issue_id, kind, target, subject, text, json, next_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      projectId,
+      issueId,
+      d.kind,
+      d.target,
+      m.subject,
+      m.text,
+      m.json,
+      now,
+      now,
+    );
+  }
 }
 
 export const MAX_ATTEMPTS = 5;
 
-/** Messages that are due, marked as being sent. One server, so no locking. */
-export function claim(db: Db, now = Date.now(), limit = 20): OutboxRow[] {
-  return tx(db, () => {
-    const rows = db
-      .prepare(
-        `SELECT id, kind, target, subject, text, json, attempts FROM notifications
-          WHERE status = 'pending' AND next_at <= ? ORDER BY id LIMIT ?`,
-      )
-      .all(now, limit) as unknown as OutboxRow[];
-    const mark = db.prepare("UPDATE notifications SET status = 'sending' WHERE id = ?");
-    for (const r of rows) mark.run(r.id);
-    return rows;
+/**
+ * Messages that are due, marked as being sent. The update only takes rows
+ * still pending, so two sends that overlap never take the same message.
+ */
+export function claim(db: Db, now = Date.now(), limit = 20): Promise<OutboxRow[]> {
+  return db.tx(async (t) => {
+    const ids = await t.all<{ id: number }>("SELECT id FROM notifications WHERE status = 'pending' AND next_at <= ? ORDER BY id LIMIT ?", now, limit);
+    if (!ids.length) return [];
+    const list = ids.map((r) => r.id);
+    return t.all<OutboxRow>(
+      `UPDATE notifications SET status = 'sending' WHERE status = 'pending' AND id IN (${list.map(() => "?").join(",")})
+       RETURNING id, kind, target, subject, text, json, attempts`,
+      ...list,
+    );
   });
 }
 
 /** Records one attempt. A failure is retried later, a minute more each time, until MAX_ATTEMPTS. */
-export function settle(db: Db, id: number, attempts: number, error: string, now = Date.now()): void {
+export async function settle(db: Db, id: number, attempts: number, error: string, now = Date.now()): Promise<void> {
   if (!error) {
-    db.prepare("UPDATE notifications SET status = 'sent', attempts = ?, last_error = '', sent_at = ? WHERE id = ?").run(attempts, now, id);
+    await db.run("UPDATE notifications SET status = 'sent', attempts = ?, last_error = '', sent_at = ? WHERE id = ?", attempts, now, id);
     return;
   }
-  db.prepare("UPDATE notifications SET status = ?, attempts = ?, last_error = ?, next_at = ? WHERE id = ?").run(
+  await db.run(
+    "UPDATE notifications SET status = ?, attempts = ?, last_error = ?, next_at = ? WHERE id = ?",
     attempts >= MAX_ATTEMPTS ? "failed" : "pending",
     attempts,
     error.slice(0, 500),
@@ -129,6 +146,6 @@ export function settle(db: Db, id: number, attempts: number, error: string, now 
 }
 
 /** Rows left as 'sending' by a server that stopped go back to the queue. */
-export function requeueStuck(db: Db): void {
-  db.prepare("UPDATE notifications SET status = 'pending' WHERE status = 'sending'").run();
+export async function requeueStuck(db: Db): Promise<void> {
+  await db.run("UPDATE notifications SET status = 'pending' WHERE status = 'sending'");
 }

@@ -16,27 +16,27 @@ export function settingsRoutes(db: Db, access: Access, baseURL: string): Hono<Ap
   const app = new Hono<AppEnv>();
 
   // Adds the display name of each user grant (empty for groups).
-  const withNames = (grants: Grant[]) => {
-    const who = people(db, grants.filter((g) => g.kind === "user").map((g) => g.subject));
+  const withNames = async (grants: Grant[]) => {
+    const who = await people(db, grants.filter((g) => g.kind === "user").map((g) => g.subject));
     return grants.map((g) => ({ ...g, name: g.kind === "user" ? (who.get(g.subject)?.displayName ?? "") : "" }));
   };
 
-  const load = (c: Context<AppEnv>) => {
-    const project = getProject(db, Number(c.req.param("id")));
-    const role = project ? access.role(project.id, c.get("user")) : null;
+  const load = async (c: Context<AppEnv>) => {
+    const project = await getProject(db, Number(c.req.param("id")));
+    const role = project ? await access.role(project.id, c.get("user")) : null;
     return project && role ? { project, role } : null;
   };
 
-  const view = (c: Context<AppEnv>, project: Project, role: Role | null) =>
+  const view = async (c: Context<AppEnv>, project: Project, role: Role | null) =>
     c.json({
       project: { id: project.id, name: project.name, role, createdAt: project.createdAt },
       dsn: dsn(c, baseURL, project.id, project.publicKey),
-      grants: withNames(listGrants(db, project.id)),
+      grants: await withNames(await listGrants(db, project.id)),
       roles: ROLES,
     });
 
-  app.get("/projects/:id{[0-9]+}/settings", (c) => {
-    const found = load(c);
+  app.get("/projects/:id{[0-9]+}/settings", async (c) => {
+    const found = await load(c);
     if (!found) return c.json({ detail: "project not found" }, 404);
     return view(c, found.project, found.role);
   });
@@ -44,7 +44,7 @@ export function settingsRoutes(db: Db, access: Access, baseURL: string): Hono<Ap
   // PUT adds a grant or changes its role. DELETE removes it. Every change
   // must leave at least one user as admin.
   app.on(["PUT", "DELETE"], "/projects/:id{[0-9]+}/access", async (c) => {
-    const found = load(c);
+    const found = await load(c);
     if (!found) return c.json({ detail: "project not found" }, 404);
     if (!atLeast(found.role, "admin")) return c.json({ detail: "only admins change access" }, 403);
     const body = (await c.req.json().catch(() => ({}))) as { kind?: unknown; subject?: unknown; role?: unknown };
@@ -53,28 +53,28 @@ export function settingsRoutes(db: Db, access: Access, baseURL: string): Hono<Ap
     if (!subject) return c.json({ detail: body.kind === "user" ? "enter an email" : "enter a group name" }, 400);
     if (body.kind === "user" && !subject.includes("@")) return c.json({ detail: "enter the user's email" }, 400);
     const id = found.project.id;
-    const grants = listGrants(db, id);
+    const grants = await listGrants(db, id);
     const put = c.req.method === "PUT";
     if (put && !isRole(body.role)) return c.json({ detail: "choose a role" }, 400);
     if (!put && !grants.some((g) => g.kind === body.kind && g.subject === subject)) return c.json({ detail: "no such grant" }, 404);
     const problem = adminCheck(grants, body.kind, subject, put ? (body.role as Role) : null);
     if (problem) return c.json({ detail: problem }, 400);
-    if (put) setGrant(db, id, body.kind, subject, body.role as Role);
-    else removeGrant(db, id, body.kind, subject);
+    if (put) await setGrant(db, id, body.kind, subject, body.role as Role);
+    else await removeGrant(db, id, body.kind, subject);
     // The change went through even if it removed the caller's own access;
     // a null role tells the page they can no longer see the project.
-    return view(c, found.project, access.role(id, c.get("user")));
+    return view(c, found.project, await access.role(id, c.get("user")));
   });
 
   // Everyone who has signed in, plus anyone granted a role on the project by
   // email who has not. People with a role on the project come first.
-  app.get("/people", (c) => {
+  app.get("/people", async (c) => {
     const projectId = Number(c.req.query("project") ?? 0) || 0;
     const roles = new Map<string, string>();
-    if (projectId && access.role(projectId, c.get("user"))) {
-      for (const g of listGrants(db, projectId)) if (g.kind === "user") roles.set(g.subject, g.role);
+    if (projectId && (await access.role(projectId, c.get("user")))) {
+      for (const g of await listGrants(db, projectId)) if (g.kind === "user") roles.set(g.subject, g.role);
     }
-    const out = new Map(allPeople(db).map((p) => [p.email, { ...p, role: roles.get(p.email) ?? "" }]));
+    const out = new Map((await allPeople(db)).map((p) => [p.email, { ...p, role: roles.get(p.email) ?? "" }]));
     for (const [email, role] of roles) {
       if (!out.has(email)) out.set(email, { email, username: email.split("@")[0]!, displayName: email, role });
     }

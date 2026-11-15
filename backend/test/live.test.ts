@@ -4,7 +4,7 @@ import { createProject } from "../src/projects.js";
 import { as, pythonError, setup } from "./helpers.js";
 
 /** Opens the alert stream as `who` and collects what arrives until stopped. */
-async function listen(s: ReturnType<typeof setup>, who: string) {
+async function listen(s: Awaited<ReturnType<typeof setup>>, who: string) {
   const ctrl = new AbortController();
   const res = await s.app.request("/api/alerts", { headers: as(who), signal: ctrl.signal });
   const got: string[] = [];
@@ -37,10 +37,10 @@ async function listen(s: ReturnType<typeof setup>, who: string) {
 
 describe("live alerts", () => {
   it("streams the project id when one of its issues alerts, only to people who can see it", async () => {
-    const s = setup({ auth: true });
-    const other = createProject(s.db, "api");
-    setGrant(s.db, s.project.id, "user", "ana@example.com", "admin");
-    setGrant(s.db, other.id, "user", "bo@example.com", "admin");
+    const s = await setup({ auth: true });
+    const other = await createProject(s.db, "api");
+    await setGrant(s.db, s.project.id, "user", "ana@example.com", "admin");
+    await setGrant(s.db, other.id, "user", "bo@example.com", "admin");
 
     const ana = await listen(s, "ana@example.com");
     const bo = await listen(s, "bo@example.com");
@@ -65,7 +65,7 @@ describe("live alerts", () => {
   });
 
   it("needs a session", async () => {
-    const s = setup({ auth: true });
+    const s = await setup({ auth: true });
     expect((await s.app.request("/api/alerts")).status).toBe(401);
   });
 });

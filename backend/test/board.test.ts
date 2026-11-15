@@ -8,14 +8,14 @@ import { pythonError, setup } from "./helpers.js";
 const HOUR = 3_600_000;
 
 describe("board", () => {
-  it("counts events per hour and ranks busy issues first", () => {
-    const { db, project } = setup();
+  it("counts events per hour and ranks busy issues first", async () => {
+    const { db, project } = await setup();
     const now = Date.UTC(2026, 0, 1, 12, 30);
-    recordEvent(db, project.id, pythonError, now - 20 * HOUR);
-    recordEvent(db, project.id, pythonError, now - 20 * HOUR);
-    recordEvent(db, project.id, { message: "slow" }, now - 5 * 60_000);
+    await recordEvent(db, project.id, pythonError, now - 20 * HOUR);
+    await recordEvent(db, project.id, pythonError, now - 20 * HOUR);
+    await recordEvent(db, project.id, { message: "slow" }, now - 5 * 60_000);
 
-    const b = board(db, { sort: "hot", q: "" }, now);
+    const b = await board(db, { sort: "hot", q: "" }, now);
     expect(b.issues.map((i) => i.title)).toEqual(["slow", "ZeroDivisionError: division by zero"]);
     expect(b.issues[1]!.hours[3]).toBe(2);
     expect(b.issues[0]!.hours[23]).toBe(1);
@@ -23,16 +23,16 @@ describe("board", () => {
     expect(b.burning).toBe(1);
     expect(b.projects[0]).toMatchObject({ name: "web", openCount: 2, unresolvedDay: 3 });
 
-    expect(board(db, { sort: "count", q: "" }, now).issues[0]!.eventCount).toBe(2);
-    expect(board(db, { sort: "hot", q: "division" }, now).issues).toHaveLength(1);
+    expect((await board(db, { sort: "count", q: "" }, now)).issues[0]!.eventCount).toBe(2);
+    expect((await board(db, { sort: "hot", q: "division" }, now)).issues).toHaveLength(1);
   });
 
-  it("scopes to one project and reports its pulse", () => {
-    const { db, project } = setup();
-    const other = createProject(db, "api");
-    recordEvent(db, project.id, { ...pythonError, release: "web@1.2.0" });
-    recordEvent(db, other.id, { message: "elsewhere" });
-    const b = board(db, { projectId: project.id, sort: "latest", q: "" });
+  it("scopes to one project and reports its pulse", async () => {
+    const { db, project } = await setup();
+    const other = await createProject(db, "api");
+    await recordEvent(db, project.id, { ...pythonError, release: "web@1.2.0" });
+    await recordEvent(db, other.id, { message: "elsewhere" });
+    const b = await board(db, { projectId: project.id, sort: "latest", q: "" });
     expect(b.issues).toHaveLength(1);
     expect(b.project?.pulse.release).toBe("web@1.2.0");
     expect(b.openTotal).toBe(2);
@@ -40,9 +40,9 @@ describe("board", () => {
 });
 
 describe("eventView", () => {
-  it("numbers source lines and lists the raised exception first", () => {
-    const { db, project } = setup();
-    const { issueId } = recordEvent(db, project.id, {
+  it("numbers source lines and lists the raised exception first", async () => {
+    const { db, project } = await setup();
+    const { issueId } = await recordEvent(db, project.id, {
       exception: {
         values: [
           { type: "KeyError", value: "'id'" },
@@ -61,7 +61,7 @@ describe("eventView", () => {
       tags: { region: "eu" },
       breadcrumbs: { values: [{ timestamp: 1, category: "http", message: "GET /" }] },
     } as never);
-    const v = eventView(getEvent(db, issueId)!);
+    const v = eventView((await getEvent(db, issueId))!);
     expect(v.exceptions.map((e) => e.type)).toEqual(["LookupFailed", "KeyError"]);
     expect(v.exceptions[0]!.handled).toBe("unhandled");
     expect(v.exceptions[0]!.frames[0]!.lines).toEqual([

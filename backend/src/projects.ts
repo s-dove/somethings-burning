@@ -16,49 +16,44 @@ export type ProjectSummary = Project & {
 
 type ProjectRow = { id: number; name: string; public_key: string; created_at: number };
 
-const toProject = (r: ProjectRow): Project => ({
-  id: r.id,
-  name: r.name,
-  publicKey: r.public_key,
-  createdAt: r.created_at,
-});
+const toProject = (r: ProjectRow): Project => ({ id: r.id, name: r.name, publicKey: r.public_key, createdAt: r.created_at });
 
-export function listProjects(db: Db): ProjectSummary[] {
-  const rows = db
-    .prepare(
-      `SELECT p.*, COUNT(i.id) AS issue_count, COALESCE(SUM(i.count), 0) AS event_count,
-              MAX(i.last_seen) AS last_seen
-         FROM projects p LEFT JOIN issues i ON i.project_id = p.id
-        GROUP BY p.id ORDER BY p.name COLLATE NOCASE`,
-    )
-    .all() as (ProjectRow & { issue_count: number; event_count: number; last_seen: number | null })[];
-  return rows.map((r) => ({
-    ...toProject(r),
-    issueCount: r.issue_count,
-    eventCount: r.event_count,
-    lastSeen: r.last_seen,
-  }));
+export async function listProjects(db: Db): Promise<ProjectSummary[]> {
+  const rows = await db.all<ProjectRow & { issue_count: number; event_count: number; last_seen: number | null }>(
+    `SELECT p.id, p.name, p.public_key, p.created_at, COUNT(i.id) AS issue_count, COALESCE(SUM(i.count), 0) AS event_count,
+            MAX(i.last_seen) AS last_seen
+       FROM projects p LEFT JOIN issues i ON i.project_id = p.id
+      GROUP BY p.id, p.name, p.public_key, p.created_at ORDER BY lower(p.name)`,
+  );
+  return rows.map((r) => ({ ...toProject(r), issueCount: r.issue_count, eventCount: r.event_count, lastSeen: r.last_seen }));
 }
 
-export function getProject(db: Db, id: number): Project | undefined {
-  const row = db.prepare("SELECT * FROM projects WHERE id = ?").get(id) as ProjectRow | undefined;
+export async function getProject(db: Db, id: number): Promise<Project | undefined> {
+  if (!Number.isSafeInteger(id)) return undefined;
+  const row = await db.get<ProjectRow>("SELECT * FROM projects WHERE id = ?", id);
   return row && toProject(row);
 }
 
-export function createProject(db: Db, name: string): Project {
-  const row = db
-    .prepare("INSERT INTO projects (name, public_key, created_at) VALUES (?, ?, ?) RETURNING *")
-    .get(name, randomBytes(16).toString("hex"), Date.now()) as ProjectRow;
-  return toProject(row);
-}
-
-export function renameProject(db: Db, id: number, name: string): Project | undefined {
-  const row = db.prepare("UPDATE projects SET name = ? WHERE id = ? RETURNING *").get(name, id) as
-    | ProjectRow
-    | undefined;
+export async function projectByKey(db: Db, key: string): Promise<Project | undefined> {
+  const row = await db.get<ProjectRow>("SELECT * FROM projects WHERE public_key = ?", key);
   return row && toProject(row);
 }
 
-export function deleteProject(db: Db, id: number): boolean {
-  return Number(db.prepare("DELETE FROM projects WHERE id = ?").run(id).changes) > 0;
+export async function createProject(db: Db, name: string): Promise<Project> {
+  const row = await db.get<ProjectRow>(
+    "INSERT INTO projects (name, public_key, created_at) VALUES (?, ?, ?) RETURNING *",
+    name,
+    randomBytes(16).toString("hex"),
+    Date.now(),
+  );
+  return toProject(row!);
+}
+
+export async function renameProject(db: Db, id: number, name: string): Promise<Project | undefined> {
+  const row = await db.get<ProjectRow>("UPDATE projects SET name = ? WHERE id = ? RETURNING *", name, id);
+  return row && toProject(row);
+}
+
+export async function deleteProject(db: Db, id: number): Promise<boolean> {
+  return (await db.run("DELETE FROM projects WHERE id = ?", id)).changes > 0;
 }
