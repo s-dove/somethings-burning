@@ -35,7 +35,7 @@ export function RoutingPage() {
       error={settings.error || error}
       back={backToSettings(settings.data)}
       title={(name) => `${name} notifications`}
-      hint="Who hears about new issues."
+      hint="Who hears about new issues, issues firing again, and issues firing after a mute."
       action={
         admin ? (
           <Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setEditing({ index: -1, route: newRoute() })}>

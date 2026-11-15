@@ -48,12 +48,13 @@ function keyFrom(c: Context, envelopeDsn?: unknown): string | undefined {
 export function ingestRoutes(db: Db, opts: { alerter?: Alerter; baseURL?: string } = {}): Hono {
   const r = new Hono();
 
-  // record stores one event and alerts when it starts a new issue.
+  // record stores one event and alerts when it should: a new issue, one
+  // firing again, or one firing after a mute.
   const record = (c: Context, project: Project, event: SentryEvent) => {
     const res = recordEvent(db, project.id, event);
-    if (res.isNew && opts.alerter) {
+    if (res.alert && opts.alerter) {
       try {
-        opts.alerter.newIssue(project, { id: res.issueId, title: res.title }, event, publicBase(c, opts.baseURL));
+        opts.alerter.notify(project, res, event, publicBase(c, opts.baseURL));
       } catch (err) {
         console.error("alert failed:", err);
       }

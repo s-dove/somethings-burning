@@ -7,6 +7,7 @@ export {
   LuBell as Bell,
   LuBraces as Braces,
   LuCheck as Check,
+  LuChevronDown as ChevronDown,
   LuChevronRight as ChevronRight,
   LuChevronsUpDown as ChevronsUpDown,
   LuCode as Code,
@@ -30,6 +31,7 @@ export {
   LuPalette as Palette,
   LuPlus as Plus,
   LuQuote as Quote,
+  LuRotateCcw as RotateCcw,
   LuSearch as Search,
   LuSendHorizontal as SendHorizontal,
   LuSettings2 as Settings2,
@@ -39,5 +41,7 @@ export {
   LuTriangleAlert as TriangleAlert,
   LuUserRound as UserRound,
   LuUsers as Users,
+  LuVolume2 as Volume2,
+  LuVolumeX as VolumeX,
   LuX as X,
 } from "react-icons/lu";

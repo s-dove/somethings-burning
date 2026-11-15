@@ -1,20 +1,36 @@
 import useSWR from "swr";
 
+export interface Mute {
+  kind: string; // "for" (until), "release" (next release), "forever"
+  until: number;
+  mutedAt: number;
+}
+
 export interface Issue {
   id: number;
   projectId: number;
   projectName?: string;
+  role?: Role;
   title: string;
   culprit: string;
   level: string;
   platform: string;
+  status: "open" | "resolved" | "muted";
+  resolvedAt: number;
+  mute: Mute;
+  reopenReason: string;
   firstSeen: number;
   lastSeen: number;
   eventCount: number;
   hours: number[];
 }
 
+export type MuteOptions = { value: string; label: string }[];
+
 export type Role = "viewer" | "member" | "admin";
+
+// canTriage is true for members and admins. Viewers only read.
+export const canTriage = (role?: Role | null): boolean => role === "member" || role === "admin";
 
 export interface ProjectRef {
   id: number;
@@ -45,11 +61,12 @@ export interface Board {
   project: (ProjectRef & { pulse: ProjectPulse }) | null;
   projects: ProjectSummary[];
   issues: Issue[];
-  filter: { sort: string; query: string };
-  counts: { open: number };
+  filter: { status: string; sort: string; query: string };
+  counts: Record<string, number>; // open, resolved, muted, all
   burning: number;
   events: { day: number; hour: number };
   openTotal: number;
+  muteOptions: MuteOptions;
 }
 
 export interface FrameView {
@@ -84,6 +101,9 @@ export type EventPage = { events: EventRow[]; more: boolean };
 export interface IssueDetail {
   project: ProjectRef;
   issue: Issue;
+  activity: { at: number; kind: string; text: string; release: string; environment: string; actor: string; actorName: string }[];
+  muteOptions: MuteOptions;
+  latestRelease: string;
   releases: { release: string; environment: string; eventCount: number; lastSeen: number }[];
   events: EventRow[];
   moreEvents: boolean;

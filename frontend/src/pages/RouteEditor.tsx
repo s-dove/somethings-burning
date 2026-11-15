@@ -9,7 +9,7 @@ import { input } from "../shared/ui";
 
 const FIELD_HINT: Record<string, string> = {
   project: "the project's name",
-  trigger: "what fired the alert: new (a new issue)",
+  trigger: "new, fired_again, or unmuted",
   env: "the event's environment",
   release: "the full release, e.g. api@2.1.0",
   level: "error, warning, fatal, …",
@@ -20,7 +20,7 @@ const FIELD_HINT: Record<string, string> = {
   tag: "an SDK tag, by name",
 };
 const PLACEHOLDER: Record<string, string> = {
-  project: "payments-api", trigger: "new", env: "production", release: "api@2\\..*", level: "error|fatal", type: "KeyError",
+  project: "payments-api", trigger: "new|fired_again", env: "production", release: "api@2\\..*", level: "error|fatal", type: "KeyError",
   message: ".*timeout.*", culprit: "POST /v2/.*", path: "payments/gateway/.*", tag: "us-east-.*",
 };
 export const OP_LABEL: Record<MatchOp, string> = {

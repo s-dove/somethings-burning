@@ -3,6 +3,7 @@ import { createApp } from "./app.js";
 import { Auth, OidcLogin, Sessions, sessionSecret } from "./auth.js";
 import { openDb } from "./db.js";
 import { loadEnvFile, readConfig } from "./env.js";
+import { expireMutes } from "./issues.js";
 import { requeueStuck } from "./notify/store.js";
 import { PasswordLogin } from "./passwords.js";
 
@@ -28,6 +29,15 @@ const { app, outbox } = createApp(db, { auth, config });
 requeueStuck(db);
 outbox.kick();
 setInterval(() => outbox.kick(), 30_000).unref();
+// Timed mutes end on the minute; the issue's next event alerts.
+setInterval(() => {
+  try {
+    const n = expireMutes(db);
+    if (n) console.log(`mutes ended: ${n}`);
+  } catch (err) {
+    console.error("expiring mutes:", err);
+  }
+}, 60_000).unref();
 
 serve({ fetch: app.fetch, port: config.port }, (info) => {
   console.log(`backend listening on http://localhost:${info.port}`);

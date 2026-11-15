@@ -12,6 +12,19 @@ import { EventList } from "./EventList";
 import { EventPanels, RawJson } from "./EventPanels";
 import { IssueHeader, IssueSummary } from "./IssueHeader";
 
+const historyDot: Record<string, string> = {
+  created: "before:bg-heat-3",
+  reopened: "before:bg-heat-5",
+  resolved: "before:bg-doused",
+  fired: "before:bg-heat-4",
+  unmuted: "before:bg-heat-4",
+  muted: "before:bg-rule",
+  notified: "before:bg-cinder",
+};
+
+// History lines Burning writes on its own, with no one behind them.
+const SYSTEM_KINDS = new Set(["created", "fired", "unmuted", "notified"]);
+
 // IssuePage is one issue: its summary and heat, one stored event in full
 // (the latest, or ?event=<id>), and on the side its releases and events.
 export function IssuePage() {
@@ -19,7 +32,7 @@ export function IssuePage() {
   const [params] = useSearchParams();
   const eventId = params.get("event");
   const path = `/projects/${id}/issues/${issueId}${eventId ? `?event=${eventId}` : ""}`;
-  const { data, error } = useApi<IssueDetail>(path, 30_000);
+  const { data, error, reload } = useApi<IssueDetail>(path, 30_000);
 
   if (!data) {
     return (
@@ -39,7 +52,7 @@ export function IssuePage() {
 
   return (
     <Layout project={project} nav="issues">
-      <IssueHeader detail={data} />
+      <IssueHeader detail={data} onChange={reload} />
       {error && (
         <p role="alert" className="-mt-3 mb-6 text-ember-ink">
           {error}
@@ -75,6 +88,44 @@ export function IssuePage() {
               <ReleaseTable releases={data.releases} />
             </section>
           )}
+
+          <section className={section}>
+            <h2 className={sectionTitle}>
+              History <span className="text-xs font-normal text-cinder">changes to this issue, newest first</span>
+            </h2>
+            <ol className="m-0 list-none p-0">
+              {data.activity.map((a, i) => (
+                <li
+                  key={i}
+                  className={`relative pb-3.5 pl-3.5 before:absolute before:top-[7px] before:left-0 before:size-[7px] before:rounded-full before:content-[''] after:absolute after:top-[18px] after:bottom-0.5 after:left-[3px] after:w-px after:bg-rule after:content-[''] last:after:hidden ${historyDot[a.kind] ?? "before:bg-rule"}`}
+                >
+                  {a.text}
+                  {(a.release || a.environment) && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {a.release && <Tag name="release" value={a.release} mono />}
+                      {a.environment && <Tag name="env" value={a.environment} />}
+                    </div>
+                  )}
+                  <div className="mt-0.5 text-xs text-cinder">
+                    <TimeTip at={a.at}>
+                      <span>{ago(a.at)}</span>
+                    </TimeTip>
+                    {a.actor ? (
+                      <>
+                        {" "}
+                        · by{" "}
+                        <Tip content={a.actor}>
+                          <span className="text-soot">{a.actorName || a.actor}</span>
+                        </Tip>
+                      </>
+                    ) : (
+                      SYSTEM_KINDS.has(a.kind) && <> · automatic</>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
 
           {data.event && <RawJson event={data.event} />}
           <EventList key={issue.id} detail={data} />

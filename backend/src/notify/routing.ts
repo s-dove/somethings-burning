@@ -32,8 +32,9 @@ export type Op = (typeof OPS)[number];
 export const FIELDS = ["trigger", "env", "release", "level", "type", "message", "culprit", "path"] as const;
 export const PERSONAL_FIELDS = ["project", ...FIELDS] as const;
 
-// What fires an alert. Only new issues for now.
-export type Trigger = "new";
+// What fires an alert: a new issue, a resolved issue firing again, or one
+// firing after a mute.
+export type Trigger = "new" | "fired_again" | "unmuted";
 
 export interface Matcher {
   field: string;
