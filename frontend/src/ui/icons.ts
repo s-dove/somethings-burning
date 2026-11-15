@@ -29,6 +29,7 @@ export {
   LuMonitorSmartphone as MonitorSmartphone,
   LuPackage as Package,
   LuPalette as Palette,
+  LuPencil as Pencil,
   LuPlus as Plus,
   LuQuote as Quote,
   LuRotateCcw as RotateCcw,

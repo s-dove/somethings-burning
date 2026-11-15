@@ -98,10 +98,23 @@ export interface EventView {
 export type EventRow = { id: number; eventId: string; receivedAt: number; release: string; environment: string };
 export type EventPage = { events: EventRow[]; more: boolean };
 
+export interface IssueComment {
+  id: number;
+  author: string;
+  body: string;
+  createdAt: number;
+  editedAt: number; // 0 when never edited
+  authorName: string; // display name
+  authorUsername: string; // for @mentions
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
 export interface IssueDetail {
   project: ProjectRef;
   issue: Issue;
   activity: { at: number; kind: string; text: string; release: string; environment: string; actor: string; actorName: string }[];
+  comments: IssueComment[];
   muteOptions: MuteOptions;
   latestRelease: string;
   releases: { release: string; environment: string; eventCount: number; lastSeen: number }[];
