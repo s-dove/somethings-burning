@@ -81,6 +81,8 @@ Events with the same fingerprint are one issue:
 - An exception with no frames groups by its message, and an event with no exception by its message template (`logentry.message`) or message. Numbers, UUIDs, hex values, long ids, and quoted strings are masked first, so `user 12 not found` and `user 13 not found` are one issue.
 - A `fingerprint` from the SDK wins. `{{ default }}` inside it stands for the default parts, so `["{{ default }}", "eu"]` splits the usual group by region.
 
+An issue's culprit is the event's transaction (a route or task name, like `POST /invoices/{id}/charge`) when the SDK sends one, else the innermost frame of your code.
+
 DSNs and alert links use `BURNING_BASE_URL`, or the host the request came in on.
 
 ## Sign-in
@@ -130,7 +132,7 @@ Each project grants roles to users (by email) and to groups (by name, from the g
 - member: also resolves, mutes, and reopens issues, and gets alerts by the default route
 - admin: also changes access, notifications, and the project
 
-Whoever creates a project is its admin, and a project always keeps at least one user as admin. People in `BURNING_SITE_ADMINS` (emails or groups) are admin on every project.
+Project names are unique, ignoring case. Whoever creates a project is its admin, and a project always keeps at least one user as admin. People in `BURNING_SITE_ADMINS` (emails or groups) are admin on every project.
 
 ## Triage
 
@@ -202,7 +204,7 @@ The API needs a session, except `/api/session`, `/api/health`, and the ingest pa
 - `GET /api/alerts`: server-sent events, `{ "projectId": <id> }` when one of its issues alerts (projects you can see)
 - `GET /api/board?project=<id>&status=open|resolved|muted|all&sort=hot|latest|count&q=<text>`
 - `GET /api/projects`: the projects you can see
-- `POST /api/projects` with `{ "name": "<name>" }`: creates a project, with you as admin
+- `POST /api/projects` with `{ "name": "<name>" }`: creates a project, with you as admin (409 when the name is taken)
 - `GET /api/projects/<id>`, `PATCH` with `{ "name": "<name>" }` (admin), `DELETE` (admin)
 - `GET /api/projects/<id>/issues`
 - `GET /api/projects/<id>/issues/<issue>?event=<id>`: the issue, its releases, history, comments, latest events, and one event in full

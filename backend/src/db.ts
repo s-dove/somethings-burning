@@ -353,6 +353,11 @@ async function migrate(db: Db, exec: (sql: string) => Promise<void>): Promise<vo
       if (!have.includes(column)) await exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
     }
   }
+  // Project names are unique, ignoring case. An older database with two of a
+  // name keeps them, and the API refuses new duplicates.
+  const dup = await db.get("SELECT 1 AS d FROM projects GROUP BY lower(name) HAVING COUNT(*) > 1 LIMIT 1");
+  if (dup) console.warn("two projects share a name; rename one to get the unique name index");
+  else await exec("CREATE UNIQUE INDEX IF NOT EXISTS projects_name ON projects (lower(name))");
   await backfillCounts(db);
 }
 
