@@ -38,6 +38,14 @@ SDKs post to the same paths Sentry uses:
 
 The key is read from the `X-Sentry-Auth` header, the `sentry_key` query parameter, or the envelope's DSN. Bodies may be gzip, deflate, or brotli encoded. Only error events are stored; other envelope items are accepted and dropped.
 
+### Grouping
+
+Events with the same fingerprint are one issue:
+
+- An exception groups by its type and the five frames of your code closest to where it was raised (module, or the file and its folder, and the function), for every exception in the chain. Library frames are skipped unless the SDK marked none as yours. Line numbers and the message do not matter, so one bug stays one issue as the code moves.
+- An exception with no frames groups by its message, and an event with no exception by its message template (`logentry.message`) or message. Numbers, UUIDs, hex values, long ids, and quoted strings are masked first, so `user 12 not found` and `user 13 not found` are one issue.
+- A `fingerprint` from the SDK wins. `{{ default }}` inside it stands for the default parts, so `["{{ default }}", "eu"]` splits the usual group by region.
+
 DSNs and alert links use `BURNING_BASE_URL`, or the host the request came in on.
 
 ## Sign-in
