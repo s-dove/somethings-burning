@@ -2,6 +2,8 @@ import { Hono, type Context } from "hono";
 import type { SmtpSettings } from "../src/mail.js";
 import { createApp } from "../src/app.js";
 import type { Authenticator, User } from "../src/auth.js";
+import { randomBytes } from "node:crypto";
+import pg from "pg";
 import { openDb, type Db } from "../src/db.js";
 import { readConfig } from "../src/env.js";
 import { Senders } from "../src/notify/deliver.js";
@@ -39,10 +41,29 @@ export class FakeSenders extends Senders {
   }
 }
 
-/** A fresh, empty database: SQLite in memory. */
+/**
+ * A fresh, empty database: SQLite in memory, or a schema of its own on the
+ * Postgres server BURNING_TEST_PG names, so the same tests run on both.
+ */
 export async function testDb(): Promise<Db> {
-  return openDb(":memory:");
+  return process.env.BURNING_TEST_PG ? openDb(await testPgUrl()) : openDb(":memory:");
 }
+
+/** A URL for a new, empty schema on the test Postgres; open it twice to play two servers. */
+export async function testPgUrl(): Promise<string> {
+  const url = process.env.BURNING_TEST_PG!;
+  const schema = `t_${randomBytes(6).toString("hex")}`;
+  const admin = new pg.Client({ connectionString: url });
+  await admin.connect();
+  await admin.query(`CREATE SCHEMA ${schema}`);
+  await admin.end();
+  const u = new URL(url);
+  u.searchParams.set("options", `-c search_path=${schema}`);
+  return u.toString();
+}
+
+/** The target a test should open for a database it reopens: a file, or the test Postgres. */
+export const usingPostgres = (): boolean => !!process.env.BURNING_TEST_PG;
 
 /**
  * A fresh app. By default requests are signed in as a site admin; with

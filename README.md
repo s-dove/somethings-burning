@@ -13,6 +13,13 @@ pnpm typecheck
 
 The backend reads settings from the environment and from `backend/.env`; see `backend/.env.example`.
 
+Tests run on SQLite. To run them on Postgres too (including the several-servers tests), point `BURNING_TEST_PG` at a server the tests may create schemas on:
+
+```sh
+docker run -d --name burning-test-pg -e POSTGRES_USER=burning -e POSTGRES_PASSWORD=burning -p 127.0.0.1:55433:5432 postgres:16-alpine
+BURNING_TEST_PG=postgres://burning:burning@127.0.0.1:55433/burning pnpm test
+```
+
 ## Running it
 
 `pnpm build && pnpm start` serves the API and the built web app on one port (`BURNING_PORT`, 8195), with `GET /healthz` for health checks. Or as a container:
