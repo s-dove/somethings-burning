@@ -1,5 +1,5 @@
-import { addActivity } from "./activity.js";
-import { tx, type Db } from "./db.js";
+import { addActivity, type ActivityExtra } from "./activity.js";
+import type { Db } from "./db.js";
 import { summarize, type SentryEvent } from "./event.js";
 import { muteBroken, MuteFor, MuteNextRelease, type Mute, type MuteOption } from "./triage.js";
 
@@ -45,7 +45,7 @@ export type StoredEvent = {
 
 export type EventRow = Omit<StoredEvent, "payload">;
 
-type IssueRow = {
+export type IssueRow = {
   id: number;
   project_id: number;
   title: string;
@@ -97,81 +97,108 @@ export interface Recorded {
  * sight. A resolved issue fires again, a "next release" mute ends on an event
  * from a new release, and the first event after a mute ended alerts.
  */
-export function recordEvent(db: Db, projectId: number, event: SentryEvent, now = Date.now()): Recorded {
+export function recordEvent(db: Db, projectId: number, event: SentryEvent, now = Date.now()): Promise<Recorded> {
   const s = summarize(event);
   const release = str(event.release);
   const environment = str(event.environment);
   const where = { release, environment };
-  return tx(db, () => {
-    if (release) db.prepare("INSERT OR IGNORE INTO releases (project_id, version, first_seen) VALUES (?, ?, ?)").run(projectId, release, now);
+  return db.tx(async (t) => {
+    if (release) await t.run("INSERT INTO releases (project_id, version, first_seen) VALUES (?, ?, ?) ON CONFLICT DO NOTHING", projectId, release, now);
     const res: Recorded = { eventId: s.eventId, issueId: 0, title: s.title, alert: null, reason: "" };
-    let stored = { count: 0, last: 0 };
-    const found = db.prepare("SELECT * FROM issues WHERE project_id = ? AND fingerprint = ?").get(projectId, s.fingerprint) as IssueRow | undefined;
-    if (!found) {
-      const row = db
-        .prepare(
+    const found = await t.get<IssueRow>("SELECT * FROM issues WHERE project_id = ? AND fingerprint = ?", projectId, s.fingerprint);
+    const created = found
+      ? undefined
+      : await t.get<{ id: number; title: string }>(
           `INSERT INTO issues (project_id, fingerprint, title, culprit, level, platform, first_seen, last_seen, count)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1) RETURNING id, title`,
-        )
-        .get(projectId, s.fingerprint, s.title, s.culprit, s.level, s.platform, now, now) as { id: number; title: string };
-      res.issueId = row.id;
+          projectId,
+          s.fingerprint,
+          s.title,
+          s.culprit,
+          s.level,
+          s.platform,
+          now,
+          now,
+        );
+    let stored = { count: 0, last: 0 };
+    if (created) {
+      res.issueId = created.id;
       res.alert = "new";
-      addActivity(db, row.id, now, "created", "First seen", where);
-    } else {
+      await addActivity(t, created.id, now, "created", "First seen", where);
+    } else if (found) {
       res.issueId = found.id;
       res.title = found.title;
-      stored = { count: found.stored_count, last: found.last_stored };
-      triageEvent(db, projectId, toIssue(found), found.notify_next === 1, release, environment, now, res);
-      db.prepare("UPDATE issues SET level = ?, last_seen = MAX(last_seen, ?), count = count + 1 WHERE id = ?").run(s.level, now, found.id);
+      stored = { count: Number(found.stored_count), last: Number(found.last_stored) };
+      await triageEvent(t, projectId, toIssue(found), Number(found.notify_next) === 1, release, environment, now, res);
+      await t.run(
+        "UPDATE issues SET level = ?, last_seen = CASE WHEN last_seen > ? THEN last_seen ELSE ? END, count = count + 1 WHERE id = ?",
+        s.level,
+        now,
+        now,
+        found.id,
+      );
     }
-    const rel = release.slice(0, 200);
-    const env = environment.slice(0, 200);
-    db.prepare(
+    await t.run(
       `INSERT INTO issue_hours (issue_id, hour, event_count) VALUES (?, ?, 1)
-       ON CONFLICT (issue_id, hour) DO UPDATE SET event_count = event_count + 1`,
-    ).run(res.issueId, Math.floor(now / HOUR) * HOUR);
-    db.prepare(
+       ON CONFLICT (issue_id, hour) DO UPDATE SET event_count = issue_hours.event_count + 1`,
+      res.issueId,
+      Math.floor(now / HOUR) * HOUR,
+    );
+    await t.run(
       `INSERT INTO issue_releases (issue_id, release, environment, event_count, first_seen, last_seen) VALUES (?, ?, ?, 1, ?, ?)
-       ON CONFLICT (issue_id, release, environment) DO UPDATE SET event_count = event_count + 1, last_seen = MAX(last_seen, excluded.last_seen)`,
-    ).run(res.issueId, rel, env, now, now);
+       ON CONFLICT (issue_id, release, environment) DO UPDATE SET event_count = issue_releases.event_count + 1,
+         last_seen = CASE WHEN issue_releases.last_seen > excluded.last_seen THEN issue_releases.last_seen ELSE excluded.last_seen END`,
+      res.issueId,
+      release,
+      environment,
+      now,
+      now,
+    );
     if (res.alert || stored.count < STORE.firstN || now - stored.last >= STORE.everyMs) {
-      db.prepare(
-        `INSERT INTO events (project_id, issue_id, event_id, received_at, release, environment, payload)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      ).run(projectId, res.issueId, s.eventId, now, rel, env, JSON.stringify({ ...event, event_id: s.eventId }));
+      await t.run(
+        "INSERT INTO events (project_id, issue_id, event_id, received_at, release, environment, payload) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        projectId,
+        res.issueId,
+        s.eventId,
+        now,
+        release,
+        environment,
+        JSON.stringify({ ...event, event_id: s.eventId }),
+      );
       // Past the cap, drop the oldest payloads. The counts keep the full number.
-      db.prepare(
-        `DELETE FROM events WHERE issue_id = ? AND id NOT IN (SELECT id FROM events WHERE issue_id = ? ORDER BY received_at DESC, id DESC LIMIT ?)`,
-      ).run(res.issueId, res.issueId, STORE.max);
-      db.prepare("UPDATE issues SET stored_count = (SELECT COUNT(*) FROM events WHERE issue_id = ?), last_stored = ? WHERE id = ?").run(res.issueId, now, res.issueId);
+      await t.run(
+        "DELETE FROM events WHERE issue_id = ? AND id NOT IN (SELECT id FROM events WHERE issue_id = ? ORDER BY received_at DESC, id DESC LIMIT ?)",
+        res.issueId,
+        res.issueId,
+        STORE.max,
+      );
+      await t.run("UPDATE issues SET stored_count = (SELECT COUNT(*) FROM events WHERE issue_id = ?), last_stored = ? WHERE id = ?", res.issueId, now, res.issueId);
     }
     return res;
   });
 }
 
-function triageEvent(db: Db, projectId: number, issue: Issue, notifyNext: boolean, release: string, environment: string, now: number, res: Recorded): void {
+async function triageEvent(db: Db, projectId: number, issue: Issue, notifyNext: boolean, release: string, environment: string, now: number, res: Recorded): Promise<void> {
   if (issue.status === "resolved") {
     res.alert = "fired_again";
     res.reason = `A new event arrived${releaseSuffix(release, environment)} after it was resolved`;
-    reopen(db, issue.id, now, "fired", "Fired again: a new event arrived after it was resolved", res.reason, { release, environment });
+    await reopen(db, issue.id, now, "fired", "Fired again: a new event arrived after it was resolved", res.reason, { release, environment });
     return;
   }
   if (issue.status === "muted") {
-    const seen = db.prepare("SELECT first_seen FROM releases WHERE project_id = ? AND version = ?").get(projectId, release) as
-      | { first_seen: number }
-      | undefined;
+    const seen = await db.get<{ first_seen: number }>("SELECT first_seen FROM releases WHERE project_id = ? AND version = ?", projectId, release);
     const reason = muteBroken(issue.mute, release, seen?.first_seen ?? 0);
     if (reason) {
       res.alert = "unmuted";
       res.reason = reason;
-      reopen(db, issue.id, now, "unmuted", `Unmuted: ${reason}`, reason);
+      await reopen(db, issue.id, now, "unmuted", `Unmuted: ${reason}`, reason);
     }
     return;
   }
   if (notifyNext) {
     res.alert = "unmuted";
     res.reason = "The first event since the mute ended";
-    db.prepare("UPDATE issues SET notify_next = 0, reopen_reason = ? WHERE id = ?").run(res.reason, issue.id);
+    await db.run("UPDATE issues SET notify_next = 0, reopen_reason = ? WHERE id = ?", res.reason, issue.id);
   }
 }
 
@@ -185,34 +212,37 @@ function releaseSuffix(release: string, environment: string): string {
 
 export class NotFound extends Error {}
 
-const OPEN_SET = "status = 'open', resolved_at = 0, mute_kind = '', mute_until = 0, muted_at = 0, notify_next = 0";
+// Clears resolve and mute state. Each column is set once: Postgres refuses two
+// assignments to one column in an UPDATE.
+const CLEAR_SET = "resolved_at = 0, mute_kind = '', mute_until = 0, muted_at = 0";
+const OPEN_SET = `status = 'open', ${CLEAR_SET}, notify_next = 0`;
 
 /** Puts an issue back to open, clearing any resolve or mute state. */
-function reopen(db: Db, issueId: number, now: number, kind: string, text: string, reason: string, extra: Parameters<typeof addActivity>[5] = {}): void {
-  db.prepare(`UPDATE issues SET ${OPEN_SET}, reopen_reason = ? WHERE id = ?`).run(reason, issueId);
-  addActivity(db, issueId, now, kind, text, extra);
+async function reopen(db: Db, issueId: number, now: number, kind: string, text: string, reason: string, extra: ActivityExtra = {}): Promise<void> {
+  await db.run(`UPDATE issues SET ${OPEN_SET}, reopen_reason = ? WHERE id = ?`, reason, issueId);
+  await addActivity(db, issueId, now, kind, text, extra);
 }
 
 /** Runs fn on one issue of a project, in a transaction, with its current status. */
-function update(db: Db, projectId: number, issueId: number, fn: (status: Status, now: number) => void): void {
-  tx(db, () => {
-    const row = db.prepare("SELECT status FROM issues WHERE project_id = ? AND id = ?").get(projectId, issueId) as { status: Status } | undefined;
+function update(db: Db, projectId: number, issueId: number, fn: (t: Db, status: Status, now: number) => Promise<void>): Promise<void> {
+  return db.tx(async (t) => {
+    const row = await t.get<{ status: Status }>("SELECT status FROM issues WHERE project_id = ? AND id = ?", projectId, issueId);
     if (!row) throw new NotFound();
-    fn(row.status, Date.now());
+    await fn(t, row.status, Date.now());
   });
 }
 
 /** Marks everything that fired so far as handled. The next event fires the issue again. */
-export function resolve(db: Db, projectId: number, issueId: number, actor = ""): void {
-  update(db, projectId, issueId, (_, now) => {
-    db.prepare(`UPDATE issues SET ${OPEN_SET}, status = 'resolved', resolved_at = ?, reopen_reason = '' WHERE id = ?`).run(now, issueId);
-    addActivity(db, issueId, now, "resolved", "Resolved. The next event fires it again", { actor });
+export function resolve(db: Db, projectId: number, issueId: number, actor = ""): Promise<void> {
+  return update(db, projectId, issueId, async (t, _, now) => {
+    await t.run("UPDATE issues SET status = 'resolved', resolved_at = ?, mute_kind = '', mute_until = 0, muted_at = 0, notify_next = 0, reopen_reason = '' WHERE id = ?", now, issueId);
+    await addActivity(t, issueId, now, "resolved", "Resolved. The next event fires it again", { actor });
   });
 }
 
 /** Keeps counting events without alerting, for the chosen time. */
-export function mute(db: Db, projectId: number, issueId: number, opt: MuteOption, actor = ""): void {
-  update(db, projectId, issueId, (_, now) => {
+export function mute(db: Db, projectId: number, issueId: number, opt: MuteOption, actor = ""): Promise<void> {
+  return update(db, projectId, issueId, async (t, _, now) => {
     let until = 0;
     let text = "Muted until unmuted";
     if (opt.kind === MuteFor) {
@@ -221,49 +251,53 @@ export function mute(db: Db, projectId: number, issueId: number, opt: MuteOption
     } else if (opt.kind === MuteNextRelease) {
       text = "Muted until a new release reports it";
     }
-    db.prepare(
-      `UPDATE issues SET status = 'muted', resolved_at = 0, mute_kind = ?, mute_until = ?, muted_at = ?, notify_next = 0, reopen_reason = '' WHERE id = ?`,
-    ).run(opt.kind, until, now, issueId);
-    addActivity(db, issueId, now, "muted", text, { actor });
+    await t.run(
+      "UPDATE issues SET status = 'muted', resolved_at = 0, mute_kind = ?, mute_until = ?, muted_at = ?, notify_next = 0, reopen_reason = '' WHERE id = ?",
+      opt.kind,
+      until,
+      now,
+      issueId,
+    );
+    await addActivity(t, issueId, now, "muted", text, { actor });
   });
 }
 
 /** Puts a resolved or muted issue back to open. After an unmute the next event alerts, as it would have without the mute. */
-export function reopenByHand(db: Db, projectId: number, issueId: number, actor = ""): void {
-  update(db, projectId, issueId, (status, now) => {
-    reopen(db, issueId, now, "reopened", status === "muted" ? "Unmuted" : "Reopened", "", { actor });
-    if (status === "muted") db.prepare("UPDATE issues SET notify_next = 1 WHERE id = ?").run(issueId);
+export function reopenByHand(db: Db, projectId: number, issueId: number, actor = ""): Promise<void> {
+  return update(db, projectId, issueId, async (t, status, now) => {
+    await reopen(t, issueId, now, "reopened", status === "muted" ? "Unmuted" : "Reopened", "", { actor });
+    if (status === "muted") await t.run("UPDATE issues SET notify_next = 1 WHERE id = ?", issueId);
   });
 }
 
 /** Ends every timed mute that ran out. The issue goes back to open and its next event alerts. */
-export function expireMutes(db: Db, now = Date.now()): number {
-  return tx(db, () => {
-    const ended = db
-      .prepare(`UPDATE issues SET ${OPEN_SET}, notify_next = 1, reopen_reason = '' WHERE status = 'muted' AND mute_kind = ? AND mute_until <= ? RETURNING id`)
-      .all(MuteFor, now) as { id: number }[];
-    for (const { id } of ended) addActivity(db, id, now, "unmuted", "Mute ended");
+export function expireMutes(db: Db, now = Date.now()): Promise<number> {
+  return db.tx(async (t) => {
+    const ended = await t.all<{ id: number }>(
+      `UPDATE issues SET status = 'open', ${CLEAR_SET}, notify_next = 1, reopen_reason = '' WHERE status = 'muted' AND mute_kind = ? AND mute_until <= ? RETURNING id`,
+      MuteFor,
+      now,
+    );
+    for (const { id } of ended) await addActivity(t, id, now, "unmuted", "Mute ended");
     return ended.length;
   });
 }
 
 /** The newest release a project has seen, for the mute menu's hint. */
-export function latestRelease(db: Db, projectId: number): string {
-  const r = db.prepare("SELECT version FROM releases WHERE project_id = ? ORDER BY first_seen DESC LIMIT 1").get(projectId) as { version: string } | undefined;
+export async function latestRelease(db: Db, projectId: number): Promise<string> {
+  const r = await db.get<{ version: string }>("SELECT version FROM releases WHERE project_id = ? ORDER BY first_seen DESC LIMIT 1", projectId);
   return r?.version ?? "";
 }
 
-export function listIssues(db: Db, projectId: number): Issue[] {
-  const rows = db
-    .prepare("SELECT * FROM issues WHERE project_id = ? ORDER BY last_seen DESC LIMIT 200")
-    .all(projectId) as IssueRow[];
-  return rows.map(toIssue);
+// ---- Reading ----
+
+export async function listIssues(db: Db, projectId: number): Promise<Issue[]> {
+  return (await db.all<IssueRow>("SELECT * FROM issues WHERE project_id = ? ORDER BY last_seen DESC LIMIT 200", projectId)).map(toIssue);
 }
 
-export function getIssue(db: Db, projectId: number, issueId: number): Issue | undefined {
-  const row = db.prepare("SELECT * FROM issues WHERE project_id = ? AND id = ?").get(projectId, issueId) as
-    | IssueRow
-    | undefined;
+export async function getIssue(db: Db, projectId: number, issueId: number): Promise<Issue | undefined> {
+  if (!Number.isSafeInteger(issueId)) return undefined;
+  const row = await db.get<IssueRow>("SELECT * FROM issues WHERE project_id = ? AND id = ?", projectId, issueId);
   return row && toIssue(row);
 }
 
@@ -271,13 +305,15 @@ export function getIssue(db: Db, projectId: number, issueId: number): Issue | un
  * Hourly event counts for the last 24 hours, oldest first, per issue. The
  * last cell is the current (partial) hour.
  */
-export function hoursByIssue(db: Db, issueIds: number[], now = Date.now()): Map<number, number[]> {
+export async function hoursByIssue(db: Db, issueIds: number[], now = Date.now()): Promise<Map<number, number[]>> {
   const out = new Map<number, number[]>(issueIds.map((id) => [id, new Array<number>(24).fill(0)]));
   if (issueIds.length === 0) return out;
   const current = Math.floor(now / HOUR);
-  const rows = db
-    .prepare(`SELECT issue_id, hour, event_count FROM issue_hours WHERE hour >= ? AND issue_id IN (${issueIds.map(() => "?").join(",")})`)
-    .all((current - 23) * HOUR, ...issueIds) as { issue_id: number; hour: number; event_count: number }[];
+  const rows = await db.all<{ issue_id: number; hour: number; event_count: number }>(
+    `SELECT issue_id, hour, event_count FROM issue_hours WHERE hour >= ? AND issue_id IN (${issueIds.map(() => "?").join(",")})`,
+    (current - 23) * HOUR,
+    ...issueIds,
+  );
   for (const r of rows) {
     const i = 23 - (current - Math.floor(r.hour / HOUR));
     const cells = out.get(r.issue_id);
@@ -287,59 +323,49 @@ export function hoursByIssue(db: Db, issueIds: number[], now = Date.now()): Map<
 }
 
 type EventRowDb = { id: number; event_id: string; received_at: number; release: string; environment: string };
-const toRow = (r: EventRowDb): EventRow => ({
-  id: r.id,
-  eventId: r.event_id,
-  receivedAt: r.received_at,
-  release: r.release,
-  environment: r.environment,
-});
+const toRow = (r: EventRowDb): EventRow => ({ id: r.id, eventId: r.event_id, receivedAt: r.received_at, release: r.release, environment: r.environment });
 
 /** A page of an issue's stored events, newest first, older than `before` when given. */
-export function eventPage(db: Db, issueId: number, before?: number, limit = 10): { events: EventRow[]; more: boolean } {
-  const rows = db
-    .prepare(
-      `SELECT id, event_id, received_at, release, environment FROM events
-        WHERE issue_id = ? AND id < ? ORDER BY id DESC LIMIT ?`,
-    )
-    .all(issueId, before ?? Number.MAX_SAFE_INTEGER, limit + 1) as EventRowDb[];
+export async function eventPage(db: Db, issueId: number, before?: number, limit = 10): Promise<{ events: EventRow[]; more: boolean }> {
+  const rows = await db.all<EventRowDb>(
+    "SELECT id, event_id, received_at, release, environment FROM events WHERE issue_id = ? AND id < ? ORDER BY id DESC LIMIT ?",
+    issueId,
+    before ?? Number.MAX_SAFE_INTEGER,
+    limit + 1,
+  );
   return { events: rows.slice(0, limit).map(toRow), more: rows.length > limit };
 }
 
-export function storedEventCount(db: Db, issueId: number): number {
-  return (db.prepare("SELECT COUNT(*) AS n FROM events WHERE issue_id = ?").get(issueId) as { n: number }).n;
+export async function storedEventCount(db: Db, issueId: number): Promise<number> {
+  return (await db.get<{ n: number }>("SELECT COUNT(*) AS n FROM events WHERE issue_id = ?", issueId))!.n;
 }
 
 /** One stored event of an issue: `eventRowId`, or the latest. */
-export function getEvent(db: Db, issueId: number, eventRowId?: number): StoredEvent | undefined {
-  const row = (
-    eventRowId
-      ? db.prepare("SELECT * FROM events WHERE issue_id = ? AND id = ?").get(issueId, eventRowId)
-      : db.prepare("SELECT * FROM events WHERE issue_id = ? ORDER BY id DESC LIMIT 1").get(issueId)
-  ) as (EventRowDb & { payload: string }) | undefined;
+export async function getEvent(db: Db, issueId: number, eventRowId?: number): Promise<StoredEvent | undefined> {
+  const row = eventRowId
+    ? await db.get<EventRowDb & { payload: string }>("SELECT * FROM events WHERE issue_id = ? AND id = ?", issueId, eventRowId)
+    : await db.get<EventRowDb & { payload: string }>("SELECT * FROM events WHERE issue_id = ? ORDER BY id DESC LIMIT 1", issueId);
   return row && { ...toRow(row), payload: JSON.parse(row.payload) as SentryEvent };
 }
 
 /** Events per release and environment, most recent first. Every event counts, kept or not. */
-export function releasesOf(db: Db, issueId: number) {
-  const rows = db
-    .prepare("SELECT release, environment, event_count, last_seen FROM issue_releases WHERE issue_id = ? ORDER BY last_seen DESC")
-    .all(issueId) as { release: string; environment: string; event_count: number; last_seen: number }[];
+export async function releasesOf(db: Db, issueId: number) {
+  const rows = await db.all<{ release: string; environment: string; event_count: number; last_seen: number }>(
+    "SELECT release, environment, event_count, last_seen FROM issue_releases WHERE issue_id = ? ORDER BY last_seen DESC",
+    issueId,
+  );
   return rows
     .filter((r) => r.release || r.environment)
     .map((r) => ({ release: r.release, environment: r.environment, eventCount: r.event_count, lastSeen: r.last_seen }));
 }
 
-/**
- * Deletes payloads older than the retention period, and hourly counts as
- * old. Issues and their totals are kept.
- */
-export function prune(db: Db, retentionMs: number, now = Date.now()): number {
+/** Deletes payloads older than the retention period, and hourly counts as old. Issues and their totals are kept. */
+export function prune(db: Db, retentionMs: number, now = Date.now()): Promise<number> {
   const cutoff = now - retentionMs;
-  return tx(db, () => {
-    const n = Number(db.prepare("DELETE FROM events WHERE received_at < ?").run(cutoff).changes);
-    if (n > 0) db.exec("UPDATE issues SET stored_count = (SELECT COUNT(*) FROM events e WHERE e.issue_id = issues.id)");
-    db.prepare("DELETE FROM issue_hours WHERE hour < ?").run(cutoff);
+  return db.tx(async (t) => {
+    const n = (await t.run("DELETE FROM events WHERE received_at < ?", cutoff)).changes;
+    if (n > 0) await t.run("UPDATE issues SET stored_count = (SELECT COUNT(*) FROM events e WHERE e.issue_id = issues.id)");
+    await t.run("DELETE FROM issue_hours WHERE hour < ?", cutoff);
     return n;
   });
 }

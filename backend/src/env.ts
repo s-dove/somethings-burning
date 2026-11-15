@@ -43,7 +43,12 @@ const list = (v: string | undefined) =>
 export function readConfig(env: NodeJS.ProcessEnv = process.env) {
   return {
     port: num(env, "BURNING_PORT", 8195),
-    db: env.BURNING_DB || "data/burning.db",
+    host: env.BURNING_HOST || "0.0.0.0",
+    // A postgres:// URL in BURNING_DATABASE_URL uses Postgres, which lets
+    // several servers share the data. Otherwise a SQLite file (one server).
+    db: env.BURNING_DATABASE_URL || env.BURNING_DB || "data/burning.db",
+    // The built web app the server hands out, so one port serves everything.
+    staticDir: env.BURNING_STATIC_DIR || "../frontend/dist",
     // The public URL of the web app, for DSNs and links in alerts. Empty
     // means the address the request came in on.
     baseURL: (env.BURNING_BASE_URL ?? "").replace(/\/$/, ""),

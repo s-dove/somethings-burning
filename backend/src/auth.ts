@@ -63,13 +63,12 @@ export const safeNext = (next: unknown): next is string =>
  * The secret that signs cookies: BURNING_SESSION_SECRET, or a random one
  * kept in the database so sessions survive a restart.
  */
-export function sessionSecret(db: Db, configured: string): string {
+export async function sessionSecret(db: Db, configured: string): Promise<string> {
   if (configured) return createHash("sha256").update(`burning-session:${configured}`).digest("hex");
-  db.exec("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
-  const row = db.prepare("SELECT value FROM meta WHERE key = 'session_secret'").get() as { value: string } | undefined;
+  const row = await db.get<{ value: string }>("SELECT value FROM meta WHERE key = 'session_secret'");
   if (row) return row.value;
   const secret = randomBytes(32).toString("hex");
-  db.prepare("INSERT INTO meta (key, value) VALUES ('session_secret', ?)").run(secret);
+  await db.run("INSERT INTO meta (key, value) VALUES ('session_secret', ?)", secret);
   return secret;
 }
 
@@ -92,11 +91,9 @@ export class Sessions {
   async user(c: Context): Promise<User | null> {
     const id = await getSignedCookie(c, this.secret, SESSION_COOKIE);
     if (!id) return null;
-    const row = this.db.prepare("SELECT email, name, groups, expires FROM sessions WHERE id = ?").get(id) as
-      | { email: string; name: string; groups: string; expires: number }
-      | undefined;
+    const row = await this.db.get<{ email: string; name: string; groups: string; expires: number }>("SELECT email, name, groups, expires FROM sessions WHERE id = ?", id);
     if (!row || row.expires < Math.floor(Date.now() / 1000)) return null;
-    const saved = getUser(this.db, row.email);
+    const saved = await getUser(this.db, row.email);
     const username = saved?.username || usernameFrom({}, row.email);
     return {
       email: row.email,
@@ -110,21 +107,19 @@ export class Sessions {
   /** Records the person and starts their session. */
   async start(c: Context, who: { email: string; issuer: string; claims: Record<string, unknown>; groups: string[] }): Promise<void> {
     const email = who.email.toLowerCase();
-    recordLogin(this.db, { email, issuer: who.issuer, claims: who.claims });
+    await recordLogin(this.db, { email, issuer: who.issuer, claims: who.claims });
     const id = randomUUID();
     const now = Math.floor(Date.now() / 1000);
     const name = typeof who.claims.name === "string" ? who.claims.name : "";
-    this.db
-      .prepare("INSERT INTO sessions (id, email, name, groups, expires) VALUES (?, ?, ?, ?, ?)")
-      .run(id, email, name, JSON.stringify(who.groups), now + SESSION_TTL_S);
-    this.db.prepare("DELETE FROM sessions WHERE expires < ?").run(now);
+    await this.db.run("INSERT INTO sessions (id, email, name, groups, expires) VALUES (?, ?, ?, ?, ?)", id, email, name, JSON.stringify(who.groups), now + SESSION_TTL_S);
+    await this.db.run("DELETE FROM sessions WHERE expires < ?", now);
     console.log(`signed in email=${email} via=${who.issuer} groups=${who.groups.length}`);
     await setSignedCookie(c, SESSION_COOKIE, id, this.secret, this.cookie(SESSION_TTL_S));
   }
 
   async end(c: Context): Promise<void> {
     const id = await getSignedCookie(c, this.secret, SESSION_COOKIE);
-    if (id) this.db.prepare("DELETE FROM sessions WHERE id = ?").run(id);
+    if (id) await this.db.run("DELETE FROM sessions WHERE id = ?", id);
     deleteCookie(c, SESSION_COOKIE, { path: "/" });
   }
 }

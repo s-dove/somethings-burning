@@ -55,16 +55,15 @@ const toRecord = (r: Row): UserRecord => ({
 });
 
 /** Saves what the ID token said. A display name the person chose stays. */
-export function recordLogin(db: Db, u: { email: string; issuer: string; claims: Record<string, unknown> }, now = Date.now()): void {
+export async function recordLogin(db: Db, u: { email: string; issuer: string; claims: Record<string, unknown> }, now = Date.now()): Promise<void> {
   const email = u.email.toLowerCase();
   const c = u.claims;
-  db.prepare(
+  await db.run(
     `INSERT INTO users (email, username, name, issuer, subject, claims, token_expires, first_login, last_login)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (email) DO UPDATE SET
        username = excluded.username, name = excluded.name, issuer = excluded.issuer, subject = excluded.subject,
        claims = excluded.claims, token_expires = excluded.token_expires, last_login = excluded.last_login`,
-  ).run(
     email,
     usernameFrom(c, email),
     typeof c.name === "string" ? c.name : "",
@@ -77,13 +76,13 @@ export function recordLogin(db: Db, u: { email: string; issuer: string; claims: 
   );
 }
 
-export function getUser(db: Db, email: string): UserRecord | null {
-  const r = db.prepare("SELECT * FROM users WHERE email = ?").get(email.toLowerCase()) as Row | undefined;
+export async function getUser(db: Db, email: string): Promise<UserRecord | null> {
+  const r = await db.get<Row>("SELECT * FROM users WHERE email = ?", email.toLowerCase());
   return r ? toRecord(r) : null;
 }
 
-export function setDisplayName(db: Db, email: string, displayName: string): void {
-  db.prepare("UPDATE users SET display_name = ? WHERE email = ?").run(displayName.trim(), email.toLowerCase());
+export async function setDisplayName(db: Db, email: string, displayName: string): Promise<void> {
+  await db.run("UPDATE users SET display_name = ? WHERE email = ?", displayName.trim(), email.toLowerCase());
 }
 
 export interface Person {
@@ -93,13 +92,14 @@ export interface Person {
 }
 
 /** How to show each email. Someone who never signed in shows as their email. */
-export function people(db: Db, emails: Iterable<string>): Map<string, Person> {
+export async function people(db: Db, emails: Iterable<string>): Promise<Map<string, Person>> {
   const wanted = [...new Set([...emails].filter(Boolean).map((e) => e.toLowerCase()))];
   const out = new Map<string, Person>();
   if (wanted.length === 0) return out;
-  const rows = db
-    .prepare(`SELECT email, username, display_name FROM users WHERE email IN (${wanted.map(() => "?").join(",")})`)
-    .all(...wanted) as { email: string; username: string; display_name: string }[];
+  const rows = await db.all<{ email: string; username: string; display_name: string }>(
+    `SELECT email, username, display_name FROM users WHERE email IN (${wanted.map(() => "?").join(",")})`,
+    ...wanted,
+  );
   const found = new Map(rows.map((r) => [r.email, r]));
   for (const email of wanted) {
     const r = found.get(email);
@@ -109,12 +109,8 @@ export function people(db: Db, emails: Iterable<string>): Map<string, Person> {
   return out;
 }
 
-export function allPeople(db: Db): Person[] {
-  const rows = db.prepare("SELECT email, username, display_name FROM users").all() as {
-    email: string;
-    username: string;
-    display_name: string;
-  }[];
+export async function allPeople(db: Db): Promise<Person[]> {
+  const rows = await db.all<{ email: string; username: string; display_name: string }>("SELECT email, username, display_name FROM users");
   return rows.map((r) => ({
     email: r.email,
     username: r.username,

@@ -19,8 +19,8 @@ const SIGN_IN_AGAIN = "sign in again to load your profile";
 export function profileRoutes(db: Db, senders: Senders): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
-  const view = (email: string, groups: string[]) => {
-    const u = getUser(db, email);
+  const view = async (email: string, groups: string[]) => {
+    const u = await getUser(db, email);
     if (!u) return null;
     return {
       email: u.email,
@@ -40,10 +40,10 @@ export function profileRoutes(db: Db, senders: Senders): Hono<AppEnv> {
     };
   };
 
-  app.get("/profile", (c) => {
+  app.get("/profile", async (c) => {
     const user = c.get("user");
     if (!user) return c.json({ detail: NO_PROFILE }, 404);
-    const p = view(user.email, user.groups);
+    const p = await view(user.email, user.groups);
     return p ? c.json(p) : c.json({ detail: SIGN_IN_AGAIN }, 404);
   });
 
@@ -51,13 +51,13 @@ export function profileRoutes(db: Db, senders: Senders): Hono<AppEnv> {
   app.put("/profile", async (c) => {
     const user = c.get("user");
     if (!user) return c.json({ detail: NO_PROFILE }, 404);
-    if (!getUser(db, user.email)) return c.json({ detail: SIGN_IN_AGAIN }, 404);
+    if (!(await getUser(db, user.email))) return c.json({ detail: SIGN_IN_AGAIN }, 404);
     const body = (await c.req.json().catch(() => ({}))) as { displayName?: unknown };
     const name = String(body.displayName ?? "").trim();
     if (name.length > MAX_DISPLAY_NAME) return c.json({ detail: `keep it under ${MAX_DISPLAY_NAME} characters` }, 400);
     if (/[\u0000-\u001f\u007f]/.test(name)) return c.json({ detail: "no control characters" }, 400);
-    setDisplayName(db, user.email, name);
-    return c.json(view(user.email, user.groups));
+    await setDisplayName(db, user.email, name);
+    return c.json(await view(user.email, user.groups));
   });
 
   // The person's own routing: how alerts that reach them as a person are
@@ -73,10 +73,10 @@ export function profileRoutes(db: Db, senders: Senders): Hono<AppEnv> {
     address: email,
   });
 
-  app.get("/profile/notifications", (c) => {
+  app.get("/profile/notifications", async (c) => {
     const user = c.get("user");
     if (!user) return c.json({ detail: NO_PROFILE }, 404);
-    const { routes, initial } = getPersonalRoutes(db, user.email);
+    const { routes, initial } = await getPersonalRoutes(db, user.email);
     return c.json(notifyView(user.email, routes, initial));
   });
 
@@ -84,11 +84,11 @@ export function profileRoutes(db: Db, senders: Senders): Hono<AppEnv> {
   app.put("/profile/notifications", async (c) => {
     const user = c.get("user");
     if (!user) return c.json({ detail: NO_PROFILE }, 404);
-    if (!getUser(db, user.email)) return c.json({ detail: SIGN_IN_AGAIN }, 404);
+    if (!(await getUser(db, user.email))) return c.json({ detail: SIGN_IN_AGAIN }, 404);
     const body = ((await c.req.json().catch(() => ({}))) ?? {}) as { routes?: unknown };
     const checked = checkRoutes(body.routes, "personal");
     if ("error" in checked) return c.json({ detail: checked.error }, 400);
-    savePersonalRoutes(db, user.email, checked.routes);
+    await savePersonalRoutes(db, user.email, checked.routes);
     return c.json(notifyView(user.email, checked.routes, false));
   });
 

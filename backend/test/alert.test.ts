@@ -3,7 +3,7 @@ import { setGrant } from "../src/access.js";
 import { saveRouting, savePersonalRoutes } from "../src/notify/store.js";
 import { as, json, pythonError, setup, signIn } from "./helpers.js";
 
-const send = async (s: ReturnType<typeof setup>, event: object = pythonError) => {
+const send = async (s: Awaited<ReturnType<typeof setup>>, event: object = pythonError) => {
   const res = await s.app.request(`/api/${s.project.id}/store/?sentry_key=${s.project.publicKey}`, {
     method: "POST",
     headers: { host: "burning.example.com" },
@@ -13,14 +13,14 @@ const send = async (s: ReturnType<typeof setup>, event: object = pythonError) =>
   return res;
 };
 
-const targets = (s: ReturnType<typeof setup>) => s.senders.sent.map((x) => `${x.d.kind}:${x.d.target}`).sort();
+const targets = (s: Awaited<ReturnType<typeof setup>>) => s.senders.sent.map((x) => `${x.d.kind}:${x.d.target}`).sort();
 
 describe("alerts", () => {
   it("sends a new issue to members and admins by default, once per issue", async () => {
-    const s = setup();
-    setGrant(s.db, s.project.id, "user", "ana@example.com", "admin");
-    setGrant(s.db, s.project.id, "user", "bo@example.com", "member");
-    setGrant(s.db, s.project.id, "user", "cy@example.com", "viewer");
+    const s = await setup();
+    await setGrant(s.db, s.project.id, "user", "ana@example.com", "admin");
+    await setGrant(s.db, s.project.id, "user", "bo@example.com", "member");
+    await setGrant(s.db, s.project.id, "user", "cy@example.com", "viewer");
     await send(s);
     await send(s);
     await s.outbox.drain();
@@ -31,18 +31,18 @@ describe("alerts", () => {
   });
 
   it("follows the project's routes and each person's own routing", async () => {
-    const s = setup();
-    signIn(s.db, "ana@example.com");
-    signIn(s.db, "bo@example.com");
-    saveRouting(s.db, s.project.id, [
+    const s = await setup();
+    await signIn(s.db, "ana@example.com");
+    await signIn(s.db, "bo@example.com");
+    await saveRouting(s.db, s.project.id, [
       { name: "prod", matchers: [{ field: "type", op: "=", value: "ZeroDivisionError" }], sink: false, continue: false,
         receivers: [{ kind: "user", target: "ana@example.com" }, { kind: "user", target: "bo@example.com" }, { kind: "webhook", target: "https://hooks.example.com/x" }] },
     ]);
     // Ana wants it elsewhere; Bo turned everything off.
-    savePersonalRoutes(s.db, "ana@example.com", [
+    await savePersonalRoutes(s.db, "ana@example.com", [
       { name: "", matchers: [{ field: "project", op: "=", value: "web" }], sink: false, continue: false, receivers: [{ kind: "email", target: "ana+alerts@example.com" }] },
     ]);
-    savePersonalRoutes(s.db, "bo@example.com", []);
+    await savePersonalRoutes(s.db, "bo@example.com", []);
     await send(s);
     await s.outbox.drain();
     expect(targets(s)).toEqual(["email:ana+alerts@example.com", "webhook:https://hooks.example.com/x"]);
@@ -50,17 +50,17 @@ describe("alerts", () => {
   });
 
   it("drops what a sink route matches", async () => {
-    const s = setup();
-    setGrant(s.db, s.project.id, "user", "ana@example.com", "admin");
-    saveRouting(s.db, s.project.id, [{ name: "noise", matchers: [{ field: "level", op: "=", value: "error" }], sink: true, receivers: [], continue: false }]);
+    const s = await setup();
+    await setGrant(s.db, s.project.id, "user", "ana@example.com", "admin");
+    await saveRouting(s.db, s.project.id, [{ name: "noise", matchers: [{ field: "level", op: "=", value: "error" }], sink: true, receivers: [], continue: false }]);
     await send(s);
     await s.outbox.drain();
     expect(targets(s)).toEqual([]);
   });
 
   it("serves and saves a person's notification routing", async () => {
-    const s = setup({ auth: true });
-    signIn(s.db, "ana@example.com", { preferred_username: "ana", name: "Ana" });
+    const s = await setup({ auth: true });
+    await signIn(s.db, "ana@example.com", { preferred_username: "ana", name: "Ana" });
     const who = as("ana@example.com");
     const first = (await (await s.app.request("/api/profile/notifications", { headers: who })).json()) as { initial: boolean; routes: unknown[] };
     expect(first.initial).toBe(true);
@@ -73,9 +73,9 @@ describe("alerts", () => {
   });
 
   it("lets only admins change a project's routing", async () => {
-    const s = setup({ auth: true });
-    setGrant(s.db, s.project.id, "user", "ana@example.com", "admin");
-    setGrant(s.db, s.project.id, "user", "bo@example.com", "member");
+    const s = await setup({ auth: true });
+    await setGrant(s.db, s.project.id, "user", "ana@example.com", "admin");
+    await setGrant(s.db, s.project.id, "user", "bo@example.com", "member");
     const put = (who: string) =>
       s.app.request(`/api/projects/${s.project.id}/routing`, { method: "PUT", ...json({ routes: [] }, as(who)) });
     expect((await put("bo@example.com")).status).toBe(403);

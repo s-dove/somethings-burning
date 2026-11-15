@@ -24,28 +24,30 @@ export const normalizeSubject = (kind: SubjectKind, subject: string): string =>
 type Row = { project_id: number; subject_kind: string; subject: string; role: string; created_at: number };
 const toGrant = (r: Row): Grant => ({ kind: r.subject_kind as SubjectKind, subject: r.subject, role: r.role as Role, createdAt: r.created_at });
 
-export function listGrants(db: Db, projectId: number): Grant[] {
-  const rows = db
-    .prepare(
-      `SELECT * FROM project_access WHERE project_id = ?
-        ORDER BY CASE role WHEN 'admin' THEN 0 WHEN 'member' THEN 1 ELSE 2 END, subject_kind DESC, subject`,
-    )
-    .all(projectId) as Row[];
+export async function listGrants(db: Db, projectId: number): Promise<Grant[]> {
+  const rows = await db.all<Row>(
+    `SELECT * FROM project_access WHERE project_id = ?
+      ORDER BY CASE role WHEN 'admin' THEN 0 WHEN 'member' THEN 1 ELSE 2 END, subject_kind DESC, subject`,
+    projectId,
+  );
   return rows.map(toGrant);
 }
 
-export function setGrant(db: Db, projectId: number, kind: SubjectKind, subject: string, role: Role): void {
-  db.prepare(
+export async function setGrant(db: Db, projectId: number, kind: SubjectKind, subject: string, role: Role): Promise<void> {
+  await db.run(
     `INSERT INTO project_access (project_id, subject_kind, subject, role, created_at) VALUES (?, ?, ?, ?, ?)
      ON CONFLICT (project_id, subject_kind, subject) DO UPDATE SET role = excluded.role`,
-  ).run(projectId, kind, normalizeSubject(kind, subject), role, Date.now());
+    projectId,
+    kind,
+    normalizeSubject(kind, subject),
+    role,
+    Date.now(),
+  );
 }
 
-export function removeGrant(db: Db, projectId: number, kind: SubjectKind, subject: string): boolean {
-  const r = db
-    .prepare("DELETE FROM project_access WHERE project_id = ? AND subject_kind = ? AND subject = ?")
-    .run(projectId, kind, normalizeSubject(kind, subject));
-  return Number(r.changes) > 0;
+export async function removeGrant(db: Db, projectId: number, kind: SubjectKind, subject: string): Promise<boolean> {
+  const r = await db.run("DELETE FROM project_access WHERE project_id = ? AND subject_kind = ? AND subject = ?", projectId, kind, normalizeSubject(kind, subject));
+  return r.changes > 0;
 }
 
 /**
@@ -81,20 +83,20 @@ export class Access {
     return this.siteAdmins.has(user.email.toLowerCase()) || user.groups.some((g) => this.siteAdmins.has(g));
   }
 
-  role(projectId: number, user: User | undefined): Role | null {
+  async role(projectId: number, user: User | undefined): Promise<Role | null> {
     if (this.isSiteAdmin(user)) return "admin";
-    return bestRole(listGrants(this.db, projectId), user!);
+    return bestRole(await listGrants(this.db, projectId), user!);
   }
 
   /** Every project the user can see, with their role in it. */
-  roles(projectIds: number[], user: User | undefined): Map<number, Role> {
+  async roles(projectIds: number[], user: User | undefined): Promise<Map<number, Role>> {
     const out = new Map<number, Role>();
     if (this.isSiteAdmin(user)) {
       for (const id of projectIds) out.set(id, "admin");
       return out;
     }
     const byProject = new Map<number, Grant[]>();
-    for (const r of this.db.prepare("SELECT * FROM project_access").all() as Row[]) {
+    for (const r of await this.db.all<Row>("SELECT * FROM project_access")) {
       byProject.set(r.project_id, [...(byProject.get(r.project_id) ?? []), toGrant(r)]);
     }
     for (const id of projectIds) {

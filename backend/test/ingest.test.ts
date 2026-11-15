@@ -16,7 +16,7 @@ function envelope(dsn: string, event: object, extra = ""): string {
 
 describe("ingest", () => {
   it("stores an envelope event and groups repeats into one issue", async () => {
-    const { app, project, queue } = setup();
+    const { app, project, queue } = await setup();
     const dsn = `http://${project.publicKey}@localhost/${project.id}`;
     for (let i = 0; i < 2; i++) {
       const res = await app.request(`/api/${project.id}/envelope/`, {
@@ -48,7 +48,7 @@ describe("ingest", () => {
   });
 
   it("accepts the legacy store endpoint with gzip", async () => {
-    const { app, project } = setup();
+    const { app, project } = await setup();
     const res = await app.request(`/api/${project.id}/store/`, {
       method: "POST",
       headers: { ...auth(project.publicKey), "content-encoding": "gzip" },
@@ -58,7 +58,7 @@ describe("ingest", () => {
   });
 
   it("takes the key from the query string, as browser SDKs send it", async () => {
-    const { app, project } = setup();
+    const { app, project } = await setup();
     const res = await app.request(`/api/${project.id}/store/?sentry_key=${project.publicKey}`, {
       method: "POST",
       body: JSON.stringify({ message: "hello" }),
@@ -67,7 +67,7 @@ describe("ingest", () => {
   });
 
   it("rejects a wrong key and an unknown project", async () => {
-    const { app, project } = setup();
+    const { app, project } = await setup();
     const wrong = await app.request(`/api/${project.id}/store/`, {
       method: "POST",
       headers: auth("nope"),
@@ -83,7 +83,7 @@ describe("ingest", () => {
   });
 
   it("answers CORS preflight", async () => {
-    const { app, project } = setup();
+    const { app, project } = await setup();
     const res = await app.request(`/api/${project.id}/envelope/`, {
       method: "OPTIONS",
       headers: { origin: "https://site.example", "access-control-request-method": "POST" },

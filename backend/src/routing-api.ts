@@ -12,12 +12,12 @@ import { people } from "./users.js";
 export function routingRoutes(db: Db, access: Access, senders: Senders): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
-  const view = (c: Context<AppEnv>, projectId: number, role: Role) => {
-    const project = getProject(db, projectId)!;
-    const defaults = defaultRecipients(db, projectId);
-    const routes = getRouting(db, projectId);
+  const view = async (c: Context<AppEnv>, projectId: number, role: Role) => {
+    const project = (await getProject(db, projectId))!;
+    const defaults = await defaultRecipients(db, projectId);
+    const routes = await getRouting(db, projectId);
     const persons = routes.flatMap((r) => r.receivers.filter((x) => x.kind === "user").map((x) => x.target));
-    const names = people(db, [...defaults, ...persons]);
+    const names = await people(db, [...defaults, ...persons]);
     return c.json({
       project: { id: project.id, name: project.name, role },
       routes,
@@ -32,27 +32,27 @@ export function routingRoutes(db: Db, access: Access, senders: Senders): Hono<Ap
     });
   };
 
-  const load = (c: Context<AppEnv>) => {
+  const load = async (c: Context<AppEnv>) => {
     const id = Number(c.req.param("id"));
-    const role = getProject(db, id) ? access.role(id, c.get("user")) : null;
+    const role = (await getProject(db, id)) ? await access.role(id, c.get("user")) : null;
     return role ? { id, role } : null;
   };
 
-  app.get("/projects/:id{[0-9]+}/routing", (c) => {
-    const found = load(c);
+  app.get("/projects/:id{[0-9]+}/routing", async (c) => {
+    const found = await load(c);
     if (!found) return c.json({ detail: "project not found" }, 404);
     return view(c, found.id, found.role);
   });
 
   // PUT replaces the whole table, in order. The default route is fixed.
   app.put("/projects/:id{[0-9]+}/routing", async (c) => {
-    const found = load(c);
+    const found = await load(c);
     if (!found) return c.json({ detail: "project not found" }, 404);
     if (!atLeast(found.role, "admin")) return c.json({ detail: "changing notifications needs the admin role" }, 403);
     const body = (await c.req.json().catch(() => null)) as { routes?: unknown } | null;
     const checked = checkRoutes(body?.routes, "project");
     if ("error" in checked) return c.json({ detail: checked.error }, 400);
-    saveRouting(db, found.id, checked.routes);
+    await saveRouting(db, found.id, checked.routes);
     return view(c, found.id, found.role);
   });
 

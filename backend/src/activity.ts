@@ -11,8 +11,9 @@ export interface Activity {
 
 export type ActivityExtra = { release?: string; environment?: string; actor?: string };
 
-export function addActivity(db: Db, issueId: number, at: number, kind: string, text: string, extra: ActivityExtra = {}): void {
-  db.prepare("INSERT INTO activity (issue_id, at, kind, text, release, environment, actor) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+export async function addActivity(db: Db, issueId: number, at: number, kind: string, text: string, extra: ActivityExtra = {}): Promise<void> {
+  await db.run(
+    "INSERT INTO activity (issue_id, at, kind, text, release, environment, actor) VALUES (?, ?, ?, ?, ?, ?, ?)",
     issueId,
     at,
     kind,
@@ -24,8 +25,6 @@ export function addActivity(db: Db, issueId: number, at: number, kind: string, t
 }
 
 /** The issue's history, newest first. */
-export function listActivity(db: Db, issueId: number, limit = 100): Activity[] {
-  return db
-    .prepare("SELECT at, kind, text, release, environment, actor FROM activity WHERE issue_id = ? ORDER BY at DESC, id DESC LIMIT ?")
-    .all(issueId, limit) as unknown as Activity[];
+export function listActivity(db: Db, issueId: number, limit = 100): Promise<Activity[]> {
+  return db.all<Activity>("SELECT at, kind, text, release, environment, actor FROM activity WHERE issue_id = ? ORDER BY at DESC, id DESC LIMIT ?", issueId, limit);
 }

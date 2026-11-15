@@ -17,35 +17,35 @@ export function sourcesRoutes(db: Db, access: Access, code: CodeSources): Hono<A
   const app = new Hono<AppEnv>();
   const base = "/projects/:id{[0-9]+}/sources";
 
-  const load = (c: Context<AppEnv>) => {
+  const load = async (c: Context<AppEnv>) => {
     const id = Number(c.req.param("id"));
-    const project = getProject(db, id);
-    const role = project ? access.role(id, c.get("user")) : null;
+    const project = await getProject(db, id);
+    const role = project ? await access.role(id, c.get("user")) : null;
     return project && role ? { project: { id: project.id, name: project.name, role }, id } : null;
   };
 
-  const view = (c: Context<AppEnv>, found: NonNullable<ReturnType<typeof load>>) =>
+  const view = async (c: Context<AppEnv>, found: NonNullable<Awaited<ReturnType<typeof load>>>) =>
     c.json({
       project: found.project,
-      sources: getSources(db, found.id),
+      sources: await getSources(db, found.id),
       releaseKinds: RELEASE_KINDS,
       // Hosts with a token, so the page can say which repositories can be read.
       hosts: code.credentials.hosts,
       sshKey: code.sshKey,
     });
 
-  app.get(base, (c) => {
-    const found = load(c);
+  app.get(base, async (c) => {
+    const found = await load(c);
     return found ? view(c, found) : c.json({ detail: "project not found" }, 404);
   });
 
   app.put(base, async (c) => {
-    const found = load(c);
+    const found = await load(c);
     if (!found) return c.json({ detail: "project not found" }, 404);
     if (!atLeast(found.project.role, "admin")) return c.json({ detail: "changing code sources needs the admin role" }, 403);
     const checked = checkSources(await c.req.json().catch(() => null));
     if ("error" in checked) return c.json({ detail: checked.error }, 400);
-    saveSources(db, found.id, checked.sources);
+    await saveSources(db, found.id, checked.sources);
     return view(c, found);
   });
 
@@ -53,14 +53,12 @@ export function sourcesRoutes(db: Db, access: Access, code: CodeSources): Hono<A
   // project's latest stored event: how each source resolves the release, and
   // where each in-app frame lands.
   app.post(`${base}/test`, async (c) => {
-    const found = load(c);
+    const found = await load(c);
     if (!found) return c.json({ detail: "project not found" }, 404);
     if (!atLeast(found.project.role, "admin")) return c.json({ detail: "testing code sources needs the admin role" }, 403);
     const checked = checkSources(await c.req.json().catch(() => null));
     if ("error" in checked) return c.json({ detail: checked.error }, 400);
-    const row = db.prepare("SELECT payload, issue_id, event_id FROM events WHERE project_id = ? ORDER BY id DESC LIMIT 1").get(found.id) as
-      | { payload: string; issue_id: number; event_id: string }
-      | undefined;
+    const row = await db.get<{ payload: string; issue_id: number; event_id: string }>("SELECT payload, issue_id, event_id FROM events WHERE project_id = ? ORDER BY id DESC LIMIT 1", found.id);
     if (!row) return c.json({ event: null, sources: [], frames: [] });
     const ev = JSON.parse(row.payload) as SentryEvent;
     return c.json({ event: { issueId: row.issue_id, eventId: row.event_id, release: releaseOf(ev) }, ...(await testSources(code, checked.sources, ev)) });

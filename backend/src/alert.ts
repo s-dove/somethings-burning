@@ -20,14 +20,16 @@ export class Alerter {
     private outbox: Outbox | null,
   ) {}
 
-  notify(p: Project, res: Recorded, ev: SentryEvent, baseURL: string): void {
+  async notify(p: Project, res: Recorded, ev: SentryEvent, baseURL: string): Promise<void> {
     if (!res.alert) return;
     const link = `${baseURL}/p/${p.id}/issues/${res.issueId}`;
-    const plan = planFor(this.db, p.id, factsOf(p.name, ev, res.alert));
+    const plan = await planFor(this.db, p.id, factsOf(p.name, ev, res.alert));
     const now = Date.now();
     const str = (v: unknown) => (typeof v === "string" ? v : "");
-    enqueue(this.db, p.id, res.issueId, plan.deliveries, alertMessage(p.name, res, link), now);
-    addActivity(this.db, res.issueId, now, "notified", summary(plan), { release: str(ev.release), environment: str(ev.environment) });
+    await this.db.tx(async (t) => {
+      await enqueue(t, p.id, res.issueId, plan.deliveries, alertMessage(p.name, res, link), now);
+      await addActivity(t, res.issueId, now, "notified", summary(plan), { release: str(ev.release), environment: str(ev.environment) });
+    });
     console.log(`alert kind=${res.alert} project=${p.name} issue=${res.issueId}: ${summary(plan)}`);
     if (plan.deliveries.length) this.outbox?.kick();
   }
