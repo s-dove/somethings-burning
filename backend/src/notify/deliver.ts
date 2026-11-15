@@ -43,7 +43,7 @@ export class Senders {
 
 /** Outbox sends what is due and retries failures. It runs on a timer and right after alerts are queued. */
 export class Outbox {
-  private running = false;
+  private running: Promise<void> | null = null;
   private again = false;
 
   constructor(
@@ -56,11 +56,10 @@ export class Outbox {
       this.again = true;
       return;
     }
-    this.running = true;
-    void this.drain()
+    this.running = this.send()
       .catch((err) => console.error("outbox:", err))
       .finally(() => {
-        this.running = false;
+        this.running = null;
         if (this.again) {
           this.again = false;
           this.kick();
@@ -68,8 +67,17 @@ export class Outbox {
       });
   }
 
-  /** Sends everything due. Resolves when the queue is empty, for tests. */
+  /**
+   * Sends everything due, and resolves once nothing is being sent: a kick
+   * already under way may hold claimed messages this round skips (for tests).
+   */
   async drain(): Promise<void> {
+    await this.running;
+    await this.send();
+    while (this.running) await this.running;
+  }
+
+  private async send(): Promise<void> {
     for (;;) {
       const rows = await claim(this.db);
       if (rows.length === 0) return;

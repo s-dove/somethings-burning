@@ -26,10 +26,29 @@ The image keeps SQLite in `/data`, and has git for code sources on git servers.
 
 ## Storage
 
-- **SQLite** (default): `BURNING_DB` is the file, `data/burning.db` by default.
-- **Postgres**: set `BURNING_DATABASE_URL=postgres://user:password@host:5432/db`. It wins over `BURNING_DB`.
+- **SQLite** (default): `BURNING_DB` is the file, `data/burning.db` by default. One server only.
+- **Postgres**: set `BURNING_DATABASE_URL=postgres://user:password@host:5432/db`. It wins over `BURNING_DB`. Several servers can share it.
 
-The schema is created and brought up to date at startup; an existing database is upgraded in place. Run one server per database for now.
+The schema is created and brought up to date at startup; an existing database is upgraded in place.
+
+With Postgres, every server can run at once:
+
+- A new error seen by two servers at the same moment becomes one issue: the unique fingerprint decides, and the issue's row is locked while an event changes it.
+- Notifications are claimed with `FOR UPDATE SKIP LOCKED` and a two-minute lease, so each goes out from one server; one whose server stopped mid-send is taken over when the lease ends.
+- Timed mutes end once: the update claims the rows it changes.
+- Live alerts go out through `LISTEN`/`NOTIFY`, so browsers on every server hear them.
+
+Still per server: the ingest rate limit, the queue of events not yet written, and the git mirrors for code sources.
+
+### Sign-in in development
+
+For passwords, make an accounts file and point `BURNING_PASSWORD_FILE` at it:
+
+```sh
+echo "you@example.com:$(echo -n 'a password' | pnpm --silent --filter backend hash-password)" > backend/passwords.local.txt
+```
+
+For single sign-on you need an OpenID Connect provider. Any will do; `dev/dex.yaml` runs [Dex](https://dexidp.io) in Docker as a throwaway local one with two users. The file says how to start it and what to put in `backend/.env`.
 
 ## Reporting errors
 
