@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import { Access, atLeast, setGrant, type Role } from "./access.js";
 import type { Authenticator, User } from "./auth.js";
 import type { Config } from "./env.js";
+import { alertEvents, type LiveAlerts } from "./live.js";
 import { listActivity } from "./activity.js";
 import { board, type Sort, type StatusFilter } from "./board.js";
 import { commentRoutes, commentsView } from "./comments-api.js";
@@ -26,6 +27,7 @@ export interface ApiDeps {
   senders: Senders;
   baseURL: string;
   config: Config;
+  live: LiveAlerts;
 }
 
 async function nameFrom(c: Context): Promise<string | undefined> {
@@ -55,6 +57,10 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
     c.set("user", user);
     return next();
   });
+
+  // Live alerts: a stream of project ids as their issues alert, only for
+  // projects this person can see.
+  app.get("/alerts", (c) => alertEvents(c, deps.live, (id) => access.role(id, c.get("user")) !== null));
 
   /** The project and the caller's role in it, or null when they cannot see it. */
   const load = (c: Context<AppEnv>) => {

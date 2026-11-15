@@ -46,9 +46,9 @@ export function setup(opts: { auth?: boolean; siteAdmins?: string } = {}) {
   const db = openDb(":memory:");
   const senders = new FakeSenders();
   const config = readConfig({ BURNING_SITE_ADMINS: [ADMIN, opts.siteAdmins ?? ""].join(",") });
-  const { app, outbox, queue } = createApp(db, { auth: testAuth(opts.auth ? null : ADMIN), config, senders });
+  const { app, outbox, queue, live } = createApp(db, { auth: testAuth(opts.auth ? null : ADMIN), config, senders });
   const project = createProject(db, "web");
-  return { db, app, outbox, queue, senders, project };
+  return { db, app, outbox, queue, live, senders, project };
 }
 
 export const as = (email: string, groups: string[] = []) => ({ "x-test-user": groups.length ? `${email}|${groups.join(",")}` : email });

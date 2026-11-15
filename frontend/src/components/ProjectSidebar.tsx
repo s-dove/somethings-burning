@@ -2,6 +2,7 @@ import { Content, Portal, Root, Trigger } from "@radix-ui/react-tooltip";
 import { useState, type ReactNode } from "react";
 import type { Board, ProjectRef, Session } from "../shared/api";
 import { dayColor, eventsTip } from "../shared/format";
+import { useUnseenAlerts } from "../shared/live";
 import { LayoutGrid, Menu, X } from "../ui/icons";
 import { Link } from "./common/Link";
 import { Logo } from "./Logo";
@@ -18,6 +19,8 @@ export function ProjectSidebar({ board, project, session, profile, create }: {
   create: ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
+  // A project whose issue alerted since it was last open gets a pulsing ring.
+  const unseen = useUnseenAlerts(project?.id ?? null);
   const row =
     "flex min-w-0 items-center rounded-control text-cinder no-underline hover:bg-rule-soft aria-[current=page]:bg-rule-soft aria-[current=page]:font-semibold aria-[current=page]:text-soot";
   const item = `${row} gap-3 px-3 py-2.5`;
@@ -61,11 +64,17 @@ export function ProjectSidebar({ board, project, session, profile, create }: {
               <Root>
                 <Trigger asChild>
                   <span className="flex shrink-0 items-center px-3">
-                    <span className="size-2 rounded-sm" style={{ backgroundColor: dayColor(p.unresolvedDay) }} />
+                    <span className="relative grid size-2 place-items-center">
+                      {unseen.has(p.id) && (
+                        <span className="absolute -inset-1 rounded-full ring-2 ring-[#d23b2f] motion-safe:animate-alert" aria-hidden="true" />
+                      )}
+                      <span className="size-2 rounded-sm" style={{ backgroundColor: dayColor(p.unresolvedDay) }} />
+                    </span>
                   </span>
                 </Trigger>
                 <Portal>
                   <Content side="right" sideOffset={8} className="z-50 rounded-control bg-soot px-2 py-1 text-[11px] leading-snug text-ash">
+                    {unseen.has(p.id) ? "New alert. " : ""}
                     {eventsTip(p.unresolvedDay)}
                   </Content>
                 </Portal>

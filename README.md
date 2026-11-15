@@ -115,6 +115,10 @@ An issue is open, resolved, or muted.
 
 Members and admins triage, one issue at a time or several from the list. Every change is in the issue's history, with who made it.
 
+## Live alerts
+
+When an issue alerts (new, firing again, or firing after a mute), its project's square in the sidebar gets a pulsing red ring in every open browser that can see the project, without a reload. Opening the project clears it. The browser listens on `GET /api/alerts`, a server-sent events stream that carries only `{ "projectId": <id> }`, with a ping every 25 seconds to keep proxies from closing it.
+
 ## Comments
 
 Anyone with a role on a project can comment on its issues, viewers too, since a comment does not change the issue. Comments are GitHub-flavoured Markdown (tables, task lists, fenced code with highlighting); raw HTML is not rendered. `@username` is highlighted, and clicking a commenter's name starts a reply that mentions them; mentions do not notify anyone yet.
@@ -145,6 +149,7 @@ The API needs a session, except `/api/session`, `/api/health`, and the ingest pa
 
 - `GET /api/health`
 - `GET /api/session`: the ways to sign in, and who is signed in
+- `GET /api/alerts`: server-sent events, `{ "projectId": <id> }` when one of its issues alerts (projects you can see)
 - `GET /api/board?project=<id>&status=open|resolved|muted|all&sort=hot|latest|count&q=<text>`
 - `GET /api/projects`: the projects you can see
 - `POST /api/projects` with `{ "name": "<name>" }`: creates a project, with you as admin
