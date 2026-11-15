@@ -9,9 +9,12 @@ pnpm install
 pnpm dev        # backend on :8195, web app on :5190 (proxies /api and /auth to the backend)
 pnpm test
 pnpm typecheck
+pnpm --filter backend seed   # demo projects and issues in the configured database
 ```
 
 The backend reads settings from the environment and from `backend/.env`; see `backend/.env.example`.
+
+The seed writes to the database directly, so run it with the server stopped or on a fresh database. It skips a project whose name is taken, so running it twice adds nothing. `BURNING_SEED_ADMINS=you@example.com` makes those people admin of the demo projects; otherwise only site admins see them.
 
 Tests run on SQLite. To run them on Postgres too (including the several-servers tests), point `BURNING_TEST_PG` at a server the tests may create schemas on:
 
