@@ -55,7 +55,7 @@ export async function addComment(db: Db, issueId: number, author: string, body: 
 /** Replaces the text and keeps the old one in the history. An edit that changes nothing is not recorded. */
 export function editComment(db: Db, id: number, body: string, now = Date.now()): Promise<void> {
   return db.tx(async (t) => {
-    const old = await t.get<{ body: string }>("SELECT body FROM comments WHERE id = ?", id);
+    const old = await t.get<{ body: string }>(`SELECT body FROM comments WHERE id = ? ${t.forUpdate}`, id);
     if (!old || old.body === body) return;
     await t.run("INSERT INTO comment_edits (comment_id, body, replaced_at) VALUES (?, ?, ?)", id, old.body, now);
     await t.run("UPDATE comments SET body = ?, edited_at = ? WHERE id = ?", body, now, id);

@@ -95,7 +95,9 @@ export interface Recorded {
 /**
  * Stores an event and adds it to its issue, creating the issue on first
  * sight. A resolved issue fires again, a "next release" mute ends on an event
- * from a new release, and the first event after a mute ended alerts.
+ * from a new release, and the first event after a mute ended alerts. Several
+ * servers may record at once: the unique fingerprint decides which one creates
+ * a new issue, and the issue's row is locked while an event changes it.
  */
 export function recordEvent(db: Db, projectId: number, event: SentryEvent, now = Date.now()): Promise<Recorded> {
   const s = summarize(event);
@@ -105,12 +107,14 @@ export function recordEvent(db: Db, projectId: number, event: SentryEvent, now =
   return db.tx(async (t) => {
     if (release) await t.run("INSERT INTO releases (project_id, version, first_seen) VALUES (?, ?, ?) ON CONFLICT DO NOTHING", projectId, release, now);
     const res: Recorded = { eventId: s.eventId, issueId: 0, title: s.title, alert: null, reason: "" };
-    const found = await t.get<IssueRow>("SELECT * FROM issues WHERE project_id = ? AND fingerprint = ?", projectId, s.fingerprint);
+    const existing = () => t.get<IssueRow>(`SELECT * FROM issues WHERE project_id = ? AND fingerprint = ? ${t.forUpdate}`, projectId, s.fingerprint);
+    // Most events belong to a known issue: look first, and insert only when there is none.
+    let found = await existing();
     const created = found
       ? undefined
       : await t.get<{ id: number; title: string }>(
           `INSERT INTO issues (project_id, fingerprint, title, culprit, level, platform, first_seen, last_seen, count)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1) RETURNING id, title`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1) ON CONFLICT (project_id, fingerprint) DO NOTHING RETURNING id, title`,
           projectId,
           s.fingerprint,
           s.title,
@@ -125,7 +129,10 @@ export function recordEvent(db: Db, projectId: number, event: SentryEvent, now =
       res.issueId = created.id;
       res.alert = "new";
       await addActivity(t, created.id, now, "created", "First seen", where);
-    } else if (found) {
+    } else {
+      // Another server may have created it a moment ago.
+      found ??= await existing();
+      if (!found) throw new Error(`issue for fingerprint ${s.fingerprint} vanished`);
       res.issueId = found.id;
       res.title = found.title;
       stored = { count: Number(found.stored_count), last: Number(found.last_stored) };
@@ -223,10 +230,10 @@ async function reopen(db: Db, issueId: number, now: number, kind: string, text: 
   await addActivity(db, issueId, now, kind, text, extra);
 }
 
-/** Runs fn on one issue of a project, in a transaction, with its current status. */
+/** Runs fn on one issue of a project, with its row locked, so a triage and an incoming event do not interleave. */
 function update(db: Db, projectId: number, issueId: number, fn: (t: Db, status: Status, now: number) => Promise<void>): Promise<void> {
   return db.tx(async (t) => {
-    const row = await t.get<{ status: Status }>("SELECT status FROM issues WHERE project_id = ? AND id = ?", projectId, issueId);
+    const row = await t.get<{ status: Status }>(`SELECT status FROM issues WHERE project_id = ? AND id = ? ${t.forUpdate}`, projectId, issueId);
     if (!row) throw new NotFound();
     await fn(t, row.status, Date.now());
   });
@@ -270,7 +277,11 @@ export function reopenByHand(db: Db, projectId: number, issueId: number, actor =
   });
 }
 
-/** Ends every timed mute that ran out. The issue goes back to open and its next event alerts. */
+/**
+ * Ends every timed mute that ran out. The issue goes back to open and its
+ * next event alerts. The update claims the rows it changes, so with several
+ * servers on the same timer each issue is reopened once.
+ */
 export function expireMutes(db: Db, now = Date.now()): Promise<number> {
   return db.tx(async (t) => {
     const ended = await t.all<{ id: number }>(

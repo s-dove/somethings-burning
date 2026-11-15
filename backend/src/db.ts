@@ -16,6 +16,10 @@ export interface Db {
   run(sql: string, ...params: Param[]): Promise<{ changes: number }>;
   /** Runs fn in one transaction, or in the caller's when this is one. Use the handle fn is given. */
   tx<T>(fn: (t: Db) => Promise<T>): Promise<T>;
+  /** "FOR UPDATE" on Postgres, where several servers may change a row at once; "" on SQLite. */
+  readonly forUpdate: string;
+  /** Rows no other server is claiming, on Postgres. */
+  readonly skipLocked: string;
   close(): Promise<void>;
 }
 
@@ -35,6 +39,8 @@ export const isPostgresURL = (target: string): boolean => /^postgres(ql)?:\/\//.
  */
 class SqliteDb implements Db {
   readonly kind = "sqlite" as const;
+  readonly forUpdate = "";
+  readonly skipLocked = "";
   private lock: Promise<void> = Promise.resolve();
 
   constructor(
@@ -103,6 +109,8 @@ const numbered = (sql: string): string => {
 
 class PgDb implements Db {
   readonly kind = "postgres" as const;
+  readonly forUpdate = "FOR UPDATE";
+  readonly skipLocked = "FOR UPDATE SKIP LOCKED";
 
   constructor(
     private pool: pg.Pool,
@@ -295,7 +303,8 @@ CREATE TABLE IF NOT EXISTS project_routes (
   PRIMARY KEY (project_id, position)
 );
 
--- The outbox: one row per message to send, retried until it goes out.
+-- The outbox: one row per message to send, retried until it goes out. A
+-- server claims a batch until locked_until, so two never send one message.
 CREATE TABLE IF NOT EXISTS notifications (
   id           ${ID},
   project_id   BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -310,7 +319,8 @@ CREATE TABLE IF NOT EXISTS notifications (
   next_at      BIGINT NOT NULL,
   created_at   BIGINT NOT NULL,
   sent_at      BIGINT NOT NULL DEFAULT 0,
-  last_error   TEXT NOT NULL DEFAULT ''
+  last_error   TEXT NOT NULL DEFAULT '',
+  locked_until BIGINT NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS notifications_due ON notifications (status, next_at);
 
@@ -330,6 +340,7 @@ const ADDED_COLUMNS: [string, string, string][] = [
   // Payload sampling: how many an issue keeps, and when it last kept one.
   ["issues", "stored_count", "BIGINT NOT NULL DEFAULT 0"],
   ["issues", "last_stored", "BIGINT NOT NULL DEFAULT 0"],
+  ["notifications", "locked_until", "BIGINT NOT NULL DEFAULT 0"],
 ];
 
 async function migrate(db: Db, exec: (sql: string) => Promise<void>): Promise<void> {
@@ -364,13 +375,18 @@ async function backfillCounts(db: Db): Promise<void> {
 
 /**
  * Opens Postgres for a postgres:// URL, else a SQLite file (or ":memory:"),
- * and brings the schema up to date.
+ * and brings the schema up to date. With Postgres, several servers can share
+ * the data.
  */
 export async function openDb(target: string): Promise<Db> {
   if (isPostgresURL(target)) {
     const pool = new pg.Pool({ connectionString: target, max: 10 });
     const db = new PgDb(pool);
-    await db.tx((t) => migrate(t, async (sql) => void (await t.run(sql))));
+    // One server migrates at a time.
+    await db.tx(async (t) => {
+      await t.run("SELECT pg_advisory_xact_lock(7428301)");
+      await migrate(t, async (sql) => void (await t.run(sql)));
+    });
     return db;
   }
   if (target !== ":memory:") mkdirSync(dirname(target), { recursive: true });

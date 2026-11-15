@@ -7,7 +7,6 @@ import { Auth, OidcLogin, Sessions, sessionSecret } from "./auth.js";
 import { isPostgresURL, openDb } from "./db.js";
 import { loadEnvFile, readConfig } from "./env.js";
 import { expireMutes, prune } from "./issues.js";
-import { requeueStuck } from "./notify/store.js";
 import { PasswordLogin } from "./passwords.js";
 
 loadEnvFile(process.env.BURNING_ENV_FILE ?? ".env");
@@ -29,7 +28,9 @@ if (!sso && !password) console.warn("no sign-in configured (BURNING_OIDC_ISSUER 
 const secure = (config.baseURL || config.oidc.redirectURL).startsWith("https:");
 const auth = new Auth(new Sessions(db, await sessionSecret(db, config.sessionSecret), secure), sso, password);
 
-const { app, outbox } = createApp(db, { auth, config });
+const { app, outbox, live } = createApp(db, { auth, config });
+// With Postgres, alerts reach the browsers connected to every server.
+if (isPostgresURL(config.db)) await live.listenPostgres(config.db);
 
 app.get("/healthz", (c) => c.text("ok"));
 
@@ -63,7 +64,6 @@ const every = (ms: number, name: string, fn: () => Promise<unknown>) => {
   run();
   return setInterval(run, ms).unref();
 };
-await requeueStuck(db);
 outbox.kick();
 every(30_000, "outbox", async () => outbox.kick());
 every(60_000, "expiring mutes", async () => {
@@ -81,6 +81,7 @@ const server = serve({ fetch: app.fetch, port: config.port, hostname: config.hos
 
 const stop = async () => {
   server.close();
+  await live.close();
   await db.close();
   process.exit(0);
 };

@@ -65,11 +65,9 @@ export const safeNext = (next: unknown): next is string =>
  */
 export async function sessionSecret(db: Db, configured: string): Promise<string> {
   if (configured) return createHash("sha256").update(`burning-session:${configured}`).digest("hex");
-  const row = await db.get<{ value: string }>("SELECT value FROM meta WHERE key = 'session_secret'");
-  if (row) return row.value;
-  const secret = randomBytes(32).toString("hex");
-  await db.run("INSERT INTO meta (key, value) VALUES ('session_secret', ?)", secret);
-  return secret;
+  // Several servers may start at once: the first insert wins, and all read it back.
+  await db.run("INSERT INTO meta (key, value) VALUES ('session_secret', ?) ON CONFLICT DO NOTHING", randomBytes(32).toString("hex"));
+  return (await db.get<{ value: string }>("SELECT value FROM meta WHERE key = 'session_secret'"))!.value;
 }
 
 /**
