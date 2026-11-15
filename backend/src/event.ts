@@ -82,7 +82,10 @@ export function summarize(event: SentryEvent): Summary {
   else if (msg) title = msg.text;
 
   const frame = topFrame(main);
-  const culprit = event.culprit || (frame ? frameLabel(frame) : "") || event.transaction || "";
+  // Where it happened: the transaction when the SDK sends one (a route or a
+  // task name), else the innermost frame of your code, as Sentry does.
+  const transaction = typeof event.transaction === "string" ? event.transaction : "";
+  const culprit = transaction || (frame ? frameLabel(frame) : "") || event.culprit || "";
 
   return {
     eventId: (event.event_id ?? crypto.randomUUID()).replaceAll("-", ""),

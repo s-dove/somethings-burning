@@ -14,7 +14,7 @@ import type { Db } from "./db.js";
 import { eventView } from "./event-view.js";
 import { eventPage, getEvent, getIssue, hoursByIssue, latestRelease, listIssues, mute, NotFound, releasesOf, reopenByHand, resolve, storedEventCount } from "./issues.js";
 import type { Senders } from "./notify/deliver.js";
-import { createProject, deleteProject, getProject, listProjects, renameProject } from "./projects.js";
+import { createProject, deleteProject, getProject, listProjects, NameTaken, renameProject } from "./projects.js";
 import { profileRoutes } from "./profile-api.js";
 import { routingRoutes } from "./routing-api.js";
 import { settingsRoutes } from "./settings-api.js";
@@ -73,6 +73,7 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
     const role = project ? await access.role(project.id, c.get("user")) : null;
     return project && role ? { project, role } : null;
   };
+  const taken = (c: Context) => c.json({ detail: "a project with that name already exists" }, 409);
   const notFound = (c: Context) => c.json({ detail: "not found" }, 404);
   const needs = (c: Context, role: Role) =>
     c.json({ detail: role === "admin" ? "this needs the admin role" : "this needs the member role" }, 403);
@@ -106,7 +107,13 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
   app.post("/projects", async (c) => {
     const name = await nameFrom(c);
     if (!name) return c.json({ detail: "name is required (up to 80 characters)" }, 400);
-    const p = await createProject(db, name);
+    let p;
+    try {
+      p = await createProject(db, name);
+    } catch (err) {
+      if (err instanceof NameTaken) return taken(c);
+      throw err;
+    }
     const user = c.get("user");
     if (user) await setGrant(db, p.id, "user", user.email, "admin");
     return c.json({ project: { ...p, dsn: dsn(c, deps.baseURL, p.id, p.publicKey), role: "admin" } }, 201);
@@ -125,7 +132,13 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
     if (!atLeast(found.role, "admin")) return needs(c, "admin");
     const name = await nameFrom(c);
     if (!name) return c.json({ detail: "name is required (up to 80 characters)" }, 400);
-    const p = (await renameProject(db, found.project.id, name))!;
+    let p;
+    try {
+      p = (await renameProject(db, found.project.id, name))!;
+    } catch (err) {
+      if (err instanceof NameTaken) return taken(c);
+      throw err;
+    }
     return c.json({ project: { ...p, dsn: dsn(c, deps.baseURL, p.id, p.publicKey), role: found.role } });
   });
 

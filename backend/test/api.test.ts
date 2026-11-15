@@ -44,3 +44,19 @@ describe("api", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("project names", () => {
+  it("refuses a name another project has, ignoring case, on create and rename", async () => {
+    const { app } = await setup();
+    const post = (name: string) => app.request("/api/projects", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) });
+    expect((await post("api")).status).toBe(201);
+    const dup = await post("API");
+    expect(dup.status).toBe(409);
+    expect(((await dup.json()) as { detail: string }).detail).toBe("a project with that name already exists");
+    const { projects } = (await (await app.request("/api/projects")).json()) as { projects: { id: number; name: string }[] };
+    const api = projects.find((p) => p.name === "api")!;
+    const rename = (name: string) => app.request(`/api/projects/${api.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) });
+    expect((await rename("Web")).status).toBe(409);
+    expect((await rename("Api")).status).toBe(200);
+  });
+});
