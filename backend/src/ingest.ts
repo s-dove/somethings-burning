@@ -1,31 +1,47 @@
-import { brotliDecompressSync, gunzipSync, inflateSync } from "node:zlib";
+import { randomUUID } from "node:crypto";
+import { brotliDecompressSync, gunzipSync, inflateRawSync, inflateSync, zstdDecompressSync } from "node:zlib";
 import { Hono, type Context } from "hono";
-import type { Alerter } from "./alert.js";
 import { cors } from "hono/cors";
 import type { Db } from "./db.js";
 import { parseEnvelope } from "./envelope.js";
 import type { SentryEvent } from "./event.js";
-import { recordEvent } from "./issues.js";
-import { getProject, type Project } from "./projects.js";
+import { getProject } from "./projects.js";
+import type { IngestQueue, TokenBucket } from "./queue.js";
 import { publicBase } from "./url.js";
 
 // The two routes Sentry SDKs post to. Only error events are stored; other
 // envelope items (transactions, sessions, client reports, ...) are accepted
 // and dropped.
 
-const MAX_BODY = 20 * 1024 * 1024;
+export const MAX_BODY = 10 * 1024 * 1024;
+const RETRY_AFTER_SECONDS = 10;
 
-function decode(body: Buffer, encoding: string | undefined): Buffer {
+/** Undoes Content-Encoding: gzip, deflate (zlib or raw), br, or zstd. */
+export function decode(body: Buffer, encoding: string | undefined): Buffer {
+  const opts = { maxOutputLength: MAX_BODY };
   switch ((encoding ?? "").toLowerCase()) {
     case "gzip":
-      return gunzipSync(body, { maxOutputLength: MAX_BODY });
+      return gunzipSync(body, opts);
     case "deflate":
-      return inflateSync(body, { maxOutputLength: MAX_BODY });
+      try {
+        return inflateSync(body, opts);
+      } catch {
+        return inflateRawSync(body, opts);
+      }
     case "br":
-      return brotliDecompressSync(body, { maxOutputLength: MAX_BODY });
+      return brotliDecompressSync(body, opts);
+    case "zstd":
+      return zstdDecompressSync(body, opts);
     default:
       return body;
   }
+}
+
+function rateLimited(c: Context, why: string) {
+  c.header("Retry-After", String(RETRY_AFTER_SECONDS));
+  // Empty categories means every category, so the SDK pauses everything.
+  c.header("X-Sentry-Rate-Limits", `${RETRY_AFTER_SECONDS}::organization`);
+  return c.json({ detail: why }, 429);
 }
 
 /** sentry_key from the X-Sentry-Auth header, the query string, or the envelope's DSN. */
@@ -45,21 +61,15 @@ function keyFrom(c: Context, envelopeDsn?: unknown): string | undefined {
   return undefined;
 }
 
-export function ingestRoutes(db: Db, opts: { alerter?: Alerter; baseURL?: string } = {}): Hono {
+export function ingestRoutes(db: Db, opts: { queue: IngestQueue; limiter: TokenBucket; baseURL?: string }): Hono {
   const r = new Hono();
 
-  // record stores one event and alerts when it should: a new issue, one
-  // firing again, or one firing after a mute.
-  const record = (c: Context, project: Project, event: SentryEvent) => {
-    const res = recordEvent(db, project.id, event);
-    if (res.alert && opts.alerter) {
-      try {
-        opts.alerter.notify(project, res, event, publicBase(c, opts.baseURL));
-      } catch (err) {
-        console.error("alert failed:", err);
-      }
-    }
-    return res.eventId;
+  // queue hands one event to the writer and answers with its id. The id is
+  // settled here, since the event is written after the response.
+  const queue = (c: Context, project: NonNullable<ReturnType<typeof getProject>>, event: SentryEvent): string | null => {
+    const id = typeof event.event_id === "string" && event.event_id ? event.event_id.replaceAll("-", "") : randomUUID().replaceAll("-", "");
+    const ok = opts.queue.push({ project, event: { ...event, event_id: id }, received: Date.now(), baseURL: publicBase(c, opts.baseURL) });
+    return ok ? id : null;
   };
 
   // Browser SDKs post cross-origin.
@@ -75,7 +85,7 @@ export function ingestRoutes(db: Db, opts: { alerter?: Alerter; baseURL?: string
 
   const readBody = async (c: Context) => {
     const raw = Buffer.from(await c.req.arrayBuffer());
-    if (raw.length > MAX_BODY) throw new Error("too large");
+    if (raw.length > MAX_BODY) throw new TooLarge();
     return decode(raw, c.req.header("content-encoding"));
   };
 
@@ -87,42 +97,64 @@ export function ingestRoutes(db: Db, opts: { alerter?: Alerter; baseURL?: string
     return { project };
   };
 
+  // Reads and decodes the body: a 413 when too large, a 400 when it cannot be read.
+  const body = async (c: Context): Promise<Buffer | Response> => {
+    try {
+      return await readBody(c);
+    } catch (err) {
+      if (err instanceof TooLarge) return c.json({ detail: "body too large" }, 413);
+      return c.json({ detail: "the body could not be decoded" }, 400);
+    }
+  };
+
   const envelope = async (c: Context) => {
-    let body: Buffer;
+    if (!opts.limiter.allow()) return rateLimited(c, "rate limited");
+    const raw = await body(c);
+    if (raw instanceof Response) return raw;
     let env;
     try {
-      body = await readBody(c);
-      env = parseEnvelope(body);
+      env = parseEnvelope(raw);
     } catch {
       return c.json({ detail: "malformed envelope" }, 400);
     }
     const auth = authorize(c, env.header.dsn);
     if (auth.error) return auth.error;
 
-    let id = typeof env.header.event_id === "string" ? env.header.event_id : undefined;
+    // Transactions, sessions, client reports and the rest are accepted and
+    // dropped; only errors are tracked.
+    const events: SentryEvent[] = [];
+    const headerId = typeof env.header.event_id === "string" ? env.header.event_id : undefined;
     for (const item of env.items) {
       if (item.type !== "event") continue;
-      let event: SentryEvent;
       try {
-        event = JSON.parse(item.payload.toString("utf8")) as SentryEvent;
+        events.push({ event_id: headerId, ...(JSON.parse(item.payload.toString("utf8")) as SentryEvent) });
       } catch {
         return c.json({ detail: "malformed event" }, 400);
       }
-      id = record(c, auth.project, { event_id: id, ...event });
+    }
+    let id = headerId;
+    for (const event of events) {
+      const queued = queue(c, auth.project, event);
+      if (!queued) return rateLimited(c, "ingest queue full");
+      id = queued;
     }
     return c.json(id ? { id } : {});
   };
 
   const store = async (c: Context) => {
+    if (!opts.limiter.allow()) return rateLimited(c, "rate limited");
     const auth = authorize(c);
     if (auth.error) return auth.error;
+    const raw = await body(c);
+    if (raw instanceof Response) return raw;
     let event: SentryEvent;
     try {
-      event = JSON.parse((await readBody(c)).toString("utf8")) as SentryEvent;
+      event = JSON.parse(raw.toString("utf8")) as SentryEvent;
     } catch {
       return c.json({ detail: "malformed event" }, 400);
     }
-    return c.json({ id: record(c, auth.project, event) });
+    const id = queue(c, auth.project, event);
+    return id ? c.json({ id }) : rateLimited(c, "ingest queue full");
   };
 
   for (const suffix of ["", "/"]) {
@@ -131,3 +163,5 @@ export function ingestRoutes(db: Db, opts: { alerter?: Alerter; baseURL?: string
   }
   return r;
 }
+
+class TooLarge extends Error {}

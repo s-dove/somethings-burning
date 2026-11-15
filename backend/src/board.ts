@@ -15,7 +15,8 @@ const heat = (hours: number[]) => hours.reduce((sum, n, i) => sum + n * Math.pow
 /** The board: every project for the sidebar, and the issues of one project (or all). */
 export function board(db: Db, opts: { projectId?: number; status?: StatusFilter; sort: Sort; q: string; scope?: number[] }, now = Date.now()) {
   const status = opts.status ?? "open";
-  const since = now - 24 * HOUR;
+  // The last 24 hourly cells, this one included, as on the heat strips.
+  const since = (Math.floor(now / HOUR) - 23) * HOUR;
   // scope is the projects the person can see; undefined means all.
   const visible = (id: number) => !opts.scope || opts.scope.includes(id);
   const all = (
@@ -23,8 +24,8 @@ export function board(db: Db, opts: { projectId?: number; status?: StatusFilter;
       .prepare(
         `SELECT p.id, p.name, p.created_at,
                 (SELECT COUNT(*) FROM issues i WHERE i.project_id = p.id AND i.status = 'open') AS open_count,
-                (SELECT COUNT(*) FROM events e JOIN issues i ON i.id = e.issue_id
-                  WHERE e.project_id = p.id AND e.received_at >= ? AND i.status != 'resolved') AS day
+                (SELECT COALESCE(SUM(h.event_count), 0) FROM issue_hours h JOIN issues i ON i.id = h.issue_id
+                  WHERE i.project_id = p.id AND h.hour >= ? AND i.status != 'resolved') AS day
            FROM projects p ORDER BY p.name COLLATE NOCASE`,
       )
       .all(since) as { id: number; name: string; created_at: number; open_count: number; day: number }[]
@@ -66,10 +67,15 @@ export function board(db: Db, opts: { projectId?: number; status?: StatusFilter;
   const scope = `AND project_id IN (${inScope.map(() => "?").join(",") || "NULL"})`;
   const scopeArgs = inScope;
   const count = (sql: string, ...a: (string | number)[]) => (db.prepare(sql).get(...a) as { n: number }).n;
-  const events = {
-    day: count(`SELECT COUNT(*) AS n FROM events WHERE received_at >= ? ${scope}`, since, ...scopeArgs),
-    hour: count(`SELECT COUNT(*) AS n FROM events WHERE received_at >= ? ${scope}`, now - HOUR, ...scopeArgs),
-  };
+  // Events of issues that are not resolved, from the hourly counts.
+  const unresolved = (from: number) =>
+    count(
+      `SELECT COALESCE(SUM(h.event_count), 0) AS n FROM issue_hours h JOIN issues i ON i.id = h.issue_id
+        WHERE h.hour >= ? AND i.status != 'resolved' ${scope.replace("project_id", "i.project_id")}`,
+      from,
+      ...scopeArgs,
+    );
+  const events = { day: unresolved(since), hour: unresolved(Math.floor(now / HOUR) * HOUR) };
   const burning = count(
     `SELECT COUNT(*) AS n FROM issues WHERE status = 'open' AND last_seen >= ? ${scope}`,
     now - HOUR,
@@ -85,20 +91,13 @@ export function board(db: Db, opts: { projectId?: number; status?: StatusFilter;
   if (opts.projectId) {
     const p = projects.find((x) => x.id === opts.projectId);
     if (p) {
-      const pulse = db
-        .prepare(
-          `SELECT MAX(received_at) AS last,
-                  (SELECT release FROM events WHERE project_id = ? AND release != '' ORDER BY id DESC LIMIT 1) AS release
-             FROM events WHERE project_id = ?`,
-        )
-        .get(p.id, p.id) as { last: number | null; release: string | null };
-      const releaseSeen = pulse.release
-        ? (
-            db
-              .prepare("SELECT MIN(received_at) AS t FROM events WHERE project_id = ? AND release = ?")
-              .get(p.id, pulse.release) as { t: number }
-          ).t
-        : 0;
+      // Whether it still reports: its last event, and its newest release.
+      const last = (db.prepare("SELECT MAX(last_seen) AS t FROM issues WHERE project_id = ?").get(p.id) as { t: number | null }).t;
+      const rel = db.prepare("SELECT version, first_seen FROM releases WHERE project_id = ? ORDER BY first_seen DESC LIMIT 1").get(p.id) as
+        | { version: string; first_seen: number }
+        | undefined;
+      const pulse = { last, release: rel?.version ?? null };
+      const releaseSeen = rel?.first_seen ?? 0;
       project = {
         id: p.id,
         name: p.name,

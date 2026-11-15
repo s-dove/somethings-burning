@@ -47,6 +47,12 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
     // The public URL of the web app, for DSNs and links in alerts. Empty
     // means the address the request came in on.
     baseURL: (env.BURNING_BASE_URL ?? "").replace(/\/$/, ""),
+    // Ingest limit for the whole server: events per second, and the burst
+    // allowed above it. Over it, SDKs are told to wait (429, Retry-After).
+    rate: num(env, "BURNING_RATE", 50),
+    burst: num(env, "BURNING_BURST", 500),
+    // Event payloads older than this are deleted; issues and counts stay.
+    retentionDays: num(env, "BURNING_RETENTION_DAYS", 30),
     // Emails or group names that are admin on every project.
     siteAdmins: list(env.BURNING_SITE_ADMINS),
     // The secret that signs session cookies. Empty means a random one kept in the database.

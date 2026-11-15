@@ -3,12 +3,15 @@ import { setGrant } from "../src/access.js";
 import { saveRouting, savePersonalRoutes } from "../src/notify/store.js";
 import { as, json, pythonError, setup, signIn } from "./helpers.js";
 
-const send = (s: ReturnType<typeof setup>, event: object = pythonError) =>
-  s.app.request(`/api/${s.project.id}/store/?sentry_key=${s.project.publicKey}`, {
+const send = async (s: ReturnType<typeof setup>, event: object = pythonError) => {
+  const res = await s.app.request(`/api/${s.project.id}/store/?sentry_key=${s.project.publicKey}`, {
     method: "POST",
     headers: { host: "burning.example.com" },
     body: JSON.stringify(event),
   });
+  await s.queue.idle();
+  return res;
+};
 
 const targets = (s: ReturnType<typeof setup>) => s.senders.sent.map((x) => `${x.d.kind}:${x.d.target}`).sort();
 

@@ -3,7 +3,7 @@ import { createApp } from "./app.js";
 import { Auth, OidcLogin, Sessions, sessionSecret } from "./auth.js";
 import { openDb } from "./db.js";
 import { loadEnvFile, readConfig } from "./env.js";
-import { expireMutes } from "./issues.js";
+import { expireMutes, prune } from "./issues.js";
 import { requeueStuck } from "./notify/store.js";
 import { PasswordLogin } from "./passwords.js";
 
@@ -38,6 +38,17 @@ setInterval(() => {
     console.error("expiring mutes:", err);
   }
 }, 60_000).unref();
+// Payloads older than the retention period go once an hour.
+const pruneOld = () => {
+  try {
+    const n = prune(db, config.retentionDays * 86_400_000);
+    if (n) console.log(`pruned events: ${n}`);
+  } catch (err) {
+    console.error("pruning events:", err);
+  }
+};
+pruneOld();
+setInterval(pruneOld, 3_600_000).unref();
 
 serve({ fetch: app.fetch, port: config.port }, (info) => {
   console.log(`backend listening on http://localhost:${info.port}`);

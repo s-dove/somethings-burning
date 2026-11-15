@@ -16,7 +16,7 @@ function envelope(dsn: string, event: object, extra = ""): string {
 
 describe("ingest", () => {
   it("stores an envelope event and groups repeats into one issue", async () => {
-    const { app, project } = setup();
+    const { app, project, queue } = setup();
     const dsn = `http://${project.publicKey}@localhost/${project.id}`;
     for (let i = 0; i < 2; i++) {
       const res = await app.request(`/api/${project.id}/envelope/`, {
@@ -25,6 +25,7 @@ describe("ingest", () => {
       });
       expect(res.status).toBe(200);
     }
+    await queue.idle();
     const { issues } = (await (await app.request(`/api/projects/${project.id}/issues`)).json()) as {
       issues: { id: number; title: string; culprit: string; eventCount: number }[];
     };
