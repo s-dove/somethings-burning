@@ -11,7 +11,7 @@ import { plural, stamp } from "../shared/format";
 import { input, section, sectionTitle } from "../shared/ui";
 import { Button } from "../ui/components/Button";
 import { Tip } from "../components/Tip";
-import { ArrowLeft, Bell, ChevronRight, KeyRound, Settings2, Shield, Trash2 } from "../ui/icons";
+import { ArrowLeft, Bell, ChevronRight, Code, KeyRound, Settings2, Shield, Trash2 } from "../ui/icons";
 
 /** Loads a project's settings for the settings pages. */
 export function useSettings() {
@@ -77,7 +77,7 @@ export function SettingsPage() {
       title={(name) => `${name} settings`}
       hint="Connect a service, decide who sees its errors, and where they go."
       action={
-        <Tip content="Sign-in, email, and Mattermost settings for the whole server">
+        <Tip content="Sign-in, email, Mattermost, and code access for the whole server">
           <Link to="/settings" className="ui-button ui-button-secondary ui-button-md shrink-0 no-underline">
             <Settings2 aria-hidden="true" />
             Global settings
@@ -100,6 +100,7 @@ export function SettingsPage() {
                 detail={`Who can view and manage this project. ${access}. Your role: ${project.role ?? "viewer"}.`}
               />
               <Row to={`${base}/notifications`} icon={<Bell aria-hidden="true" />} title="Notifications" detail="Routing: which alerts go to which people, addresses, and channels." />
+              <Row to={`${base}/code`} icon={<Code aria-hidden="true" />} title="Code" detail="The repositories stack frames come from, for links to the lines in them." />
             </ul>
             {project.role === "admin" && <General settings={data!} onChange={reload} />}
           </>

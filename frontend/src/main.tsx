@@ -13,6 +13,7 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { RbacPage } from "./pages/RbacPage";
 import { RoutingPage } from "./pages/RoutingPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { SourcesPage } from "./pages/SourcesPage";
 import { SiteSettingsPage } from "./pages/SiteSettingsPage";
 import "./styles.css";
 
@@ -32,6 +33,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/p/:id/settings/dsn" element={<DsnPage />} />
           <Route path="/p/:id/settings/rbac" element={<RbacPage />} />
           <Route path="/p/:id/settings/notifications" element={<RoutingPage />} />
+          <Route path="/p/:id/settings/code" element={<SourcesPage />} />
           <Route path="/p/:id/issues/:issueId" element={<IssuePage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

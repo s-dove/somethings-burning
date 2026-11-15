@@ -1,6 +1,9 @@
 import { Disclosure, DisclosureButton, DisclosurePanel } from "@headlessui/react";
 import { highlight, languageFor } from "../components/common/CodeBlock";
+import { Link } from "../components/common/Link";
+import { Tip } from "../components/Tip";
 import type { EventView, FrameView } from "../shared/api";
+import { ExternalLink } from "../ui/icons";
 
 type Exception = EventView["exceptions"][number];
 
@@ -29,7 +32,7 @@ export function StackTrace({ exception, platform, causedBy }: { exception: Excep
               <>
                 <div className="flex items-stretch hover:bg-smoke">
                   <DisclosureButton
-                    className={`mono flex min-w-0 flex-1 cursor-pointer flex-wrap items-baseline gap-2 py-2.5 pr-5 pl-5 text-left ${f.inApp ? "" : "text-cinder"}`}
+                    className={`mono flex min-w-0 flex-1 cursor-pointer flex-wrap items-baseline gap-2 py-2.5 pl-5 text-left ${f.link ? "pr-2" : "pr-5"} ${f.inApp ? "" : "text-cinder"}`}
                   >
                     <span className="w-2.5 text-cinder">{open ? "−" : "+"}</span>
                     <span className="wrap-anywhere">{f.location}</span>
@@ -41,6 +44,17 @@ export function StackTrace({ exception, platform, causedBy }: { exception: Excep
                     {f.lineno > 0 && <span className="text-cinder">line {f.lineno}</span>}
                     {!f.inApp && <span className="ml-auto text-[11px] text-cinder">library</span>}
                   </DisclosureButton>
+                  {f.link && (
+                    <Tip content="Open this line in the repository">
+                      <Link
+                        to={f.link}
+                        aria-label={`Open ${f.location} line ${f.lineno} in the repository`}
+                        className="grid shrink-0 place-items-center px-4 text-cinder hover:text-soot"
+                      >
+                        <ExternalLink size={13} aria-hidden="true" />
+                      </Link>
+                    </Tip>
+                  )}
                 </div>
                 <DisclosurePanel>
                   {f.lines.length > 0 && <FrameSource lines={f.lines} language={languageFor(platform, f.location)} />}

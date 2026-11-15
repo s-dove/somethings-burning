@@ -104,6 +104,14 @@ CREATE TABLE IF NOT EXISTS comment_edits (
 );
 CREATE INDEX IF NOT EXISTS comment_edits_by_comment ON comment_edits (comment_id, replaced_at);
 
+-- A project's code sources (see source/config.ts), in order.
+CREATE TABLE IF NOT EXISTS project_sources (
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  position   INTEGER NOT NULL,
+  config     TEXT NOT NULL,
+  PRIMARY KEY (project_id, position)
+);
+
 -- People who have signed in, from their ID token claims. notify_routes is
 -- their own notification routing (JSON); NULL means never saved.
 CREATE TABLE IF NOT EXISTS users (

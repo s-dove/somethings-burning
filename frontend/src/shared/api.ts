@@ -76,6 +76,7 @@ export interface FrameView {
   inApp: boolean;
   lines: { no: number; text: string; current: boolean }[];
   vars: [string, string][];
+  link: string; // the line in the repository, "" when no code source covers it
 }
 
 export interface EventView {
@@ -195,6 +196,34 @@ export interface PersonalRouting {
 /** Kinds the server cannot send: routes using them get a warning. */
 export function unavailableKinds(r: { email: boolean; mattermost: boolean }): ReceiverKind[] {
   return [...(r.email ? [] : (["email"] as const)), ...(r.mattermost ? [] : (["mattermost", "mattermost_dm"] as const))];
+}
+
+// ---- Code sources ----
+
+export type SourceKind = "github" | "git";
+export type ReleaseKind = "auto" | "sha" | "tag" | "vtag" | "template" | "event_tag" | "regex" | "branch";
+export interface Mapping { prefix: string; dir: string }
+export interface SourceConfig {
+  kind: SourceKind;
+  repo: string;
+  branch: string;
+  mappings: Mapping[];
+  release: { kind: ReleaseKind; value: string };
+  primary: boolean;
+  context: string;
+  web: string;
+}
+export interface SourcesView {
+  project: ProjectRef;
+  sources: SourceConfig[];
+  releaseKinds: ReleaseKind[];
+  hosts: string[];
+  sshKey: boolean;
+}
+export interface SourcesTest {
+  event: { issueId: number; eventId: string; release: string } | null;
+  sources: { sha: string; ref: string; how: string; error: string }[];
+  frames: { location: string; line: number; source: number | null; path: string; found: boolean | null; link: string }[];
 }
 
 export class ApiError extends Error {

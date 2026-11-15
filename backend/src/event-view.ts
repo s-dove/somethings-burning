@@ -11,6 +11,7 @@ export type FrameView = {
   inApp: boolean;
   lines: { no: number; text: string; current: boolean }[];
   vars: [string, string][];
+  link: string; // the line in the repository, "" when no code source covers it
 };
 
 export type EventView = {
@@ -59,6 +60,7 @@ function frameView(f: Frame & { vars?: Record<string, unknown> }): FrameView {
     inApp: f.in_app === true,
     lines,
     vars: Object.entries(f.vars ?? {}).map(([k, v]) => [k, pretty(v)]),
+    link: "",
   };
 }
 

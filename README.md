@@ -135,9 +135,32 @@ A route sends to people, email addresses, Mattermost channels, or webhooks (a JS
 
 Email needs `BURNING_SMTP_HOST` and `BURNING_SMTP_FROM`; Mattermost needs `BURNING_MATTERMOST_URL` and a bot token. Messages go through an outbox and are retried up to five times. The issue's history records who was notified and by which route.
 
+## Code sources
+
+A project lists the repositories its stack frames come from, on its Code settings page. Sources can be of different kinds in one project:
+
+- **GitHub**: github.com or a GitHub Enterprise host, written `host/owner/repo`. Read through the REST API; nothing is cloned.
+- **Git**: any git server, by clone URL (https or ssh). Burning keeps a bare, blobless mirror under `BURNING_GIT_DIR` (default: a `git` folder next to the database) and fetches when it meets an unknown ref, at most every five minutes. Links need a template with `{ref}`, `{path}`, and `{line}`.
+
+Each source has path mappings: where a frame's path starts, and which folder that is in the repository. A frame goes to the source whose mapping has the longest matching prefix, so a vendored library inside the app's folder still finds its own repository. Frames no mapping covers, and library frames, are left alone.
+
+Each source also says how an event's release becomes a commit:
+
+- **Auto** (default): a commit after `+` (`payments-api@2.15.0+3e7cbf4`), a release that is a commit, `git describe` output (`v2.1.0-12-g3e7cbf4`), then a tag named like the version, then `v` plus the version.
+- **Commit in release**, **Tag = release**, **Tag = v + version**, **Tag template** (`payments-api/v{version}`, for monorepos), **Event tag** (the commit in a tag the SDK sends), **Regex** (one capture group), or **Default branch**.
+
+Anything that does not resolve falls back to the default branch. The recommended release is `<service>@<version>+<full commit>`; Sentry SDKs read it from the `SENTRY_RELEASE` environment variable, so a build only has to set that.
+
+Stack frames on the issue page link to their line at the resolved commit. The settings page can test a draft against the latest stored event.
+
+Credentials come from the environment, matched by host:
+
+- `BURNING_GIT_CREDENTIALS`: git-credentials lines, `https://user:token@host`, one per host (newlines or commas). Used for the GitHub API and for https clones.
+- `BURNING_GIT_SSH_KEY`: path to a private key for ssh clone URLs.
+
 ## Global settings
 
-`/settings` (the Settings tab on All issues, or Global settings on a project's settings) shows how this server is set up: sign-in, email, and Mattermost. The values come from the environment and are read-only there. Passwords, secrets, and tokens are never shown, only whether they are set.
+`/settings` (the Settings tab on All issues, or Global settings on a project's settings) shows how this server is set up: sign-in, email, Mattermost, and code access. The values come from the environment and are read-only there. Passwords, secrets, and tokens are never shown, only whether they are set.
 
 ## API
 
@@ -167,7 +190,8 @@ The API needs a session, except `/api/session`, `/api/health`, and the ingest pa
 - `PUT /api/projects/<id>/access` with `{ "kind": "user" | "group", "subject": "<email or group>", "role": "viewer" | "member" | "admin" }` (admin)
 - `DELETE /api/projects/<id>/access` with `{ "kind", "subject" }` (admin)
 - `GET /api/projects/<id>/routing`, `PUT` with `{ "routes": [...] }` (admin)
+- `GET /api/projects/<id>/sources`, `PUT` with `{ "sources": [...] }` (admin), and `POST /api/projects/<id>/sources/test` with a draft list (admin): the project's code sources
 - `GET /api/people?project=<id>`: who a route can send to
-- `GET /api/site/settings`: the server's sign-in, email, and Mattermost settings, without secrets
+- `GET /api/site/settings`: the server's sign-in, email, Mattermost, and code access settings, without secrets
 - `GET /api/profile`, `PUT` with `{ "displayName": "<name>" }`
 - `GET /api/profile/notifications`, `PUT` with `{ "routes": [...] }`, and `POST /api/profile/notifications/test` with one receiver
