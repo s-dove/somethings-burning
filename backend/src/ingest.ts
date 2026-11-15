@@ -1,11 +1,13 @@
 import { brotliDecompressSync, gunzipSync, inflateSync } from "node:zlib";
 import { Hono, type Context } from "hono";
+import type { Alerter } from "./alert.js";
 import { cors } from "hono/cors";
 import type { Db } from "./db.js";
 import { parseEnvelope } from "./envelope.js";
 import type { SentryEvent } from "./event.js";
 import { recordEvent } from "./issues.js";
-import { getProject } from "./projects.js";
+import { getProject, type Project } from "./projects.js";
+import { publicBase } from "./url.js";
 
 // The two routes Sentry SDKs post to. Only error events are stored; other
 // envelope items (transactions, sessions, client reports, ...) are accepted
@@ -43,8 +45,21 @@ function keyFrom(c: Context, envelopeDsn?: unknown): string | undefined {
   return undefined;
 }
 
-export function ingestRoutes(db: Db): Hono {
+export function ingestRoutes(db: Db, opts: { alerter?: Alerter; baseURL?: string } = {}): Hono {
   const r = new Hono();
+
+  // record stores one event and alerts when it starts a new issue.
+  const record = (c: Context, project: Project, event: SentryEvent) => {
+    const res = recordEvent(db, project.id, event);
+    if (res.isNew && opts.alerter) {
+      try {
+        opts.alerter.newIssue(project, { id: res.issueId, title: res.title }, event, publicBase(c, opts.baseURL));
+      } catch (err) {
+        console.error("alert failed:", err);
+      }
+    }
+    return res.eventId;
+  };
 
   // Browser SDKs post cross-origin.
   r.use(
@@ -92,7 +107,7 @@ export function ingestRoutes(db: Db): Hono {
       } catch {
         return c.json({ detail: "malformed event" }, 400);
       }
-      id = recordEvent(db, auth.project.id, { event_id: id, ...event }).eventId;
+      id = record(c, auth.project, { event_id: id, ...event });
     }
     return c.json(id ? { id } : {});
   };
@@ -106,7 +121,7 @@ export function ingestRoutes(db: Db): Hono {
     } catch {
       return c.json({ detail: "malformed event" }, 400);
     }
-    return c.json({ id: recordEvent(db, auth.project.id, event).eventId });
+    return c.json({ id: record(c, auth.project, event) });
   };
 
   for (const suffix of ["", "/"]) {

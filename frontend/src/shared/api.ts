@@ -14,9 +14,12 @@ export interface Issue {
   hours: number[];
 }
 
+export type Role = "viewer" | "member" | "admin";
+
 export interface ProjectRef {
   id: number;
   name: string;
+  role?: Role | null;
 }
 
 export interface Project extends ProjectRef {
@@ -88,6 +91,79 @@ export interface IssueDetail {
   event: EventView | null;
 }
 
+export interface Session {
+  methods: { oidc: boolean; oidcName: string; password: boolean }; // how to sign in, as configured on the backend
+  user: { email: string; name: string; groups: string[]; username: string; displayName: string } | null;
+}
+
+// Profile is what Burning keeps about the signed-in person.
+export interface Profile {
+  email: string;
+  username: string; // preferred_username
+  name: string; // name claim
+  displayName: string; // their own choice; empty means the username
+  shownAs: string;
+  groups: string[];
+  issuer: string;
+  subject: string;
+  tokenExpires: number; // Unix seconds
+  firstLogin: number;
+  lastLogin: number;
+  claims: [string, string][];
+}
+
+export interface Grant {
+  kind: "user" | "group";
+  subject: string;
+  role: Role;
+  createdAt: number;
+  name: string; // display name of a user who has signed in; empty for groups
+}
+
+export interface ProjectSettings {
+  project: ProjectRef & { createdAt: number };
+  dsn: string;
+  grants: Grant[];
+  roles: Role[];
+}
+
+// ---- Notifications ----
+
+export type MatchOp = "=" | "!=" | "=~" | "!~" | "value" | "empty" | "!value" | "absent" | "!absent";
+export interface Matcher { field: string; op: MatchOp; value: string }
+export type ReceiverKind = "user" | "email" | "mattermost" | "webhook" | "mattermost_dm";
+export interface Receiver { kind: ReceiverKind; target: string }
+export interface Route { name: string; matchers: Matcher[]; sink: boolean; receivers: Receiver[]; continue: boolean }
+
+export interface Routing {
+  project: ProjectRef;
+  routes: Route[];
+  defaultRecipients: { email: string; name: string }[];
+  names: Record<string, string>; // display names of the people in the routes, by email
+  fields: string[];
+  ops: MatchOp[];
+  receiverKinds: ReceiverKind[];
+  email: boolean; // email is set up on the server
+  mattermost: boolean; // the Mattermost bot is set up
+}
+
+// PersonalRouting is how alerts that reach this person are delivered.
+export interface PersonalRouting {
+  routes: Route[];
+  initial: boolean; // never saved: the starting route
+  fields: string[];
+  ops: MatchOp[];
+  receiverKinds: ReceiverKind[];
+  email: boolean;
+  mattermost: boolean;
+  address: string;
+}
+
+/** Kinds the server cannot send: routes using them get a warning. */
+export function unavailableKinds(r: { email: boolean; mattermost: boolean }): ReceiverKind[] {
+  return [...(r.email ? [] : (["email"] as const)), ...(r.mattermost ? [] : (["mattermost", "mattermost_dm"] as const))];
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -97,12 +173,22 @@ export class ApiError extends Error {
   }
 }
 
+// signIn sends the browser to the sign-in page, then back here.
+export function signIn(): void {
+  const next = window.location.pathname + window.location.search;
+  window.location.assign(`/login?next=${encodeURIComponent(next)}`);
+}
+
 export async function api<T>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
   const res = await fetch(`/api${path}`, {
     method: init?.method ?? "GET",
     headers: init?.body === undefined ? undefined : { "Content-Type": "application/json" },
     body: init?.body === undefined ? undefined : JSON.stringify(init.body),
   });
+  if (res.status === 401) {
+    signIn();
+    throw new ApiError(401, "Sign in first.");
+  }
   if (res.status === 204) return undefined as T;
   const data = (await res.json().catch(() => ({}))) as T & { detail?: string };
   if (!res.ok) throw new ApiError(res.status, data.detail ?? `Request failed (${res.status}).`);

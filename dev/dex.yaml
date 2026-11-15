@@ -1,0 +1,56 @@
+# A throwaway OpenID Connect provider for development. Burning works with any
+# OIDC provider; Dex is used here only because it runs in Docker with no
+# account. Two users and a mock connector. Not for production.
+#
+#   docker run --rm -p 5556:5556 -v "$PWD/dev/dex.yaml:/etc/dex/config.yaml" \
+#     ghcr.io/dexidp/dex:v2.41.1 dex serve /etc/dex/config.yaml
+#
+# Then in backend/.env:
+#
+#   BURNING_OIDC_ISSUER=http://localhost:5556/dex
+#   BURNING_OIDC_CLIENT_ID=burning
+#   BURNING_OIDC_CLIENT_SECRET=burning-dev-secret
+#   BURNING_OIDC_REDIRECT_URL=http://localhost:5190/auth/callback
+#
+# Users (password "password"): alice@example.com, bob@example.com. "Log in
+# with Example" signs in Kilgore Trout, who is in the "authors" group.
+issuer: http://localhost:5556/dex
+
+storage:
+  type: memory
+
+web:
+  http: 0.0.0.0:5556
+
+oauth2:
+  skipApprovalScreen: true
+
+staticClients:
+  - id: burning
+    name: Burning (development)
+    secret: burning-dev-secret
+    redirectURIs:
+      - http://localhost:5190/auth/callback
+  # A public client (no secret, PKCE only): set BURNING_OIDC_CLIENT_ID=burning-public
+  # and leave the secret empty.
+  - id: burning-public
+    name: Burning (development, public client)
+    public: true
+    redirectURIs:
+      - http://localhost:5190/auth/callback
+
+enablePasswordDB: true
+staticPasswords:
+  - email: alice@example.com
+    username: alice
+    userID: 0b1f6e7c-5a3d-4c51-9a5b-6f0f2a1c8e01
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+  - email: bob@example.com
+    username: bob
+    userID: 7d2e4b9a-1c6f-4e8d-b3a2-5c9e0f1d2a03
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+
+connectors:
+  - type: mockCallback
+    id: mock
+    name: Example

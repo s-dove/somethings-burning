@@ -11,9 +11,11 @@ export type Sort = "hot" | "latest" | "count";
 const heat = (hours: number[]) => hours.reduce((sum, n, i) => sum + n * Math.pow(1.25, i), 0);
 
 /** The board: every project for the sidebar, and the issues of one project (or all). */
-export function board(db: Db, opts: { projectId?: number; sort: Sort; q: string }, now = Date.now()) {
+export function board(db: Db, opts: { projectId?: number; sort: Sort; q: string; scope?: number[] }, now = Date.now()) {
   const since = now - 24 * HOUR;
-  const projects = (
+  // scope is the projects the person can see; undefined means all.
+  const visible = (id: number) => !opts.scope || opts.scope.includes(id);
+  const all = (
     db
       .prepare(
         `SELECT p.id, p.name, p.created_at,
@@ -23,9 +25,11 @@ export function board(db: Db, opts: { projectId?: number; sort: Sort; q: string 
       )
       .all(since) as { id: number; name: string; created_at: number; open_count: number; day: number }[]
   ).map((p) => ({ id: p.id, name: p.name, createdAt: p.created_at, openCount: p.open_count, unresolvedDay: p.day }));
+  const projects = all.filter((p) => visible(p.id));
+  const ids = projects.map((p) => p.id);
 
-  const where: string[] = [];
-  const args: (string | number)[] = [];
+  const where: string[] = [`i.project_id IN (${ids.map(() => "?").join(",") || "NULL"})`];
+  const args: (string | number)[] = [...ids];
   if (opts.projectId) {
     where.push("i.project_id = ?");
     args.push(opts.projectId);
@@ -39,7 +43,7 @@ export function board(db: Db, opts: { projectId?: number; sort: Sort; q: string 
   const rows = db
     .prepare(
       `SELECT i.*, p.name AS project_name FROM issues i JOIN projects p ON p.id = i.project_id
-        ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY ${order} LIMIT 200`,
+        WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT 200`,
     )
     .all(...args) as (Parameters<typeof toIssue>[0] & { project_name: string })[];
   const hours = hoursByIssue(db, rows.map((r) => r.id), now);
@@ -50,8 +54,9 @@ export function board(db: Db, opts: { projectId?: number; sort: Sort; q: string 
   }));
   if (opts.sort === "hot") issues.sort((a, b) => heat(b.hours) - heat(a.hours) || b.lastSeen - a.lastSeen);
 
-  const scope = opts.projectId ? "AND project_id = ?" : "";
-  const scopeArgs = opts.projectId ? [opts.projectId] : [];
+  const inScope = opts.projectId ? [opts.projectId] : ids;
+  const scope = `AND project_id IN (${inScope.map(() => "?").join(",") || "NULL"})`;
+  const scopeArgs = inScope;
   const count = (sql: string, ...a: (string | number)[]) => (db.prepare(sql).get(...a) as { n: number }).n;
   const events = {
     day: count(`SELECT COUNT(*) AS n FROM events WHERE received_at >= ? ${scope}`, since, ...scopeArgs),
