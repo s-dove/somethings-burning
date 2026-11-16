@@ -3,13 +3,14 @@ import { TargetsInput } from "../components/TargetsInput";
 import { PeopleInput } from "../components/PeopleInput";
 import { badTarget, type Problems } from "./routeProblems";
 import { Tip } from "../components/Tip";
-import { Ban, Link2, Mail, MessageCircle, Plus, SendHorizontal, UserRound, X } from "../ui/icons";
+import { Ban, Link2, Mail, MessageCircle, Plus, SendHorizontal, TrendingUp, UserRound, X } from "../ui/icons";
+import { TRIGGERS, TRIGGER_HINT, TRIGGER_LABEL, triggersOf, withTriggers, type Trigger } from "./routeTriggers";
 import type { Matcher, MatchOp, Receiver, ReceiverKind, Route } from "../shared/api";
 import { input } from "../shared/ui";
 
 const FIELD_HINT: Record<string, string> = {
   project: "the project's name",
-  trigger: "new, fired_again, or unmuted",
+  trigger: "new, fired_again, unmuted, or spike",
   env: "the event's environment",
   release: "the full release, e.g. api@2.1.0",
   level: "error, warning, fatal, …",
@@ -83,7 +84,15 @@ export function RouteEditor({ route: r, fields, ops, kinds, readOnly, onChange, 
   project?: number; // for the people picker: puts this project's members first
   unavailable?: ReceiverKind[]; // kinds this server cannot send (email or Mattermost not set up)
 }) {
-  const fieldOptions: PickOption<string>[] = [...fields, "tag"].map(f => ({ value: f, label: f, hint: FIELD_HINT[f] }));
+  const spikes = project !== undefined;
+  const fieldOptions: PickOption<string>[] = [...fields.filter(f => f !== "trigger"), "tag"].map(f => ({ value: f, label: f, hint: FIELD_HINT[f] }));
+  const on = triggersOf(r, spikes);
+  const flip = (trig: Trigger) => {
+    const next = new Set(on);
+    if (next.has(trig)) next.delete(trig);
+    else next.add(trig);
+    if (next.size) onChange(withTriggers(r, next, spikes));
+  };
   const opOptions: PickOption<MatchOp>[] = ops.map(o => ({ value: o, label: OP_LABEL[o], hint: OP_HINT[o] }));
   // A kind the server cannot send is only offered where a route already uses it.
   const inUse = new Set<Kind>(r.receivers.map(x => x.kind));
@@ -115,9 +124,31 @@ export function RouteEditor({ route: r, fields, ops, kinds, readOnly, onChange, 
       <label className="mb-1.5 block text-xs font-semibold" htmlFor="route-name">Name</label>
       <input id="route-name" className={`${input} mb-6 h-8 w-full py-1`} placeholder="Optional, shown in the list" value={r.name} disabled={readOnly} maxLength={80} onChange={e => onChange({ ...r, name: e.target.value })} />
 
-      <h3 className="mb-2 text-xs font-semibold">When all of these match</h3>
+      <h3 className="mb-2 text-xs font-semibold">Alerts <span className="font-normal text-cinder">which kinds of alert this route takes</span></h3>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Alerts">
+        {TRIGGERS.map(trig => {
+          const picked = on.has(trig);
+          const last = picked && on.size === 1;
+          return (
+            <Tip key={trig} content={last ? "Take at least one kind of alert" : TRIGGER_HINT[trig]}>
+              <button type="button" aria-pressed={picked} disabled={readOnly || last}
+                className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors disabled:cursor-default disabled:opacity-100 ${picked
+                  ? trig === "spike" ? "border-ember-ink bg-ember-ink font-medium text-white" : "border-soot bg-soot font-medium text-ash"
+                  : "cursor-pointer border-rule bg-ash text-cinder hover:border-cinder hover:text-soot"}`}
+                onClick={() => flip(trig)}>
+                {trig === "spike" && <TrendingUp size={13} aria-hidden="true" />}
+                {TRIGGER_LABEL[trig]}
+              </button>
+            </Tip>
+          );
+        })}
+      </div>
+      {spikes && r.spike && <SpikeRow spike={r.spike} readOnly={readOnly} problem={problems.get("spike")} onChange={spike => onChange({ ...r, spike })} />}
+
+      <h3 className="mt-6 mb-2 text-xs font-semibold">When all of these match <span className="font-normal text-cinder">none means every alert of the kinds above</span></h3>
       <ul className="m-0 grid list-none gap-1.5 p-0">
         {r.matchers.map((m, i) => {
+          if (m.field === "trigger") return null;
           const isTag = m.field.startsWith("tag.") || m.field === "tag";
           const base = isTag ? "tag" : m.field;
           // A missing tag name marks the name box; anything else, the value.
@@ -200,3 +231,21 @@ function fromGroups(groups: Group[]): Receiver[] {
   return groups.flatMap(g => (g.targets.length ? g.targets : [""]).map(target => ({ kind: g.kind as ReceiverKind, target })));
 }
 
+
+function SpikeRow({ spike, readOnly, problem, onChange }: { spike: { events: number; factor: number }; readOnly: boolean; problem?: string; onChange: (s: { events: number; factor: number }) => void }) {
+  const num = `${input} mono h-8 w-20 py-1 text-xs`;
+  return (
+    <div className="mt-3">
+      <div className="flex flex-wrap items-center gap-2 text-[13px]">
+        <span className="font-semibold text-ember-ink">A spike is</span>
+        at least
+        <input type="number" min={1} aria-label="Events in an hour" className={num} value={spike.events || ""} disabled={readOnly} onChange={e => onChange({ ...spike, events: Math.floor(Number(e.target.value)) })} />
+        events in an hour, and
+        <input type="number" min={1} step={0.5} aria-label="Times the usual rate" className={num} value={spike.factor || ""} disabled={readOnly} onChange={e => onChange({ ...spike, factor: Number(e.target.value) })} />
+        times the usual hourly rate.
+      </div>
+      {problem && <p className="m-0 mt-1 text-xs text-ember-ink">{problem}</p>}
+      <p className="m-0 mt-1.5 text-xs text-cinder">For this route. It alerts an issue at most every six hours. The default route takes no spikes.</p>
+    </div>
+  );
+}

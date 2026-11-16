@@ -1,6 +1,7 @@
 import { useState, type DragEvent } from "react";
 import { Tip } from "../components/Tip";
-import { Activity, Braces, ChevronRight, Code, FileText, Filter, Folder, GripVertical, Layers, LockKeyhole as Lock, Package, Quote, Tag, TriangleAlert } from "../ui/icons";
+import { Activity, Braces, ChevronRight, Code, FileText, Filter, Folder, GripVertical, Layers, LockKeyhole as Lock, Package, Quote, Tag, TrendingUp, TriangleAlert } from "../ui/icons";
+import { TRIGGER_LABEL, TRIGGERS, triggersOf } from "./routeTriggers";
 import type { ReceiverKind } from "../shared/api";
 import type { Route } from "../shared/api";
 import { NO_VALUE, OP_LABEL, RECEIVER_ICON, RECEIVER_LABEL } from "./RouteEditor";
@@ -74,7 +75,7 @@ export function RouteList({ routes, fallback, empty, readOnly, onReorder, onOpen
                 onPointerDown={() => setArmed(i)}
                 onPointerUp={() => from === null && setArmed(null)}
               ><GripVertical size={14} /></span></Tip>}
-          <RouteSummary route={r} index={i} names={names} unavailable={unavailable} onOpen={() => onOpen(i)} />
+          <RouteSummary route={r} index={i} names={names} unavailable={unavailable} project={!!fallback} onOpen={() => onOpen(i)} />
         </li>
       ))}
       {fallback && <li onDragOver={e => over(e, routes.length)} onDrop={drop} className={`relative flex items-stretch gap-2 bg-smoke/60 pr-4 ${marked(routes.length) ? dropMark : ""}`}>
@@ -86,6 +87,7 @@ export function RouteList({ routes, fallback, empty, readOnly, onReorder, onOpen
               <span className="truncate">Default route</span>
               <span className="shrink-0 rounded-control bg-rule-soft px-1.5 text-[11px] font-normal text-cinder">always last</span>
             </span>
+            <Section title="Alerts" items={[{ key: "kinds", icon: <Activity size={14} />, label: "Alerts", text: "New issue, Fired again, After a mute; no spikes" }]} />
             <Section title="Matches" items={[{ key: "none", icon: <Filter size={14} />, label: "Fallback", text: "when no route above matches" }]} />
             <Section title="Send to" items={[{ key: "members", icon: RECEIVER_ICON.user, label: "Person", text: "All members and admins" }]} />
           </span>
@@ -96,8 +98,17 @@ export function RouteList({ routes, fallback, empty, readOnly, onReorder, onOpen
 }
 
 // RouteSummary is a route's line: number, name, conditions, and receivers.
-function RouteSummary({ route: r, index, names, unavailable, onOpen }: { route: Route; index: number; names: Record<string, string>; unavailable: ReceiverKind[]; onOpen: () => void }) {
-  const matches: Item[] = r.matchers.map((m, i) => ({ key: `${i}`, icon: fieldIcon(m.field), label: m.field, text: NO_VALUE.includes(m.op) ? `${m.field} ${OP_LABEL[m.op]}` : `${m.field} ${OP_LABEL[m.op]} ${m.value || '""'}`, mono: true }));
+function RouteSummary({ route: r, index, names, unavailable, project, onOpen }: { route: Route; index: number; names: Record<string, string>; unavailable: ReceiverKind[]; project: boolean; onOpen: () => void }) {
+  const chosen = triggersOf(r, project);
+  const labels = TRIGGERS.filter(t => t !== "spike" && chosen.has(t)).map(t => TRIGGER_LABEL[t]);
+  const alerts: Item[] = [
+    ...(labels.length ? [{ key: "kinds", icon: <Activity size={14} />, label: "Alerts", text: labels.length === 3 ? "New issue, Fired again, After a mute" : labels.join(", ") }] : []),
+    ...(chosen.has("spike") ? [{ key: "spike", icon: <TrendingUp size={14} />, label: "Spike", text: r.spike ? `≥ ${r.spike.events} events in an hour, ≥ ${r.spike.factor}× the usual rate` : "Spike" }] : []),
+  ];
+  const rest = r.matchers.filter(m => m.field !== "trigger");
+  const matches: Item[] = rest.length
+    ? rest.map((m, i) => ({ key: `${i}`, icon: fieldIcon(m.field), label: m.field, text: NO_VALUE.includes(m.op) ? `${m.field} ${OP_LABEL[m.op]}` : `${m.field} ${OP_LABEL[m.op]} ${m.value || '""'}`, mono: true }))
+    : [{ key: "any", icon: <Filter size={14} />, label: "Any", text: "every alert of these kinds" }];
   // One line per kind of receiver, with its icon and all its targets; a sink
   // is one line too.
   const kinds = [...new Set(r.receivers.map(x => x.kind))];
@@ -118,6 +129,7 @@ function RouteSummary({ route: r, index, names, unavailable, onOpen }: { route: 
           <span className="truncate">{r.name || `Route ${index + 1}`}</span>
           {r.continue && <span className="shrink-0 rounded-control bg-rule-soft px-1.5 text-[11px] font-normal text-cinder">continue</span>}
         </span>
+        {alerts.length > 0 && <Section title="Alerts" items={alerts} />}
         <Section title="Matches" items={matches} />
         <Section title={r.sink ? "Then" : "Send to"} items={sendTo} />
       </span>
