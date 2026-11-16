@@ -10,6 +10,7 @@ import { AssigneePicker } from "./AssigneePicker";
 import { GitHubButton } from "./GitHubButton";
 import { IssueTriage } from "./IssueTriage";
 import { Tip, TimeTip } from "../components/Tip";
+import { translateActivity } from "../shared/activity";
 import { t } from "../shared/i18n";
 
 const banner = "rounded-card border px-4 py-3";
@@ -57,7 +58,7 @@ export function IssueSummary({ issue }: { issue: IssueDetail["issue"] }) {
 function statusBanner(issue: IssueDetail["issue"]) {
   if (issue.status === "open" && issue.reopenReason) return (
     <div className={`${banner} border-[#f6cfae] bg-ember-soft text-ember-ink`}>
-      <b className="font-semibold">{t("Firing again.")}</b> {sentence(issue.reopenReason)}.
+      <b className="font-semibold">{t("Firing again.")}</b> {sentence(translateActivity(issue.reopenReason))}.
     </div>
   );
   if (issue.status === "resolved") return (
