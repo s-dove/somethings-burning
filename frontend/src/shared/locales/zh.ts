@@ -379,5 +379,11 @@ const zh: Record<string, string> = {
   "Your notifications": "你的通知",
   "Back to profile": "返回个人资料",
   "How alerts reach you, and the daily summary.": "告警如何送达你，以及每日汇总。",
+  "+{n} more": "+{n} 个",
+  "{n} from the groups claim at sign-in.": "登录时 groups 声明里的 {n} 个。",
+  "Filter groups": "筛选组",
+  "No group matches.": "没有匹配的组。",
+  "{n} of {total}": "{n} / {total}",
+  "{n} groups": "{n} 个用户组",
 };
 export default zh;

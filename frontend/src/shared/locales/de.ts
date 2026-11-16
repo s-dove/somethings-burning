@@ -379,5 +379,11 @@ const de: Record<string, string> = {
   "Your notifications": "Deine Benachrichtigungen",
   "Back to profile": "Zurück zum Profil",
   "How alerts reach you, and the daily summary.": "Wie dich Alarme erreichen, und die tägliche Zusammenfassung.",
+  "+{n} more": "+{n} weitere",
+  "{n} from the groups claim at sign-in.": "{n} aus dem groups-Claim bei der Anmeldung.",
+  "Filter groups": "Gruppen filtern",
+  "No group matches.": "Keine Gruppe passt.",
+  "{n} of {total}": "{n} von {total}",
+  "{n} groups": "{n} Gruppen",
 };
 export default de;

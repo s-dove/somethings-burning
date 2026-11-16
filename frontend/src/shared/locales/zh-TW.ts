@@ -379,5 +379,11 @@ const zh_TW: Record<string, string> = {
   "Your notifications": "你的通知",
   "Back to profile": "返回個人資料",
   "How alerts reach you, and the daily summary.": "告警如何送達你，以及每日摘要。",
+  "+{n} more": "+{n} 個",
+  "{n} from the groups claim at sign-in.": "登入時 groups 聲明裡的 {n} 個。",
+  "Filter groups": "篩選群組",
+  "No group matches.": "沒有符合的群組。",
+  "{n} of {total}": "{n} / {total}",
+  "{n} groups": "{n} 個群組",
 };
 export default zh_TW;
