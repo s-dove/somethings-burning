@@ -43,11 +43,12 @@ export interface Matcher {
 }
 
 // user: a person by email, reached through their own routing (project only).
+// assignee: whoever the issue is assigned to, through their own routing (project only; no target).
 // email: an address mailed as is: a person, a list, anything.
 // mattermost: a channel, "team-name/channel-name" (project only).
 // mattermost_dm: a direct message to a username (personal only).
 // webhook: a URL that gets a JSON post (project only).
-export const PROJECT_KINDS = ["user", "email", "mattermost", "webhook"] as const;
+export const PROJECT_KINDS = ["user", "assignee", "email", "mattermost", "webhook"] as const;
 export const PERSONAL_KINDS = ["email", "mattermost_dm"] as const;
 export type ReceiverKind = (typeof PROJECT_KINDS)[number] | (typeof PERSONAL_KINDS)[number];
 
@@ -180,6 +181,7 @@ export const LIMITS = { routes: 50, matchers: 20, receivers: 20, value: 500 };
 export function receiverError(kind: string, target: string, ctx: Context): string {
   const kinds: readonly string[] = ctx === "project" ? PROJECT_KINDS : PERSONAL_KINDS;
   if (!kinds.includes(kind)) return `unknown receiver kind "${kind}"`;
+  if (kind === "assignee") return "";
   if (!target) return "fill in every receiver, or remove the empty one";
   if ((kind === "user" || kind === "email") && !EMAIL.test(target)) return `"${target}" is not an email address`;
   if (kind === "mattermost" && !CHANNEL.test(target)) return `"${target}" should be team-name/channel-name`;
@@ -228,6 +230,7 @@ export function checkRoutes(input: unknown, ctx: Context): { error: string } | {
       if (bad) return { error: `${at}: ${bad}` };
       if (kind === "user" || kind === "email") target = target.toLowerCase();
       if (kind === "mattermost_dm") target = target.replace(/^@/, "");
+      if (kind === "assignee") target = "";
       receivers.push({ kind, target });
     }
     routes.push({ name: String(r.name ?? "").trim().slice(0, 80), matchers, sink, receivers, continue: !sink && r.continue === true });

@@ -2,6 +2,7 @@ import { addActivity, type ActivityExtra } from "./activity.js";
 import type { Db } from "./db.js";
 import { summarize, type SentryEvent } from "./event.js";
 import { countEvent } from "./issue-tags.js";
+import { ownerFor } from "./rules.js";
 import { scrubEvent } from "./scrub.js";
 import { getConfig, type ProjectConfig } from "./settings.js";
 import { muteBroken, MuteFor, MuteNextRelease, type Mute, type MuteOption } from "./triage.js";
@@ -29,6 +30,7 @@ export type Issue = {
   resolvedAt: number;
   mute: Mute;
   reopenReason: string; // why it last fired again
+  assignee: string; // email of who handles it, "" for no one
   firstSeen: number;
   lastSeen: number;
   eventCount: number;
@@ -67,6 +69,7 @@ export type IssueRow = {
   count: number;
   stored_count: number;
   last_stored: number;
+  assignee: string;
 };
 
 export const toIssue = (r: IssueRow): Issue => ({
@@ -80,6 +83,7 @@ export const toIssue = (r: IssueRow): Issue => ({
   resolvedAt: r.resolved_at,
   mute: { kind: r.mute_kind, until: r.mute_until, mutedAt: r.muted_at },
   reopenReason: r.reopen_reason,
+  assignee: r.assignee ?? "",
   firstSeen: r.first_seen,
   lastSeen: r.last_seen,
   eventCount: r.count,
@@ -135,6 +139,12 @@ export async function recordEvent(db: Db, projectId: number, input: SentryEvent,
       res.issueId = created.id;
       res.alert = "new";
       await addActivity(t, created.id, now, "created", "First seen", where);
+      // The project's ownership rules pick who handles a new issue.
+      const owned = ownerFor(event, cfg.owners);
+      if (owned) {
+        await t.run("UPDATE issues SET assignee = ? WHERE id = ?", owned.owner, created.id);
+        await addActivity(t, created.id, now, "assigned", `Assigned to ${owned.owner} by ownership rule ${owned.rule}`);
+      }
     } else {
       // Another server may have created it a moment ago.
       found ??= await existing();

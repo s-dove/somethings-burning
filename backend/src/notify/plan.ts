@@ -21,7 +21,7 @@ const label = (routes: Route[], r: Route) => r.name || `route ${routes.indexOf(r
  * receiver is sent as is. Every address gets one message however many
  * routes lead to it.
  */
-export async function planFor(db: Db, projectId: number, f: Facts): Promise<Plan> {
+export async function planFor(db: Db, projectId: number, f: Facts, assignee = ""): Promise<Plan> {
   const routes = await getRouting(db, projectId);
   const hit = evaluate(routes, f);
   const sending = (hit ?? []).filter((r) => !r.sink);
@@ -46,7 +46,14 @@ export async function planFor(db: Db, projectId: number, f: Facts): Promise<Plan
     return true;
   };
 
-  const users = [...new Set(receivers.filter((r) => r.kind === "user").map((r) => r.target.toLowerCase()))];
+  // "The assignee" is a person receiver for whoever the issue is assigned to.
+  const users = [
+    ...new Set(
+      receivers
+        .flatMap((r) => (r.kind === "user" ? [r.target] : r.kind === "assignee" && assignee ? [assignee] : []))
+        .map((e) => e.toLowerCase()),
+    ),
+  ];
   const names = await people(db, users);
   for (const email of users) {
     const name = names.get(email)?.displayName ?? email;

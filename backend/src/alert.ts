@@ -23,7 +23,8 @@ export class Alerter {
   async notify(p: Project, res: Recorded, ev: SentryEvent, baseURL: string): Promise<void> {
     if (!res.alert) return;
     const link = `${baseURL}/p/${p.id}/issues/${res.issueId}`;
-    const plan = await planFor(this.db, p.id, factsOf(p.name, ev, res.alert));
+    const issue = await this.db.get<{ assignee: string }>("SELECT assignee FROM issues WHERE id = ?", res.issueId);
+    const plan = await planFor(this.db, p.id, factsOf(p.name, ev, res.alert), issue?.assignee ?? "");
     const now = Date.now();
     const str = (v: unknown) => (typeof v === "string" ? v : "");
     await this.db.tx(async (t) => {

@@ -7,6 +7,7 @@ import type { CodeSources } from "./source/index.js";
 import { attachLinks } from "./source/links.js";
 import { tagBreakdown, usersAffected } from "./issue-tags.js";
 import { configRoutes } from "./config-api.js";
+import { assignRoutes } from "./assign.js";
 import { getSources } from "./sources.js";
 import { sourcesRoutes } from "./sources-api.js";
 import { listActivity } from "./activity.js";
@@ -85,12 +86,15 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
   app.get("/board", async (c) => {
     const sort = pick(c.req.query("sort"), SORTS, "hot");
     const status = pick(c.req.query("status"), STATUSES, "open");
+    // assignee: "me", "none", or an email.
+    const who = (c.req.query("assignee") ?? "").trim().toLowerCase();
+    const assignee = who === "me" ? (c.get("user")?.email.toLowerCase() ?? "") : who === "none" ? "" : who || undefined;
     const all = (await db.all<{ id: number }>("SELECT id FROM projects")).map((r) => r.id);
     const roles = await access.roles(all, c.get("user"));
     const scope = [...roles.keys()];
     const projectId = Number(c.req.query("project")) || undefined;
     if (projectId && !roles.has(projectId)) return notFound(c);
-    const b = await board(db, { projectId, status, sort, q: (c.req.query("q") ?? "").trim().slice(0, 200), scope });
+    const b = await board(db, { projectId, status, sort, q: (c.req.query("q") ?? "").trim().slice(0, 200), scope, assignee });
     return c.json({
       ...b,
       project: b.project && { ...b.project, role: roles.get(b.project.id) },
@@ -222,6 +226,7 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
 
   app.route("/", commentRoutes(db, access));
   app.route("/", configRoutes(db, access));
+  app.route("/", assignRoutes(db, access));
   app.route("/", sourcesRoutes(db, access, deps.code));
   app.route("/", siteRoutes(deps.config, deps.senders, deps.code));
   app.route("/", settingsRoutes(db, access, deps.baseURL));
