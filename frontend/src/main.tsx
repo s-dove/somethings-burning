@@ -6,6 +6,7 @@ import { Toaster } from "sonner";
 import { watchSystemTheme } from "./components/ThemeSwitch";
 import { BoardPage } from "./pages/BoardPage";
 import { DsnPage } from "./pages/DsnPage";
+import { GroupingPage } from "./pages/GroupingPage";
 import { IssueByNumber, OldIssueLink } from "./pages/IssuePage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -38,6 +39,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/p/:id/settings/code" element={<SourcesPage />} />
           <Route path="/p/:id/settings/scrubbing" element={<ScrubbingPage />} />
           <Route path="/p/:id/settings/ownership" element={<OwnershipPage />} />
+          <Route path="/p/:id/settings/grouping" element={<GroupingPage />} />
           <Route path="/issues/:issueId" element={<IssueByNumber />} />
           <Route path="/p/:id/issues/:issueId" element={<OldIssueLink />} />
           <Route path="*" element={<NotFoundPage />} />
