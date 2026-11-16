@@ -18,9 +18,15 @@ export const LANGS: { id: Lang; label: string; html: string }[] = [
 const KEY = "burning-lang";
 const isLang = (s: unknown): s is Lang => LANGS.some((l) => l.id === s);
 
-// Only the dictionaries that exist. The others stay English until they are added.
 const LOADERS: Partial<Record<Lang, () => Promise<{ default: Record<string, string> }>>> = {
   zh: () => import("./locales/zh"),
+  "zh-TW": () => import("./locales/zh-TW"),
+  ja: () => import("./locales/ja"),
+  ko: () => import("./locales/ko"),
+  es: () => import("./locales/es"),
+  fr: () => import("./locales/fr"),
+  de: () => import("./locales/de"),
+  "pt-BR": () => import("./locales/pt-BR"),
 };
 
 function fromBrowser(): Lang {
