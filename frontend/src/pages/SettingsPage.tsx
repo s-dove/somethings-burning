@@ -8,7 +8,7 @@ import { Layout } from "../components/Layout";
 import { Loading } from "../components/Loading";
 import { PageHeader } from "../components/PageHeader";
 import { api, useApi, type ProjectSettings } from "../shared/api";
-import { plural, stamp } from "../shared/format";
+import { stamp } from "../shared/format";
 import { input, section, sectionTitle } from "../shared/ui";
 import { Button } from "../ui/components/Button";
 import { Tip } from "../components/Tip";
@@ -76,13 +76,13 @@ export function SettingsPage() {
     <SettingsFrame
       settings={data}
       error={error}
-      title={(name) => `${name} settings`}
-      hint="Connect a service, decide who sees its errors, and where they go."
+      title={(name) => t("{name} project settings", { name })}
+      hint={t("Connect a service, decide who sees its errors, and where they go.")}
       action={
         <Tip content={t("Sign-in, email, Mattermost, and code access for the whole server")}>
           <Link to="/settings" className="ui-button ui-button-secondary ui-button-md shrink-0 no-underline">
             <Settings2 aria-hidden="true" />
-            Global settings
+            {t("Global settings")}
             <ChevronRight aria-hidden="true" />
           </Link>
         </Tip>
@@ -90,31 +90,48 @@ export function SettingsPage() {
     >
       {({ project, grants }) => {
         const base = `/p/${project.id}/settings`;
-        const access = grants.length ? plural(grants.length, "grant") : "No one has access";
+        const access = grants.length ? t("{n} grants", { n: grants.length }) : t("No one has access");
+        const role = t(project.role ?? "viewer");
         return (
           <>
-            <ul className="m-0 mb-6 w-full list-none divide-y divide-rule overflow-hidden rounded-card border border-rule bg-ash p-0">
-              <Row to={`${base}/dsn`} icon={<KeyRound aria-hidden="true" />} title="DSN" detail="The address your SDK reports to, and how to set it up." />
-              <Row
-                to={`${base}/rbac`}
-                icon={<Shield aria-hidden="true" />}
-                title={t("Access")}
-                detail={`Who can view and manage this project. ${access}. Your role: ${project.role ?? "viewer"}.`}
-              />
-              <Row to={`${base}/notifications`} icon={<Bell aria-hidden="true" />} title="Notifications" detail="Routing: which alerts go to which people, addresses, and channels." />
-              <Row to={`${base}/code`} icon={<Code aria-hidden="true" />} title="Code" detail="The repositories stack frames come from, for links to the lines in them." />
-              <Row to={`${base}/sourcemaps`} icon={<FileText aria-hidden="true" />} title="Source maps" detail="Turn minified JavaScript frames back into your files and lines." />
-              <Row to={`${base}/scrubbing`} icon={<LockKeyhole aria-hidden="true" />} title="Data scrubbing" detail="Passwords, tokens, card numbers, and your own fields, filtered before storage." />
-              <Row to={`${base}/ownership`} icon={<Users aria-hidden="true" />} title="Ownership" detail="Who a new issue is assigned to, from the first rule that matches." />
-              <Row to={`${base}/grouping`} icon={<GitMerge aria-hidden="true" />} title="Grouping" detail="Which events count as one issue, instead of the default grouping." />
-              <Row to={`/p/${project.id}/releases`} icon={<Rocket aria-hidden="true" />} title="Releases" detail="What each release brought, and where CI deployed it." />
-              <Row to={`${base}/tokens`} icon={<KeyRound aria-hidden="true" />} title="API tokens" detail="Let CI create releases and mark deploys. Shown once." />
-            </ul>
+            <div className="grid gap-8">
+              <Group id="connect" icon={<KeyRound aria-hidden="true" />} title={t("Connect")} hint={t("How the service and its CI reach this project.")}>
+                <Row to={`${base}/dsn`} icon={<KeyRound aria-hidden="true" />} title={t("DSN")} detail={t("The address your SDK reports to, and how to set it up.")} />
+                <Row to={`${base}/tokens`} icon={<KeyRound aria-hidden="true" />} title={t("API tokens")} detail={t("Let CI create releases and mark deploys. Shown once.")} />
+                <Row to={`${base}/sourcemaps`} icon={<FileText aria-hidden="true" />} title={t("Source maps")} detail={t("Turn minified JavaScript frames back into your files and lines.")} />
+                <Row to={`/p/${project.id}/releases`} icon={<Rocket aria-hidden="true" />} title={t("Releases")} detail={t("What each release brought, and where CI deployed it.")} />
+              </Group>
+              <Group id="people" icon={<Shield aria-hidden="true" />} title={t("People and alerts")} hint={t("Who sees its issues, who handles them, and who hears about them.")}>
+                <Row to={`${base}/rbac`} icon={<Shield aria-hidden="true" />} title={t("Access")} detail={t("Who can view and manage this project. {access}. Your role: {role}.", { access, role })} />
+                <Row to={`${base}/notifications`} icon={<Bell aria-hidden="true" />} title={t("Notifications")} detail={t("Routing: which alerts go to which people, addresses, and channels.")} />
+                <Row to={`${base}/ownership`} icon={<Users aria-hidden="true" />} title={t("Ownership")} detail={t("Who a new issue is assigned to, from the first rule that matches.")} />
+              </Group>
+              <Group id="code" icon={<Code aria-hidden="true" />} title={t("Issues and code")} hint={t("How its events are read, grouped, and kept.")}>
+                <Row to={`${base}/code`} icon={<Code aria-hidden="true" />} title={t("Code")} detail={t("The repositories stack frames come from, for links to the lines in them.")} />
+                <Row to={`${base}/grouping`} icon={<GitMerge aria-hidden="true" />} title={t("Grouping")} detail={t("Which events count as one issue, instead of the default grouping.")} />
+                <Row to={`${base}/scrubbing`} icon={<LockKeyhole aria-hidden="true" />} title={t("Data scrubbing")} detail={t("Passwords, tokens, card numbers, and your own fields, filtered before storage.")} />
+              </Group>
+            </div>
             {project.role === "admin" && <General settings={data!} onChange={reload} />}
           </>
         );
       }}
     </SettingsFrame>
+  );
+}
+
+function Group({ id, icon, title, hint, children }: { id: string; icon: ReactNode; title: string; hint: string; children: ReactNode }) {
+  return (
+    <section aria-labelledby={`${id}-title`}>
+      <div className="mb-3 flex items-center gap-3">
+        <span className="grid size-9 shrink-0 place-items-center rounded-control border border-rule bg-smoke text-cinder">{icon}</span>
+        <div className="min-w-0">
+          <h2 id={`${id}-title`} className="text-lg">{title}</h2>
+          <p className="text-xs text-cinder">{hint}</p>
+        </div>
+      </div>
+      <ul className="m-0 w-full list-none divide-y divide-rule overflow-hidden rounded-card border border-rule bg-ash p-0">{children}</ul>
+    </section>
   );
 }
 
