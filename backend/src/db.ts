@@ -335,6 +335,12 @@ CREATE TABLE IF NOT EXISTS issue_tags (
   PRIMARY KEY (issue_id, key, value)
 );
 
+-- A project's settings that are not their own page's table (JSON).
+CREATE TABLE IF NOT EXISTS project_settings (
+  project_id BIGINT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+  config     TEXT NOT NULL
+);
+
 -- The users an issue reached, as hashes of their id, email, or address.
 CREATE TABLE IF NOT EXISTS issue_users (
   issue_id BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,

@@ -2,6 +2,8 @@ import { addActivity, type ActivityExtra } from "./activity.js";
 import type { Db } from "./db.js";
 import { summarize, type SentryEvent } from "./event.js";
 import { countEvent } from "./issue-tags.js";
+import { scrubEvent } from "./scrub.js";
+import { getConfig, type ProjectConfig } from "./settings.js";
 import { muteBroken, MuteFor, MuteNextRelease, type Mute, type MuteOption } from "./triage.js";
 
 const HOUR = 3_600_000;
@@ -100,7 +102,10 @@ export interface Recorded {
  * servers may record at once: the unique fingerprint decides which one creates
  * a new issue, and the issue's row is locked while an event changes it.
  */
-export function recordEvent(db: Db, projectId: number, event: SentryEvent, now = Date.now()): Promise<Recorded> {
+export async function recordEvent(db: Db, projectId: number, input: SentryEvent, now = Date.now(), config?: ProjectConfig): Promise<Recorded> {
+  const cfg = config ?? (await getConfig(db, projectId));
+  // Secrets out first, so nothing below (or the stored payload) sees them.
+  const event = scrubEvent(input, cfg.scrub);
   const s = summarize(event);
   const release = str(event.release);
   const environment = str(event.environment);
