@@ -4,7 +4,8 @@ import type { Authenticator, User } from "./auth.js";
 import type { Config } from "./env.js";
 import { alertEvents, type LiveAlerts } from "./live.js";
 import type { CodeSources } from "./source/index.js";
-import { attachLinks } from "./source/links.js";
+import { attachLinks, suspectChanges } from "./source/links.js";
+import { githubIssueRoutes } from "./github-issues.js";
 import { tagBreakdown, usersAffected } from "./issue-tags.js";
 import { configRoutes } from "./config-api.js";
 import { assignRoutes } from "./assign.js";
@@ -190,7 +191,12 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
     const page = await eventPage(db, issue.id);
     const stored = await getEvent(db, issue.id, Number(c.req.query("event")) || undefined);
     const event = stored ? eventView(stored) : null;
-    if (event && stored) await attachLinks(event, stored.payload, await getSources(db, found.project.id), deps.code);
+    const sources = await getSources(db, found.project.id);
+    let suspects = null;
+    if (event && stored) {
+      await attachLinks(event, stored.payload, sources, deps.code);
+      suspects = await suspectChanges(db, found.project.id, event, stored.payload, sources, deps.code);
+    }
     const history = await listActivity(db, issue.id);
     const actors = await people(db, history.map((a) => a.actor));
     return c.json({
@@ -208,6 +214,14 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
       tags: await tagBreakdown(db, issue.id),
       users: await usersAffected(db, issue.id),
       merged: await mergedInto(db, issue.id),
+      suspects,
+      // A GitHub issue can be made when the primary source is on GitHub with a token.
+      github: sources.some((s) => s.primary && s.kind === "github" && deps.code.credentials.token(s.repo.split("/")[0]!) !== ""),
+      // Every GitHub issue made from it, newest first.
+      githubIssues: history
+        .filter((a) => a.kind === "linked" && a.text.startsWith("GitHub issue "))
+        .map((a) => ({ url: a.text.slice("GitHub issue ".length), at: a.at, by: a.actor ? (actors.get(a.actor)?.displayName ?? a.actor) : "" }))
+        .sort((a, b) => b.at - a.at),
     });
   });
 
@@ -250,6 +264,7 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
   app.route("/", mergeRoutes(db, access));
   app.route("/", releaseRoutes(db, access));
   app.route("/", tokenRoutes(db, access));
+  app.route("/", githubIssueRoutes(db, access, { code: deps.code, config: deps.config }));
   app.route("/", sourcesRoutes(db, access, deps.code));
   app.route("/", siteRoutes(deps.config, deps.senders, deps.code));
   app.route("/", settingsRoutes(db, access, deps.baseURL));

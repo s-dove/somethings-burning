@@ -31,6 +31,7 @@ export type Issue = {
   mute: Mute;
   reopenReason: string; // why it last fired again
   assignee: string; // email of who handles it, "" for no one
+  externalUrl: string; // a GitHub issue made from it, "" for none
   firstSeen: number;
   lastSeen: number;
   eventCount: number;
@@ -70,6 +71,7 @@ export type IssueRow = {
   stored_count: number;
   last_stored: number;
   assignee: string;
+  external_url: string;
 };
 
 export const toIssue = (r: IssueRow): Issue => ({
@@ -84,6 +86,7 @@ export const toIssue = (r: IssueRow): Issue => ({
   mute: { kind: r.mute_kind, until: r.mute_until, mutedAt: r.muted_at },
   reopenReason: r.reopen_reason,
   assignee: r.assignee ?? "",
+  externalUrl: r.external_url ?? "",
   firstSeen: r.first_seen,
   lastSeen: r.last_seen,
   eventCount: r.count,

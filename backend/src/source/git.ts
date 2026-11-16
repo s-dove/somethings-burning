@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { MAX_FILE_BYTES } from "./github.js";
-import type { ChangedFile, Source } from "./source.js";
+import type { ChangedFile, Commit, Source } from "./source.js";
 
 const FETCH_EVERY_MS = 5 * 60_000;
 const CLONE_TIMEOUT_MS = 120_000;
@@ -116,6 +116,34 @@ export class GitMirror implements Source {
     const wanted = files.filter((f) => paths.includes(f.path));
     for (const f of wanted) f.patch = await this.run(["diff", base, head, "--", f.path]).catch(() => "");
     return files;
+  }
+
+  async changes(base: string, head: string, paths: string[]): Promise<{ files: { path: string; status: string }[]; commits: Commit[] }> {
+    if (!paths.length) return { files: [], commits: [] };
+    await this.ensure();
+    const STATUS: Record<string, string> = { A: "added", M: "modified", D: "removed" };
+    const names = await this.run(["diff", "--name-status", "--no-renames", base, head, "--", ...paths]).catch(() => "");
+    const files = names
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => {
+        const [st, p] = l.split("\t");
+        return { path: p ?? "", status: STATUS[st ?? ""] ?? "modified" };
+      });
+    if (!files.length) return { files, commits: [] };
+    const out = await this.run(["log", "--max-count=20", "--format=%H%x1f%an%x1f%s", `${base}..${head}`, "--", ...files.map((f) => f.path)]).catch(() => "");
+    const commits = out
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => {
+        const [sha = "", author = "", message = ""] = l.split("\x1f");
+        return { sha, author, message, url: this.web ? this.web.replace(/\/(src|blob|tree)\/\{ref\}.*$/, `/commit/${sha}`) : "" };
+      });
+    return { files, commits };
+  }
+
+  compareLink(): string {
+    return "";
   }
 
   link(sha: string, file: string, line?: number): string {
