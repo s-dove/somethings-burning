@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Tip } from "../components/Tip";
-import { plural } from "../shared/format";
+import { t } from "../shared/i18n";
 import { section, sectionTitle } from "../shared/ui";
 import { UserRound } from "../ui/icons";
 
@@ -19,15 +19,15 @@ export function TagsCard({ tags, users }: { tags: Tag[]; users: number }) {
   return (
     <section className={section}>
       <h2 className={sectionTitle}>
-        Tags <span className="text-xs font-normal text-cinder">how its events spread</span>
+        {t("Tags")} <span className="text-xs font-normal text-cinder">{t("how its events spread")}</span>
       </h2>
       {users > 0 && (
         <p className="mb-3 flex items-center gap-2 text-[13px]">
           <UserRound className="text-cinder" aria-hidden="true" />
-          <span className="font-semibold tabular-nums">{users.toLocaleString()}</span> {users === 1 ? "user affected" : "users affected"}
+          <span className="font-semibold tabular-nums">{users.toLocaleString()}</span> {t("{n} users affected", { n: users })}
         </p>
       )}
-      {allSingle && !open && <p className="mb-2 text-xs text-cinder">Every tag has a single value across all its events.</p>}
+      {allSingle && !open && <p className="mb-2 text-xs text-cinder">{t("Every tag has a single value across all its events.")}</p>}
       <div className="grid gap-4">
         {shown.map((tag) => (
           <div key={tag.key}>
@@ -53,7 +53,7 @@ export function TagsCard({ tags, users }: { tags: Tag[]; users: number }) {
       </div>
       {(hidden > 0 || open) && (
         <button type="button" className="mt-3 cursor-pointer text-xs text-cinder underline-offset-2 hover:text-soot hover:underline" onClick={() => setOpen(!open)}>
-          {open ? "Show less" : moreLabel(hidden, tags.length - varied.length)}
+          {open ? t("Show less") : moreLabel(hidden, tags.length - varied.length)}
         </button>
       )}
     </section>
@@ -62,7 +62,7 @@ export function TagsCard({ tags, users }: { tags: Tag[]; users: number }) {
 
 /** "Show 3 more", "Show 4 tags with one value", or "Show 6 more (4 with one value)". */
 function moreLabel(hidden: number, single: number): string {
-  if (single === 0) return `Show ${hidden} more`;
-  if (single === hidden) return `Show ${plural(single, "tag")} with one value`;
-  return `Show ${hidden} more (${single} with one value)`;
+  if (single === 0) return t("Show {n} more", { n: hidden });
+  if (single === hidden) return t("Show {n} tags with one value", { n: single });
+  return t("Show {n} more ({single} with one value)", { n: hidden, single });
 }

@@ -5,6 +5,7 @@ import { Trash2 } from "../ui/icons";
 import type { MatchOp, Receiver, ReceiverKind, Route } from "../shared/api";
 import { RouteEditor } from "./RouteEditor";
 import { routeProblems } from "./routeProblems";
+import { t } from "../shared/i18n";
 
 // RouteModal edits one route on a copy. Done saves the whole table with it
 // and closes; if the server rejects it, the reason shows here and nothing
@@ -41,10 +42,10 @@ export function RouteModal({ route, index, fields, ops, kinds, readOnly, onDone,
   };
   return (
     <Sheet open={!!route} onClose={onClose} title={title} back="Back to routes"
-      actions={readOnly ? <Button size="sm" onClick={onClose}>Close</Button> : <>
+      actions={readOnly ? <Button size="sm" onClick={onClose}>{t("Close")}</Button> : <>
         {!isNew && <Button size="sm" variant="ghost" className="hover:text-ember-ink" icon={<Trash2 aria-hidden="true" />} disabled={busy}
-          onClick={() => { if (window.confirm("Delete this route?")) void run(onDelete); }}>Delete</Button>}
-        <Button size="sm" disabled={busy} onClick={onClose}>Cancel</Button>
+          onClick={() => { if (window.confirm("Delete this route?")) void run(onDelete); }}>{t("Delete")}</Button>}
+        <Button size="sm" disabled={busy} onClick={onClose}>{t("Cancel")}</Button>
         <Button size="sm" variant="primary" disabled={!draft || busy} onClick={() => {
           if (!draft) return;
           setChecked(true);

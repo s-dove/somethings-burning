@@ -8,6 +8,7 @@ import { input, section, sectionTitle } from "../shared/ui";
 import { Button } from "../ui/components/Button";
 import { Trash2, Upload } from "../ui/icons";
 import { backToSettings, SettingsFrame, useSettings } from "./SettingsPage";
+import { t } from "../shared/i18n";
 
 export function SourceMapsPage() {
   const { id } = useParams();
@@ -62,7 +63,7 @@ export function SourceMapsPage() {
         <div className="grid gap-6">
           <section className={section}>
             <h2 className={sectionTitle}>
-              How it works <span className="text-xs font-normal text-cinder">maps are per release</span>
+              How it works <span className="text-xs font-normal text-cinder">{t("maps are per release")}</span>
             </h2>
             <p className="text-[13px] leading-relaxed text-cinder">
               Upload each <span className="mono">.map</span> under the URL path of its script, with <span className="mono">~</span> for any host. The map of <span className="mono">https://shop.example.com/static/js/app.min.js</span> is <span className="mono">~/static/js/app.min.js.map</span>. Events of that release then show the original file, line, function, and code, including events already stored.
@@ -75,7 +76,7 @@ export function SourceMapsPage() {
           </section>
           {admin && (
             <form className={`${section} grid gap-3`} onSubmit={(e) => void upload(e)}>
-              <h2 className={sectionTitle}>Upload</h2>
+              <h2 className={sectionTitle}>{t("Upload")}</h2>
               <div className="flex flex-wrap gap-2">
                 <input className={`${input} mono h-9 min-w-48 flex-1`} placeholder="release, like shop@1.2.0" value={release} onChange={(e) => setRelease(e.target.value)} required />
                 <input className={`${input} mono h-9 w-56`} placeholder="~/static/js/" aria-label="Path prefix" value={prefix} onChange={(e) => setPrefix(e.target.value)} />
@@ -92,7 +93,7 @@ export function SourceMapsPage() {
             <h2 className={sectionTitle}>
               Uploaded <span className="text-xs font-normal text-cinder">{plural(data?.artifacts.length ?? 0, "map")}</span>
             </h2>
-            {byRelease.size === 0 && <p className="text-[13px] text-cinder">No source maps yet.</p>}
+            {byRelease.size === 0 && <p className="text-[13px] text-cinder">{t("No source maps yet.")}</p>}
             {[...byRelease].map(([rel, list]) => (
               <div key={rel} className="mb-4 last:mb-0">
                 <div className="mono mb-1 text-xs font-semibold">{rel}</div>

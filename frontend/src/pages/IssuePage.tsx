@@ -8,6 +8,7 @@ import { Tip, TimeTip } from "../components/Tip";
 import { useApi, type IssueDetail } from "../shared/api";
 import { ago } from "../shared/format";
 import { section, sectionTitle } from "../shared/ui";
+import { t } from "../shared/i18n";
 import { Comments } from "./Comments";
 import { EventList } from "./EventList";
 import { EventPanels, RawJson } from "./EventPanels";
@@ -43,8 +44,8 @@ export function IssueByNumber() {
       <Layout nav="issues">
         {error ? (
           <div className="px-6 py-14 text-center text-cinder">
-            <strong className="mb-1 block text-base text-soot">{error === "not found" ? `No issue #${issueId}, or it is in a project you cannot see` : error}</strong>
-            <Link to="/">Back to all projects</Link>
+            <strong className="mb-1 block text-base text-soot">{error === "not found" ? t("No issue #{issueId}, or it is in a project you cannot see", { issueId }) : error}</strong>
+            <Link to="/">{t("Back to all projects")}</Link>
           </div>
         ) : (
           <Loading />
@@ -76,7 +77,7 @@ export function IssuePage({ id, issueId }: { id: number; issueId: number }) {
         {error ? (
           <div className="px-6 py-14 text-center text-cinder">
             <strong className="mb-1 block text-base text-soot">{error}</strong>
-            <Link to="/">Back to all projects</Link>
+            <Link to="/">{t("Back to all projects")}</Link>
           </div>
         ) : (
           <Loading />
@@ -105,8 +106,8 @@ export function IssuePage({ id, issueId }: { id: number; issueId: number }) {
             <EventPanels event={data.event} suspects={data.suspects} />
           ) : (
             <div className="px-6 py-14 text-center text-cinder">
-              <strong className="mb-1 block text-base text-soot">No stored payloads</strong>
-              The counts above are kept.
+              <strong className="mb-1 block text-base text-soot">{t("No stored payloads")}</strong>
+              {t("The counts above are kept.")}
             </div>
           )}
           <Comments key={issue.id} projectId={project.id} issueId={issue.id} comments={data.comments} />
@@ -122,7 +123,7 @@ export function IssuePage({ id, issueId }: { id: number; issueId: number }) {
           {data.releases.length > 0 && (
             <section className={section}>
               <h2 className={sectionTitle}>
-                Releases <span className="text-xs font-normal text-cinder">events per release and env</span>
+                {t("Releases")} <span className="text-xs font-normal text-cinder">{t("events per release and env")}</span>
               </h2>
               <ReleaseTable releases={data.releases} />
             </section>
@@ -130,7 +131,7 @@ export function IssuePage({ id, issueId }: { id: number; issueId: number }) {
 
           <section className={section}>
             <h2 className={sectionTitle}>
-              History <span className="text-xs font-normal text-cinder">changes to this issue, newest first</span>
+              {t("History")} <span className="text-xs font-normal text-cinder">{t("changes to this issue, newest first")}</span>
             </h2>
             <ol className="m-0 list-none p-0">
               {data.activity.map((a, i) => (
@@ -152,13 +153,13 @@ export function IssuePage({ id, issueId }: { id: number; issueId: number }) {
                     {a.actor ? (
                       <>
                         {" "}
-                        · by{" "}
+                        {" "}· {t("by")}{" "}
                         <Tip content={a.actor}>
                           <span className="text-soot">{a.actorName || a.actor}</span>
                         </Tip>
                       </>
                     ) : (
-                      SYSTEM_KINDS.has(a.kind) && <> · automatic</>
+                      SYSTEM_KINDS.has(a.kind) && <> · {t("automatic")}</>
                     )}
                   </div>
                 </li>
@@ -179,13 +180,13 @@ function IssueHeat({ issue }: { issue: IssueDetail["issue"] }) {
     <div className="mb-6 rounded-card border border-rule bg-smoke/50 p-4">
       <HeatStrip hours={issue.hours} size="lg" />
       <div className="mt-1 flex justify-between text-xs text-cinder" aria-hidden="true">
-        <span>24 hours ago</span>
-        <span>Now</span>
+        <span>{t("24 hours ago")}</span>
+        <span>{t("Now")}</span>
       </div>
       <dl className="mt-3 grid grid-cols-3 justify-start gap-x-[22px] gap-y-1">
-        <dt className="text-xs text-cinder">Events</dt>
-        <dt className="text-xs text-cinder">First seen</dt>
-        <dt className="text-xs text-cinder">Last seen</dt>
+        <dt className="text-xs text-cinder">{t("Events")}</dt>
+        <dt className="text-xs text-cinder">{t("First seen")}</dt>
+        <dt className="text-xs text-cinder">{t("Last seen")}</dt>
         <dd className="m-0 font-semibold tabular-nums">{issue.eventCount}</dd>
         <dd className="m-0 font-semibold tabular-nums">
           <TimeTip at={issue.firstSeen}>
@@ -218,7 +219,7 @@ function ReleaseTable({ releases }: { releases: ReleaseRow[] }) {
             <span className="flex min-w-0 flex-1">
               <Tag name="release" value={release || "none"} mono />
             </span>
-            <Tip content="Events in this release">
+            <Tip content={t("Events in this release")}>
               <span className="shrink-0 font-semibold tabular-nums">{rows.reduce((t, r) => t + r.eventCount, 0)}</span>
             </Tip>
           </div>

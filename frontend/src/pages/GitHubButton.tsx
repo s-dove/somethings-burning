@@ -6,6 +6,7 @@ import { api, canTriage, type IssueDetail } from "../shared/api";
 import { ago } from "../shared/format";
 import { Button } from "../ui/components/Button";
 import { ChevronDown, ExternalLink, Github, Plus } from "../ui/icons";
+import { t } from "../shared/i18n";
 
 function issueRef(url: string): string {
   const m = /\/issues\/(\d+)/.exec(url);
@@ -22,12 +23,12 @@ export function GitHubButton({ detail, onChange }: { detail: IssueDetail; onChan
 
   const create = async () => {
     const again = !!latest;
-    const ok = confirm(again ? "Open another GitHub issue? The earlier ones stay listed." : "Open a GitHub issue in the project's primary repository, with the title, counts, and a link back here?");
+    const ok = confirm(again ? t("Open another GitHub issue? The earlier ones stay listed.") : t("Open a GitHub issue in the project's primary repository, with the title, counts, and a link back here?"));
     if (!ok) return;
     setBusy(true);
     try {
       const { url } = await api<{ url: string }>(`/projects/${project.id}/issues/${issue.id}/github`, { method: "POST", body: { again } });
-      toast("GitHub issue opened", { action: { label: "Open", onClick: () => window.open(url, "_blank") } });
+      toast(t("GitHub issue opened"), { action: { label: t("Open it"), onClick: () => window.open(url, "_blank") } });
       onChange();
     } catch (err) {
       toast.error((err as Error).message);
@@ -38,8 +39,8 @@ export function GitHubButton({ detail, onChange }: { detail: IssueDetail; onChan
 
   if (!latest) {
     return (
-      <Tip content="Open an issue in the project's primary GitHub repository, linking back here">
-        <Button variant="secondary" disabled={busy} icon={<Github aria-hidden="true" />} onClick={() => void create()}>{busy ? "Opening…" : "GitHub issue"}</Button>
+      <Tip content={t("Open an issue in the project's primary GitHub repository, linking back here")}>
+        <Button variant="secondary" disabled={busy} icon={<Github aria-hidden="true" />} onClick={() => void create()}>{busy ? t("Opening…") : t("GitHub issue")}</Button>
       </Tip>
     );
   }
@@ -52,13 +53,13 @@ export function GitHubButton({ detail, onChange }: { detail: IssueDetail; onChan
         <ChevronDown aria-hidden="true" />
       </MenuButton>
       <MenuItems anchor="bottom end" className="z-40 w-72 rounded-card border border-rule bg-ash p-1 text-[13px] shadow-lg [--anchor-gap:4px] focus:outline-none">
-        <div className="px-2.5 pt-1.5 pb-1 text-[11px] text-cinder">{list.length === 1 ? "GitHub issue made from this one" : `${list.length} GitHub issues made from this one, newest first`}</div>
+        <div className="px-2.5 pt-1.5 pb-1 text-[11px] text-cinder">{list.length === 1 ? t("GitHub issue made from this one") : t("{n} GitHub issues made from this one, newest first", { n: list.length })}</div>
         {list.map((g, n) => (
           <MenuItem key={`${g.url}-${n}`}>
             <a href={g.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-control px-2.5 py-1.5 text-soot no-underline data-focus:bg-rule-soft">
               <span className="mono">{issueRef(g.url) || g.url}</span>
-              {n === 0 && list.length > 1 && <span className="rounded-control bg-smoke px-1 text-[10px] text-cinder">latest</span>}
-              <span className="min-w-0 flex-1 truncate text-right text-[11px] text-cinder">{g.at ? `${ago(g.at)}${g.by ? ` by ${g.by}` : ""}` : ""}</span>
+              {n === 0 && list.length > 1 && <span className="rounded-control bg-smoke px-1 text-[10px] text-cinder">{t("latest")}</span>}
+              <span className="min-w-0 flex-1 truncate text-right text-[11px] text-cinder">{g.at ? `${ago(g.at)}${g.by ? ` ${t("by {name}", { name: g.by })}` : ""}` : ""}</span>
               <ExternalLink size={12} className="shrink-0 text-cinder" aria-hidden="true" />
             </a>
           </MenuItem>
@@ -69,7 +70,7 @@ export function GitHubButton({ detail, onChange }: { detail: IssueDetail; onChan
             <MenuItem>
               <button className="flex w-full cursor-pointer items-center gap-2 rounded-control px-2.5 py-1.5 text-left data-focus:bg-rule-soft" onClick={() => void create()}>
                 <Plus size={13} aria-hidden="true" />
-                Open another GitHub issue…
+                {t("Open another GitHub issue…")}
               </button>
             </MenuItem>
           </>

@@ -2,6 +2,7 @@ import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from "@headlessui/re
 import { useLayoutEffect, useRef, useState } from "react";
 import { Check, MonitorSmartphone, Palette, X } from "../ui/icons";
 import { Tip } from "./Tip";
+import { t } from "../shared/i18n";
 
 // The themes in styles.css (daisyUI). "" follows the system: Burning, or
 // Burning dark when the system is dark.
@@ -119,8 +120,8 @@ export function ThemeSwitch() {
   }, [open, topTheme, topCode]);
   return (
     <>
-      <Tip content="Theme" side="right">
-        <button type="button" aria-label="Theme" aria-haspopup="dialog" onClick={show}
+      <Tip content={t("Theme")} side="right">
+        <button type="button" aria-label={t("Theme")} aria-haspopup="dialog" onClick={show}
           className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-control text-cinder hover:bg-rule-soft hover:text-soot">
           <Palette size={16} />
         </button>
@@ -132,7 +133,7 @@ export function ThemeSwitch() {
             <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-2 sm:grid-cols-2 sm:grid-rows-1">
               <section className="@container flex min-h-0 flex-col border-b border-rule sm:border-r sm:border-b-0">
                 <div className="flex shrink-0 items-center border-b border-rule px-4 py-3">
-                  <DialogTitle className="text-sm font-semibold">Theme</DialogTitle>
+                  <DialogTitle className="text-sm font-semibold">{t("Theme")}</DialogTitle>
                 </div>
                 <ul ref={themeList} className={PANE_GRID}>
                   {pinnedTheme && (
@@ -149,8 +150,8 @@ export function ThemeSwitch() {
               </section>
               <section className="@container flex min-h-0 flex-col">
                 <div className="flex shrink-0 items-center gap-3 border-b border-rule px-4 py-3">
-                  <h3 className="min-w-0 flex-1 text-sm font-semibold">Code theme</h3>
-                  <button type="button" className="-mr-1 cursor-pointer rounded-control p-1 text-cinder hover:bg-rule-soft hover:text-soot" aria-label="Close" onClick={() => setOpen(false)}><X size={16} /></button>
+                  <h3 className="min-w-0 flex-1 text-sm font-semibold">{t("Code theme")}</h3>
+                  <button type="button" className="-mr-1 cursor-pointer rounded-control p-1 text-cinder hover:bg-rule-soft hover:text-soot" aria-label={t("Close")} onClick={() => setOpen(false)}><X size={16} /></button>
                 </div>
                 <ul ref={codeList} className={PANE_GRID}>
                   {pinnedCode && (
@@ -258,7 +259,7 @@ function CodePreview({ id, fill }: { id: string; fill?: boolean }) {
     <span data-code-theme={id} className={`block overflow-hidden rounded-[7px] ${frame}`}>
       <pre className="mono language-python block h-full px-3 py-2.5 text-sm leading-relaxed">
         <code>
-          <span className="token keyword">def</span> <span className="token function">load</span><span className="token punctuation">(</span>name<span className="token punctuation">):</span>{"\n"}
+          <span className="token keyword">def</span> <span className="token function">load</span><span className="token punctuation">(</span>{t("name")}<span className="token punctuation">):</span>{"\n"}
           {"  "}<span className="token comment"># cached</span>{"\n"}
           {"  "}<span className="token keyword">return</span> cache<span className="token punctuation">[</span><span className="token string">"k"</span><span className="token punctuation">]</span> <span className="token operator">+</span> <span className="token number">1</span>{"\n"}
           {"\n"}

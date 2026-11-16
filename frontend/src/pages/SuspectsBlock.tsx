@@ -1,5 +1,6 @@
 import type { Suspects } from "../shared/api";
 import { GitCompare } from "../ui/icons";
+import { t } from "../shared/i18n";
 
 const short = (sha: string) => sha.slice(0, 7);
 
@@ -14,7 +15,7 @@ export function SuspectsBlock({ suspects: s }: { suspects: Suspects }) {
         </span>
       </h3>
       {s.files.length === 0 ? (
-        <p className="text-xs text-cinder">None of the stack's files changed between these releases.</p>
+        <p className="text-xs text-cinder">{t("None of the stack's files changed between these releases.")}</p>
       ) : (
         <>
           <ul className="m-0 mb-2 list-none p-0">

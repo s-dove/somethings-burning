@@ -8,12 +8,12 @@ export function plural(n: number, word: string): string {
 }
 
 export function ago(ms: number): string {
-  if (!ms) return "never";
+  if (!ms) return t("never");
   const d = Date.now() - ms;
-  if (d < 60_000) return "just now";
-  if (d < HOUR) return `${Math.floor(d / 60_000)}m ago`;
-  if (d < 24 * HOUR) return `${Math.floor(d / HOUR)}h ago`;
-  if (d < 60 * 24 * HOUR) return `${Math.floor(d / (24 * HOUR))}d ago`;
+  if (d < 60_000) return t("just now");
+  if (d < HOUR) return t("{n}m ago", { n: Math.floor(d / 60_000) });
+  if (d < 24 * HOUR) return t("{n}h ago", { n: Math.floor(d / HOUR) });
+  if (d < 60 * 24 * HOUR) return t("{n}d ago", { n: Math.floor(d / (24 * HOUR)) });
   return new Date(ms).toISOString().slice(0, 10);
 }
 
@@ -104,19 +104,19 @@ export function shortRelease(release: string): string {
 }
 
 function humanDuration(ms: number): string {
-  if (ms < 60_000) return "less than a minute";
+  if (ms < 60_000) return t("less than a minute");
   const minutes = Math.ceil(ms / 60_000);
-  if (minutes < 60) return plural(minutes, "minute");
+  if (minutes < 60) return t("{n} minutes", { n: minutes });
   const hours = Math.ceil(ms / HOUR);
-  if (hours < 48) return plural(hours, "hour");
-  return plural(Math.ceil(ms / (24 * HOUR)), "day");
+  if (hours < 48) return t("{n} hours", { n: hours });
+  return t("{n} days", { n: Math.ceil(ms / (24 * HOUR)) });
 }
 
 export function muteSummary(m: Mute): string {
   if (m.kind === "for") {
     const left = m.until - Date.now();
-    return left <= 0 ? "mute ending" : `muted for ${humanDuration(left)} more`;
+    return left <= 0 ? t("mute ending") : t("muted for {time} more", { time: humanDuration(left) });
   }
-  if (m.kind === "release") return "muted until a new release reports it";
-  return "muted until unmuted";
+  if (m.kind === "release") return t("muted until a new release reports it");
+  return t("muted until unmuted");
 }

@@ -9,6 +9,7 @@ import { api, useApi, type SourceConfig, type SourcesTest, type SourcesView } fr
 import { backToSettings, SettingsFrame, useSettings } from "./SettingsPage";
 import { credentialNote, KIND, RELEASE, SourceEditor } from "./SourceEditor";
 import { SourceTestResult } from "./SourceTest";
+import { t } from "../shared/i18n";
 
 const newSource = (first: boolean): SourceConfig => ({
   kind: "github", repo: "", branch: "main", mappings: [{ prefix: "", dir: "" }], release: { kind: "auto", value: "" }, primary: first, context: "", web: "",
@@ -69,14 +70,14 @@ export function SourcesPage() {
       title={name => `${name} code`}
       hint="The repositories its stack frames come from, for source links and AI analysis."
       action={admin ? <div className="flex gap-2">
-        {sources.length > 0 && <Button icon={<FlaskConical aria-hidden="true" />} disabled={busy} onClick={() => { setEditing(null); void runTest(sources); }}>Test</Button>}
-        <Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => { setProblem(""); setTest(null); setEditing({ index: -1, draft: newSource(sources.length === 0) }); }}>Add source</Button>
+        {sources.length > 0 && <Button icon={<FlaskConical aria-hidden="true" />} disabled={busy} onClick={() => { setEditing(null); void runTest(sources); }}>{t("Test")}</Button>}
+        <Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => { setProblem(""); setTest(null); setEditing({ index: -1, draft: newSource(sources.length === 0) }); }}>{t("Add source")}</Button>
       </div> : undefined}
     >
       {() => !view ? null : (
         <div className="pb-10">
           {sources.length === 0
-            ? <p className="rounded-card border border-dashed border-rule px-6 py-12 text-center text-[13px] text-cinder">No code sources. Stack frames show without links.</p>
+            ? <p className="rounded-card border border-dashed border-rule px-6 py-12 text-center text-[13px] text-cinder">{t("No code sources. Stack frames show without links.")}</p>
             : <ul className="m-0 list-none divide-y divide-rule overflow-hidden rounded-card border border-rule bg-ash p-0">
               {sources.map((s, i) => {
                 const note = credentialNote(s, view.hosts, view.sshKey);
@@ -87,7 +88,7 @@ export function SourcesPage() {
                       <span className="min-w-0 flex-1">
                         <span className="flex min-w-0 items-center gap-2">
                           <span className="mono truncate text-[13px] font-semibold">{s.repo}</span>
-                          {s.primary && <span className="shrink-0 rounded-control bg-rule-soft px-1.5 py-0.5 text-[11px] text-cinder">primary</span>}
+                          {s.primary && <span className="shrink-0 rounded-control bg-rule-soft px-1.5 py-0.5 text-[11px] text-cinder">{t("primary")}</span>}
                           {note && <Tip content={note}><CircleAlert size={14} className="shrink-0 text-ember-ink" aria-label={note} /></Tip>}
                         </span>
                         <span className="mt-1 block truncate text-xs text-cinder">
@@ -102,15 +103,15 @@ export function SourcesPage() {
             </ul>}
           {!editing && problem && <p role="alert" className="mt-4 text-[13px] text-ember-ink">{problem}</p>}
           {!editing && test && <div className="mt-6"><SourceTestResult test={test.result} sources={test.sources} projectId={view.project.id} /></div>}
-          {!admin && <p className="mt-6 text-xs text-cinder">Only project admins can change code sources.</p>}
+          {!admin && <p className="mt-6 text-xs text-cinder">{t("Only project admins can change code sources.")}</p>}
 
           <Sheet open={!!editing} onClose={() => setEditing(null)} back="Back to code"
             title={editing?.index === -1 ? "New source" : editing?.draft.repo || "Source"}
-            actions={!admin ? <Button size="sm" onClick={() => setEditing(null)}>Close</Button> : editing && <>
+            actions={!admin ? <Button size="sm" onClick={() => setEditing(null)}>{t("Close")}</Button> : editing && <>
               {editing.index >= 0 && <Button size="sm" variant="ghost" className="hover:text-ember-ink" icon={<Trash2 aria-hidden="true" />} disabled={busy}
-                onClick={() => { if (window.confirm("Delete this source?")) void save(withDraft(editing.index, null), "Source deleted"); }}>Delete</Button>}
-              <Button size="sm" icon={<FlaskConical aria-hidden="true" />} disabled={busy} onClick={() => void runTest(withDraft(editing.index, editing.draft))}>Test</Button>
-              <Button size="sm" disabled={busy} onClick={() => setEditing(null)}>Cancel</Button>
+                onClick={() => { if (window.confirm("Delete this source?")) void save(withDraft(editing.index, null), "Source deleted"); }}>{t("Delete")}</Button>}
+              <Button size="sm" icon={<FlaskConical aria-hidden="true" />} disabled={busy} onClick={() => void runTest(withDraft(editing.index, editing.draft))}>{t("Test")}</Button>
+              <Button size="sm" disabled={busy} onClick={() => setEditing(null)}>{t("Cancel")}</Button>
               <Button size="sm" variant="primary" disabled={busy} onClick={() => void save(withDraft(editing.index, editing.draft), editing.index < 0 ? "Source added" : "Source saved")}>{busy ? "Saving…" : editing.index < 0 ? "Add source" : "Done"}</Button>
             </>}>
             {problem && <p role="alert" className="mb-5 rounded-card border border-ember-ink/30 bg-ember-soft px-4 py-3 text-[13px] text-ember-ink">{problem}</p>}

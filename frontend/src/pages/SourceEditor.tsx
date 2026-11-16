@@ -4,6 +4,7 @@ import { Tip } from "../components/Tip";
 import { ArrowRight, CircleAlert, GitBranch, Github, Plus, X } from "../ui/icons";
 import type { ReleaseKind, SourceConfig, SourceKind } from "../shared/api";
 import { input } from "../shared/ui";
+import { t } from "../shared/i18n";
 
 const iconBtn = "grid size-8 shrink-0 cursor-pointer place-items-center rounded-control text-cinder hover:bg-rule-soft hover:text-soot disabled:cursor-not-allowed disabled:opacity-40";
 
@@ -78,11 +79,11 @@ export function SourceEditor({ source: s, hosts, sshKey, readOnly, onChange }: {
               <input aria-label="Stack trace path starts with" className={`${input} mono h-8 min-w-48 flex-1 py-1 text-xs`} placeholder="/srv/app/" value={m.prefix} disabled={readOnly} onChange={e => setMapping(i, { prefix: e.target.value })} />
               <ArrowRight size={14} className="shrink-0 text-cinder" aria-hidden="true" />
               <input aria-label="Folder in the repository" className={`${input} mono h-8 min-w-48 flex-1 py-1 text-xs`} placeholder="(repository root)" value={m.dir} disabled={readOnly} onChange={e => setMapping(i, { dir: e.target.value })} />
-              {!readOnly && <Tip content="Remove mapping"><button type="button" className={iconBtn} aria-label="Remove mapping" onClick={() => set({ mappings: s.mappings.filter((_, j) => j !== i) })}><X size={14} /></button></Tip>}
+              {!readOnly && <Tip content={t("Remove mapping")}><button type="button" className={iconBtn} aria-label={t("Remove mapping")} onClick={() => set({ mappings: s.mappings.filter((_, j) => j !== i) })}><X size={14} /></button></Tip>}
             </li>
           ))}
         </ul>
-        {!readOnly && <button type="button" className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-control px-2 py-1.5 text-xs text-cinder hover:bg-rule-soft hover:text-soot" onClick={() => set({ mappings: [...s.mappings, { prefix: "", dir: "" }] })}><Plus size={14} aria-hidden="true" />Add mapping</button>}
+        {!readOnly && <button type="button" className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-control px-2 py-1.5 text-xs text-cinder hover:bg-rule-soft hover:text-soot" onClick={() => set({ mappings: [...s.mappings, { prefix: "", dir: "" }] })}><Plus size={14} aria-hidden="true" />{t("Add mapping")}</button>}
       </Field>
 
       <Field label="Release → code">
@@ -108,7 +109,7 @@ export function SourceEditor({ source: s, hosts, sshKey, readOnly, onChange }: {
       <label className="flex w-fit cursor-pointer items-center gap-2 text-[13px]">
         <input type="checkbox" className="size-4 cursor-pointer" checked={s.primary} disabled={readOnly} onChange={e => set({ primary: e.target.checked })} />
         Primary: the service's own repository
-        <span className="text-xs text-cinder">diffs between releases come from it</span>
+        <span className="text-xs text-cinder">{t("diffs between releases come from it")}</span>
       </label>
     </>
   );

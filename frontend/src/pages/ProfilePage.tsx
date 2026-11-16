@@ -28,15 +28,15 @@ export function ProfilePage() {
   return (
     <Layout nav="profile">
       <PageHeader
-        title="Profile"
-        actions={user ? <form method="post" action="/auth/logout"><Button type="submit" size="sm" icon={<LogOut aria-hidden="true" />}>Log out</Button></form> : undefined}
+        title={t("Profile")}
+        actions={user ? <form method="post" action="/auth/logout"><Button type="submit" size="sm" icon={<LogOut aria-hidden="true" />}>{t("Log out")}</Button></form> : undefined}
         after={user ? <p className="mt-2 text-sm text-cinder"><span className="font-semibold text-soot">{user.displayName}</span> · {user.email}</p> : undefined}
         spaceBelow="mb-2"
       />
       <div className="max-w-[720px]">
         {!user && <div className="mt-8 rounded-card border border-rule bg-smoke p-6">
-          <p className="text-sm text-cinder">Sign in to see your profile.</p>
-          <a href="/login?next=/profile" className="ui-button ui-button-primary ui-button-md mt-5 no-underline">Sign in<ArrowRight aria-hidden="true" /></a>
+          <p className="text-sm text-cinder">{t("Sign in to see your profile.")}</p>
+          <a href="/login?next=/profile" className="ui-button ui-button-primary ui-button-md mt-5 no-underline">{t("Sign in")}<ArrowRight aria-hidden="true" /></a>
         </div>}
         {user && <>
           {profile.error && <p role="alert" className="mt-6 text-sm text-ember-ink">{profile.error}</p>}
@@ -70,8 +70,8 @@ function ProfileDetails({ profile: p, onSaved }: { profile: Profile; onSaved: ()
       <ProfileNotifications />
 
       <section className={card}>
-        <h2 className="text-base">Account</h2>
-        <p className="mt-1 mb-4 text-xs text-cinder">From the ID token at your last sign-in. Burning keeps these claims, not the tokens.</p>
+        <h2 className="text-base">{t("Account")}</h2>
+        <p className="mt-1 mb-4 text-xs text-cinder">{t("From the ID token at your last sign-in. Burning keeps these claims, not the tokens.")}</p>
         <dl className={facts}>
           {rows.map(([k, v, hint]) => (
             <div key={k} className="contents">
@@ -80,7 +80,7 @@ function ProfileDetails({ profile: p, onSaved }: { profile: Profile; onSaved: ()
             </div>
           ))}
         </dl>
-        <h3 className="mt-6 mb-1 text-sm font-semibold">All claims</h3>
+        <h3 className="mt-6 mb-1 text-sm font-semibold">{t("All claims")}</h3>
         <p className="mb-3 text-xs text-cinder">Everything else the provider said about you. Claims about the token itself (exp, aud, nonce, …) are left out, and groups are listed below.</p>
         <dl className={facts}>
           {p.claims.filter(([k]) => k !== "groups").map(([k, v]) => (
@@ -93,10 +93,10 @@ function ProfileDetails({ profile: p, onSaved }: { profile: Profile; onSaved: ()
       </section>
 
       <section className={card}>
-        <h2 className="text-base">Groups</h2>
+        <h2 className="text-base">{t("Groups")}</h2>
         <p className="mt-1 mb-4 text-xs text-cinder">Taken from the groups claim at sign-in. Project roles can be granted to a group.</p>
         {p.groups.length === 0
-          ? <p className="text-sm text-cinder">No groups in the claim.</p>
+          ? <p className="text-sm text-cinder">{t("No groups in the claim.")}</p>
           : <ul className="m-0 grid list-none gap-2 p-0">
             {p.groups.map((group) => <li key={group} className="rounded-control border border-rule bg-ash px-3 py-2 text-sm">{group}</li>)}
           </ul>}
@@ -134,9 +134,9 @@ function Names({ profile: p, onSaved }: { profile: Profile; onSaved: () => void 
 
   return (
     <section className={card}>
-      <h2 className="text-base">Names</h2>
+      <h2 className="text-base">{t("Names")}</h2>
       <div className="mt-4 grid gap-5 sm:grid-cols-[140px_minmax(0,1fr)] sm:gap-x-6">
-        <label htmlFor="display-name" className="text-[13px] font-medium sm:pt-2">Display name</label>
+        <label htmlFor="display-name" className="text-[13px] font-medium sm:pt-2">{t("Display name")}</label>
         <div>
           <form className="flex flex-wrap items-center gap-2" onSubmit={save}>
             <input id="display-name" className={`${input} h-9 max-w-80 flex-1`} value={value} maxLength={MAX_NAME} placeholder={p.username} onChange={e => setValue(e.target.value)} />
@@ -146,7 +146,7 @@ function Names({ profile: p, onSaved }: { profile: Profile; onSaved: () => void 
           {error && <p role="alert" className="mt-1.5 text-xs text-ember-ink">{error}</p>}
         </div>
 
-        <span className="text-[13px] font-medium">Username</span>
+        <span className="text-[13px] font-medium">{t("Username")}</span>
         <div>
           <span className="mono text-[13px]">{p.username}</span>
           <p className="mt-1.5 text-xs text-cinder">

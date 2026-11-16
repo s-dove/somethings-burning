@@ -1,4 +1,5 @@
 import type { Receiver, ReceiverKind, Route } from "../shared/api";
+import { t } from "../shared/i18n";
 
 // Problems are keyed by where they show: "m<index>" for a condition, "r:<kind>"
 // for a line of receivers. They mirror the server's checks so the editor can
@@ -26,8 +27,8 @@ export function badTarget(x: Receiver): string {
 
 export function routeProblems(r: Route): Problems {
   const out: Problems = new Map();
-  if (r.spike && !(r.spike.events >= 1)) out.set("spike", "A spike needs at least 1 event in an hour.");
-  else if (r.spike && !(r.spike.factor >= 1 && r.spike.factor <= 1000)) out.set("spike", "The factor is between 1 and 1000.");
+  if (r.spike && !(r.spike.events >= 1)) out.set("spike", t("A spike needs at least 1 event in an hour."));
+  else if (r.spike && !(r.spike.factor >= 1 && r.spike.factor <= 1000)) out.set("spike", t("The factor is between 1 and 1000."));
   r.matchers.forEach((m, i) => {
     if (m.field === "tag." || m.field === "tag") out.set(`m${i}`, "Add the tag name.");
     else if (m.op === "=~" || m.op === "!~") {
@@ -35,7 +36,7 @@ export function routeProblems(r: Route): Problems {
     }
   });
   if (r.sink) return out;
-  if (r.receivers.length === 0) out.set("r", "Add a receiver, or choose Sink to drop what matches.");
+  if (r.receivers.length === 0) out.set("r", t("Add a receiver, or choose Sink to drop what matches."));
   const kinds = [...new Set(r.receivers.map(x => x.kind))];
   for (const kind of kinds) {
     if (kind === "assignee") continue;

@@ -6,6 +6,7 @@ import { Trash2, UserRound, Users } from "../ui/icons";
 import { api, useApi, type Grant, type ProjectSettings, type Role, type Session } from "../shared/api";
 import { input } from "../shared/ui";
 import { Tip } from "../components/Tip";
+import { t } from "../shared/i18n";
 
 const ROLE_HELP: Record<Role, string> = {
   viewer: "Sees issues and events.",
@@ -52,16 +53,16 @@ export function AccessSection({ settings, onChange }: { settings: ProjectSetting
   }
 
   return (
-    <section aria-label="Access">
+    <section aria-label={t("Access")}>
       <dl className="mb-5 grid gap-2 sm:grid-cols-3">
         {roles.map(r => <div key={r} className="rounded-control border border-rule bg-smoke px-3 py-2"><dt className="text-xs font-semibold">{roleLabel(r)}</dt><dd className="m-0 text-xs text-cinder">{ROLE_HELP[r]}</dd></div>)}
       </dl>
-      {grants.length === 0 && <p className="mb-4 rounded-card border border-rule bg-smoke px-4 py-3 text-[13px] text-cinder">No one has access to this project. Grant a user the admin role first.</p>}
+      {grants.length === 0 && <p className="mb-4 rounded-card border border-rule bg-smoke px-4 py-3 text-[13px] text-cinder">{t("No one has access to this project. Grant a user the admin role first.")}</p>}
       {admin && <AddGrant roles={roles} busy={busy} onAdd={(kind, subject, role) => send("PUT", { kind, subject, role })} />}
       {error && <p role="alert" className="mb-3 text-xs text-ember-ink">{error}</p>}
       {grants.length > 0 && <ul className="m-0 list-none divide-y divide-rule overflow-hidden rounded-card border border-rule bg-ash p-0">
         {grants.map(g => <li key={`${g.kind}:${g.subject}`} className="flex flex-wrap items-center gap-3 px-4 py-3">
-          {g.kind === "group" ? <Users className="shrink-0 text-cinder" aria-label="Group" /> : <UserRound className="shrink-0 text-cinder" aria-label="User" />}
+          {g.kind === "group" ? <Users className="shrink-0 text-cinder" aria-label={t("Group")} /> : <UserRound className="shrink-0 text-cinder" aria-label={t("User")} />}
           <span className="flex min-w-0 flex-1 items-center gap-2">
             <Tip content={g.subject}><span className="min-w-0 truncate text-sm">
               {g.name && g.name !== g.subject ? <>{g.name} <span className="text-xs text-cinder">{g.subject}</span></> : g.subject}
@@ -86,7 +87,7 @@ export function AccessSection({ settings, onChange }: { settings: ProjectSetting
             : <span className="text-xs text-cinder">{roleLabel(g.role)}</span>}
         </li>)}
       </ul>}
-      {admin && grants.length > 0 && <p className="mt-3 text-xs text-cinder">At least one user must stay admin. Group admins do not count.</p>}
+      {admin && grants.length > 0 && <p className="mt-3 text-xs text-cinder">{t("At least one user must stay admin. Group admins do not count.")}</p>}
       {!admin && <p className="mt-3 text-xs text-cinder">{project.role ? `Only admins change access. Your role here is ${project.role}.` : "You no longer have access to this project."}</p>}
     </section>
   );
@@ -106,7 +107,7 @@ function AddGrant({ roles, busy, onAdd }: { roles: Role[]; busy: boolean; onAdd:
         <input className={`${input} h-9`} value={subject} onChange={e => setSubject(e.target.value)} required type={kind === "user" ? "email" : "text"} placeholder={kind === "user" ? "name@example.com" : "e.g. platform-eng"} />
       </label>
       <Select label="Role" className="w-36" value={role} options={roleOptions(roles)} onChange={setRole} />
-      <Button variant="primary" type="submit" disabled={busy}>Grant access</Button>
+      <Button variant="primary" type="submit" disabled={busy}>{t("Grant access")}</Button>
     </form>
   );
 }

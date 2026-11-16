@@ -101,7 +101,7 @@ export function BoardPage() {
               </>
             }
           >
-            <nav className="flex gap-6 overflow-x-auto border-b border-rule max-sm:gap-4" aria-label="Status">
+            <nav className="flex gap-6 overflow-x-auto border-b border-rule max-sm:gap-4" aria-label={t("Status")}>
               {TABS.map(([value, label]) => (
                 <Link
                   key={value}
@@ -159,7 +159,7 @@ export function BoardPage() {
           {data.issues.length > 0 && (
             <div className="mt-4 flex justify-between gap-3 text-xs text-cinder">
               <span>{plural(data.issues.length, "issue")} shown</span>
-              <span>Activity shows the last 24 hours</span>
+              <span>{t("Activity shows the last 24 hours")}</span>
             </div>
           )}
         </>

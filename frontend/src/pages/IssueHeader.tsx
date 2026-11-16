@@ -10,6 +10,7 @@ import { AssigneePicker } from "./AssigneePicker";
 import { GitHubButton } from "./GitHubButton";
 import { IssueTriage } from "./IssueTriage";
 import { Tip, TimeTip } from "../components/Tip";
+import { t } from "../shared/i18n";
 
 const banner = "rounded-card border px-4 py-3";
 
@@ -22,7 +23,7 @@ export function IssueHeader({ detail, onChange }: { detail: IssueDetail; onChang
   const bannerNode = statusBanner(issue);
   return (
     <PageHeader
-      before={<Link className="inline-flex items-center gap-2 text-xs text-cinder no-underline hover:text-soot" to={`/p/${project.id}`}><ArrowLeft aria-hidden="true" /> Back to issues</Link>}
+      before={<Link className="inline-flex items-center gap-2 text-xs text-cinder no-underline hover:text-soot" to={`/p/${project.id}`}><ArrowLeft aria-hidden="true" /> {t("Back to issues")}</Link>}
       title={<Redacted text={type || msg} tip={false} />}
       titleText={type || msg}
       titleLines={type ? 1 : 2}
@@ -40,14 +41,14 @@ export function IssueHeader({ detail, onChange }: { detail: IssueDetail; onChang
 // note says so, because the event payload below can differ.
 export function IssueSummary({ issue }: { issue: IssueDetail["issue"] }) {
   const [type, msg] = splitTitle(issue.title);
-  const statusLabel = { open: "Open", resolved: "Resolved", muted: "Muted" }[issue.status];
+  const statusLabel = { open: t("Open"), resolved: t("Resolved"), muted: t("Muted") }[issue.status];
   return (
     <div className="mb-6">
       {type && <p className="text-base leading-relaxed text-cinder wrap-anywhere"><Redacted text={msg} /></p>}
       <div className={`flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-cinder ${type ? "mt-3" : ""}`}>
-        <Tip content="Issue status, changed by Resolve, Mute, and Reopen"><span className={`${pill} ${pillTone[issue.status]}`}>{statusLabel}</span></Tip>
-        {issue.culprit && <Tag name="culprit" value={issue.culprit} mono title="Where it happened: the event's transaction, or else the innermost frame of your code" />}
-        <span>Title and culprit from the first event, <TimeTip at={issue.firstSeen}><span>{ago(issue.firstSeen)}</span></TimeTip></span>
+        <Tip content={t("Issue status, changed by Resolve, Mute, and Reopen")}><span className={`${pill} ${pillTone[issue.status]}`}>{statusLabel}</span></Tip>
+        {issue.culprit && <Tag name="culprit" value={issue.culprit} mono title={t("Where it happened: the event's transaction, or else the innermost frame of your code")} />}
+        <span>{t("Title and culprit from the first event,")} <TimeTip at={issue.firstSeen}><span>{ago(issue.firstSeen)}</span></TimeTip></span>
       </div>
     </div>
   );
@@ -56,17 +57,17 @@ export function IssueSummary({ issue }: { issue: IssueDetail["issue"] }) {
 function statusBanner(issue: IssueDetail["issue"]) {
   if (issue.status === "open" && issue.reopenReason) return (
     <div className={`${banner} border-[#f6cfae] bg-ember-soft text-ember-ink`}>
-      <b className="font-semibold">Firing again.</b> {sentence(issue.reopenReason)}.
+      <b className="font-semibold">{t("Firing again.")}</b> {sentence(issue.reopenReason)}.
     </div>
   );
   if (issue.status === "resolved") return (
     <div className={`${banner} border-[#c4dbe6] bg-doused-soft text-[#1f4b60]`}>
-      <b className="font-semibold">Resolved {ago(issue.resolvedAt)}.</b> Everything up to then is handled. The next event fires it again.
+      <b className="font-semibold">{t("Resolved {when}.", { when: ago(issue.resolvedAt) })}</b> {t("Everything up to then is handled. The next event fires it again.")}
     </div>
   );
   if (issue.status === "muted") return (
     <div className={`${banner} border-rule bg-rule-soft text-cinder`}>
-      <b className="font-semibold">{sentence(muteSummary(issue.mute))}.</b> Events keep counting, but nothing alerts.
+      <b className="font-semibold">{sentence(muteSummary(issue.mute))}.</b> {t("Events keep counting, but nothing alerts.")}
     </div>
   );
   return null;

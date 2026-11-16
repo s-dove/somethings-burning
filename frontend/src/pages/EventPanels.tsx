@@ -8,6 +8,7 @@ import { StackTrace } from "./StackTrace";
 import type { EventView, Suspects } from "../shared/api";
 import { clock } from "../shared/format";
 import { section, sectionTitle } from "../shared/ui";
+import { t } from "../shared/i18n";
 
 // EventPanels shows one stored event: the event card, a stack trace card per
 // exception, breadcrumbs, and context. The raw JSON is in the sidebar.
@@ -20,7 +21,7 @@ export function EventPanels({ event, suspects }: { event: EventView; suspects?: 
       {event.breadcrumbs.length > 0 && (
         <section className={section}>
           <h2 className={sectionTitle}>
-            Breadcrumbs <span className="text-xs font-normal text-cinder">what happened before the error</span>
+            Breadcrumbs <span className="text-xs font-normal text-cinder">{t("what happened before the error")}</span>
           </h2>
           <div className="grid grid-cols-[max-content_max-content_minmax(0,1fr)] gap-x-4 text-xs wrap-anywhere max-sm:gap-x-2">
             {event.breadcrumbs.map((b, i) => (
@@ -40,7 +41,7 @@ export function EventPanels({ event, suspects }: { event: EventView; suspects?: 
       {event.context.length > 0 && (
         <section className={section}>
           <h2 className={sectionTitle}>
-            Context <span className="text-xs font-normal text-cinder">the request, user, and runtime when the error happened</span>
+            Context <span className="text-xs font-normal text-cinder">{t("the request, user, and runtime when the error happened")}</span>
           </h2>
           <dl className="grid grid-cols-[120px_minmax(0,1fr)] gap-x-4 text-[13px] wrap-anywhere max-sm:grid-cols-[80px_minmax(0,1fr)]">
             {event.context.map(([k, v]) => (
@@ -71,12 +72,12 @@ export function RawJson({ event }: { event: EventView }) {
       >
         <span className="grid size-9 shrink-0 place-items-center rounded-control border border-rule bg-smoke text-cinder"><Braces aria-hidden="true" /></span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold">Raw event JSON</span>
-          <span className="block text-xs text-cinder">The event exactly as the SDK sent it.</span>
+          <span className="block text-sm font-semibold">{t("Raw event JSON")}</span>
+          <span className="block text-xs text-cinder">{t("The event exactly as the SDK sent it.")}</span>
         </span>
         <ChevronRight className="shrink-0 text-cinder" aria-hidden="true" />
       </button>
-      <JsonModal open={open} onClose={() => setOpen(false)} title="Raw event JSON" subtitle={event.eventId} json={event.raw} />
+      <JsonModal open={open} onClose={() => setOpen(false)} title={t("Raw event JSON")} subtitle={event.eventId} json={event.raw} />
     </>
   );
 }

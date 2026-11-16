@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { t } from "../shared/i18n";
 import { Tip } from "./Tip";
 
 // Values data scrubbing took out before the event was stored show as
@@ -8,10 +9,10 @@ export const FILTERED = "[Filtered]";
 const TIP = "Removed before storage by data scrubbing: it looked like a secret (a password, token, key, or card number). The original was never kept.";
 
 function Mark({ tip }: { tip: boolean }) {
-  if (!tip) return <span className="redacted">filtered</span>;
+  if (!tip) return <span className="redacted">{t("filtered")}</span>;
   return (
     <Tip content={TIP}>
-      <span className="redacted">filtered</span>
+      <span className="redacted">{t("filtered")}</span>
     </Tip>
   );
 }
@@ -32,5 +33,5 @@ export function Redacted({ text, tip = true }: { text: string; tip?: boolean }):
 export function redactHtml(html: string): string {
   if (!html.includes(FILTERED)) return html;
   const title = TIP.replace(/"/g, "&quot;");
-  return html.replaceAll(FILTERED, `<span class="redacted" title="${title}">filtered</span>`);
+  return html.replaceAll(FILTERED, `<span class="redacted" title="${title}">{t("filtered")}</span>`);
 }

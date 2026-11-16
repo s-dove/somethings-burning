@@ -105,7 +105,7 @@ function NewProject({ onCreate }: { onCreate: () => void }) {
             >
               <label className="grid gap-2 text-xs font-medium">
                 {t("Project name")}
-                <input className={input} autoFocus name="name" placeholder="e.g. billing-api" required maxLength={80} />
+                <input className={input} autoFocus name="name" placeholder={t("e.g. billing-api")} required maxLength={80} />
               </label>
               {error && (
                 <p role="alert" className="text-xs text-ember-ink">

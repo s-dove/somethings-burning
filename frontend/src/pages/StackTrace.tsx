@@ -6,6 +6,7 @@ import { Tip } from "../components/Tip";
 import type { EventView, FrameView, Suspects } from "../shared/api";
 import { ExternalLink } from "../ui/icons";
 import { SuspectsBlock } from "./SuspectsBlock";
+import { t } from "../shared/i18n";
 
 type Exception = EventView["exceptions"][number];
 
@@ -46,14 +47,14 @@ export function StackTrace({ exception, platform, causedBy, suspects }: { except
                     )}
                     {f.lineno > 0 && <span className="text-cinder">line {f.lineno}</span>}
                     {f.changed && (
-                      <Tip content="This file changed since the previous release: see Suspect changes">
+                      <Tip content={t("This file changed since the previous release: see Suspect changes")}>
                         <span className="rounded-control bg-ember-soft px-1.5 text-[11px] font-medium text-ember-ink">{f.changed} in this release</span>
                       </Tip>
                     )}
-                    {!f.inApp && <span className="ml-auto text-[11px] text-cinder">library</span>}
+                    {!f.inApp && <span className="ml-auto text-[11px] text-cinder">{t("library")}</span>}
                   </DisclosureButton>
                   {f.link && (
-                    <Tip content="Open this line in the repository">
+                    <Tip content={t("Open this line in the repository")}>
                       <Link
                         to={f.link}
                         aria-label={`Open ${f.location} line ${f.lineno} in the repository`}

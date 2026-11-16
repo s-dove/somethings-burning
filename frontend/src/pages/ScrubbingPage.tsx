@@ -6,6 +6,7 @@ import { api, useApi, type ConfigView } from "../shared/api";
 import { input, section, sectionTitle } from "../shared/ui";
 import { Button } from "../ui/components/Button";
 import { backToSettings, SettingsFrame, useSettings } from "./SettingsPage";
+import { t } from "../shared/i18n";
 
 const DEFAULTS = ["password, passwd, passphrase", "secret, token, api_key, access_key, private_key", "auth, authorization, credentials", "cookie, set-cookie, session, csrf, xsrf", "card, card_number, cvv, cvc, ssn"];
 
@@ -41,7 +42,7 @@ export function ScrubbingPage() {
       back={backToSettings(settings.data)}
       title={(name) => `${name} data scrubbing`}
       hint="What is filtered out of events before they are stored."
-      action={admin ? <Button variant="primary" disabled={!dirty} onClick={() => void save()}>Save</Button> : undefined}
+      action={admin ? <Button variant="primary" disabled={!dirty} onClick={() => void save()}>{t("Save")}</Button> : undefined}
     >
       {() =>
         !view ? null : (
@@ -49,7 +50,7 @@ export function ScrubbingPage() {
             <section className={section}>
               <Toggle checked={defaults} disabled={!admin} onChange={setDefaults} label="Built-in rules" className="items-start [&>button]:mt-0.5">
                 <span>
-                  <span className="block text-sm font-semibold">Filter the usual secrets</span>
+                  <span className="block text-sm font-semibold">{t("Filter the usual secrets")}</span>
                   <span className="block text-xs text-cinder">
                     Values are replaced with <span className="mono">[Filtered]</span> wherever they are: request headers, cookies, body, and query, extra, contexts, breadcrumb data, and local variables.
                   </span>
@@ -62,10 +63,10 @@ export function ScrubbingPage() {
             </section>
             <section className={section}>
               <h2 className={sectionTitle}>
-                More fields <span className="text-xs font-normal text-cinder">a field whose name contains one of these is filtered too</span>
+                More fields <span className="text-xs font-normal text-cinder">{t("a field whose name contains one of these is filtered too")}</span>
               </h2>
               <input className={`${input} mono w-full`} placeholder="email, phone, address" value={fields} disabled={!admin} onChange={(e) => setFields(e.target.value)} />
-              <p className="mt-2 text-xs text-cinder">Separate with commas. It applies to events from now on; stored events stay as they are.</p>
+              <p className="mt-2 text-xs text-cinder">{t("Separate with commas. It applies to events from now on; stored events stay as they are.")}</p>
             </section>
           </div>
         )

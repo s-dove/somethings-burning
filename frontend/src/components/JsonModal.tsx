@@ -4,6 +4,7 @@ import { Button } from "../ui/components/Button";
 import { Check, Copy, X } from "../ui/icons";
 import { copyText } from "../shared/clipboard";
 import { CodeBlock } from "./common/CodeBlock";
+import { t } from "../shared/i18n";
 
 const kb = (s: string) => {
   const n = new Blob([s]).size;
@@ -42,7 +43,7 @@ export function JsonModal({ open, onClose, title, subtitle, json }: {
               <p className="mt-0.5 truncate text-xs text-cinder">{subtitle ? `${subtitle}, ` : ""}{kb(json)}</p>
             </div>
             <Button size="sm" variant="secondary" icon={copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />} onClick={copy}>{copied ? "Copied" : "Copy JSON"}</Button>
-            <button type="button" className="-mr-1 cursor-pointer rounded-control p-1.5 text-cinder hover:bg-rule-soft hover:text-soot" aria-label="Close" onClick={onClose}><X /></button>
+            <button type="button" className="-mr-1 cursor-pointer rounded-control p-1.5 text-cinder hover:bg-rule-soft hover:text-soot" aria-label={t("Close")} onClick={onClose}><X /></button>
           </div>
           <div className="min-h-0 flex-1 overflow-auto bg-[var(--code-bg)]">
             <CodeBlock code={json} language="json" className="min-h-full px-5 py-4" />

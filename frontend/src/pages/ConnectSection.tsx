@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "../shared/i18n";
 import { Copy } from "../ui/icons";
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from "@headlessui/react";
 import { copyText } from "../shared/clipboard";
@@ -53,16 +54,16 @@ Sentry.init({
 });`;
   const step = "relative mb-8 border-b border-rule pb-8 pl-12 before:absolute before:top-0 before:left-0 before:grid before:size-7 before:place-items-center before:rounded-control before:border before:border-rule before:bg-smoke before:text-xs before:font-semibold";
   return (
-    <section aria-label="Connect">
+    <section aria-label={t("Connect")}>
       <ol className="m-0 list-none p-0">
         <li className={`${step} before:content-['1']`}>
-          <h3 className="mb-1.5">Copy the DSN</h3>
-          <p className="mb-3 text-cinder">Any official Sentry SDK can report here. Only errors and log messages are kept, so leave tracing off.</p>
+          <h3 className="mb-1.5">{t("Copy the DSN")}</h3>
+          <p className="mb-3 text-cinder">{t("Any official Sentry SDK can report here. Only errors and log messages are kept, so leave tracing off.")}</p>
           <Snippet code={dsn} wrap />
         </li>
         <li className={`${step} before:content-['2']`}>
-          <h3 className="mb-1.5">Add the SDK to your service</h3>
-          <p className="mb-3 text-cinder">Set the release to the version you deploy, so the issue page can tell releases apart.</p>
+          <h3 className="mb-1.5">{t("Add the SDK to your service")}</h3>
+          <p className="mb-3 text-cinder">{t("Set the release to the version you deploy, so the issue page can tell releases apart.")}</p>
           <TabGroup>
             <TabList className="mb-3 flex gap-1 rounded-control bg-smoke p-1">
               {["Python", "JavaScript", "Go"].map(name => <Tab key={name} className="cursor-pointer rounded-control px-4 py-2 text-xs font-medium text-cinder data-selected:bg-ash data-selected:text-soot data-selected:shadow-sm">{name}</Tab>)}

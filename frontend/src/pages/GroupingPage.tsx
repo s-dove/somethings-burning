@@ -7,6 +7,7 @@ import { input, section } from "../shared/ui";
 import { Button } from "../ui/components/Button";
 import { Plus, X } from "../ui/icons";
 import { backToSettings, SettingsFrame, useSettings } from "./SettingsPage";
+import { t } from "../shared/i18n";
 
 const FIELDS: RuleField[] = ["path", "type", "message", "culprit", "tag"];
 const blank = (): GroupingRule => ({ field: "message", pattern: "", fingerprint: "" });
@@ -56,7 +57,7 @@ export function GroupingPage() {
       back={backToSettings(settings.data)}
       title={(name) => `${name} grouping`}
       hint="Which events count as one issue."
-      action={admin ? <Button variant="primary" disabled={!dirty} onClick={() => void save()}>Save</Button> : undefined}
+      action={admin ? <Button variant="primary" disabled={!dirty} onClick={() => void save()}>{t("Save")}</Button> : undefined}
     >
       {() =>
         !view ? null : (
@@ -82,7 +83,7 @@ export function GroupingPage() {
                 );
               })}
             </ul>
-            {rules.length === 0 && <p className="text-xs text-cinder">No rules. Events use the default grouping.</p>}
+            {rules.length === 0 && <p className="text-xs text-cinder">{t("No rules. Events use the default grouping.")}</p>}
             {admin && rules.length < 50 && (
               <button type="button" className="mt-3 inline-flex cursor-pointer items-center gap-1.5 rounded-control px-2 py-1 text-xs text-cinder hover:bg-rule-soft hover:text-soot" onClick={() => setRules([...rules, blank()])}>
                 <Plus size={12} aria-hidden="true" />Add rule
