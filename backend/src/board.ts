@@ -17,7 +17,7 @@ const inList = (n: number) => (n ? Array.from({ length: n }, () => "?").join(","
 /** The board: every project for the sidebar, and the issues of one project (or all). */
 export async function board(
   db: Db,
-  opts: { projectId?: number; status?: StatusFilter; sort: Sort; q: string; scope?: number[]; assignee?: string },
+  opts: { projectId?: number; status?: StatusFilter; sort: Sort; q: string; scope?: number[]; assignee?: string; release?: string },
   now = Date.now(),
 ) {
   const status = opts.status ?? "open";
@@ -51,6 +51,10 @@ export async function board(
   if (opts.assignee !== undefined) {
     where.push("i.assignee = ?");
     args.push(opts.assignee);
+  }
+  if (opts.release) {
+    where.push("i.id IN (SELECT issue_id FROM issue_releases WHERE release = ?)");
+    args.push(opts.release);
   }
   if (opts.q) {
     where.push("(lower(i.title) LIKE ? ESCAPE '\\' OR lower(i.culprit) LIKE ? ESCAPE '\\')");
@@ -101,7 +105,7 @@ export async function board(
     project,
     projects,
     issues,
-    filter: { status, sort: opts.sort, query: opts.q, assignee: opts.assignee ?? null },
+    filter: { status, sort: opts.sort, query: opts.q, assignee: opts.assignee ?? null, release: opts.release ?? "" },
     counts,
     burning,
     events,
