@@ -19,6 +19,7 @@ import { ScrubbingPage } from "./pages/ScrubbingPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SourcesPage } from "./pages/SourcesPage";
 import { SiteSettingsPage } from "./pages/SiteSettingsPage";
+import { SourceMapsPage } from "./pages/SourceMapsPage";
 import { TokensPage } from "./pages/TokensPage";
 import "./styles.css";
 
@@ -39,6 +40,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/p/:id/settings/rbac" element={<RbacPage />} />
           <Route path="/p/:id/settings/notifications" element={<RoutingPage />} />
           <Route path="/p/:id/settings/code" element={<SourcesPage />} />
+          <Route path="/p/:id/settings/sourcemaps" element={<SourceMapsPage />} />
           <Route path="/p/:id/settings/scrubbing" element={<ScrubbingPage />} />
           <Route path="/p/:id/settings/ownership" element={<OwnershipPage />} />
           <Route path="/p/:id/settings/grouping" element={<GroupingPage />} />
