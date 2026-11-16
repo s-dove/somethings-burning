@@ -341,6 +341,15 @@ CREATE TABLE IF NOT EXISTS project_settings (
   config     TEXT NOT NULL
 );
 
+-- When an issue last alerted for each spike condition ("<events>x<factor>")
+-- of its project's routes: each waits six hours before alerting again.
+CREATE TABLE IF NOT EXISTS issue_spikes (
+  issue_id  BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  cond      TEXT NOT NULL,
+  at        BIGINT NOT NULL,
+  PRIMARY KEY (issue_id, cond)
+);
+
 -- Fingerprints merged into another issue: their events go to issue_id.
 CREATE TABLE IF NOT EXISTS issue_fingerprints (
   project_id  BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -401,6 +410,8 @@ CREATE TABLE IF NOT EXISTS issue_users (
 
 // Columns added after their table first shipped, so an older database keeps working.
 const ADDED_COLUMNS: [string, string, string][] = [
+  // A route's spike condition, JSON { events, factor }; "" for none.
+  ["project_routes", "spike", "TEXT NOT NULL DEFAULT ''"],
   // Triage: open, resolved, or muted; see triage.ts.
   ["issues", "status", "TEXT NOT NULL DEFAULT 'open'"],
   ["issues", "resolved_at", "BIGINT NOT NULL DEFAULT 0"],
@@ -417,6 +428,8 @@ const ADDED_COLUMNS: [string, string, string][] = [
   ["events", "fingerprint", "TEXT NOT NULL DEFAULT ''"], // the event's own, so a merge can be undone
   ["releases", "commit_sha", "TEXT NOT NULL DEFAULT ''"], // set by CI with a release
   ["issues", "external_url", "TEXT NOT NULL DEFAULT ''"], // a GitHub issue made from it
+  ["users", "digest", "BIGINT NOT NULL DEFAULT 0"], // 1: a daily summary email
+  ["users", "last_digest", "BIGINT NOT NULL DEFAULT 0"],
 ];
 
 async function migrate(db: Db, exec: (sql: string) => Promise<void>): Promise<void> {

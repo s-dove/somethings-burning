@@ -28,6 +28,17 @@ export class Senders {
       case "mattermost_channel":
         if (!this.mattermost.enabled) throw new NotConfigured("Mattermost is not configured (BURNING_MATTERMOST_URL, BURNING_MATTERMOST_TOKEN)");
         return this.mattermost.post(d.target, m.text);
+      case "slack": {
+        // A Slack incoming webhook takes {"text": ...}.
+        const res = await fetch(d.target, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: m.text }),
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (!res.ok) throw new Error(`Slack answered ${res.status}`);
+        return;
+      }
       case "webhook": {
         const res = await fetch(d.target, {
           method: "POST",
