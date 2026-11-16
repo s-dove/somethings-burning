@@ -4,7 +4,8 @@ import type { Authenticator, User } from "./auth.js";
 import type { Config } from "./env.js";
 import { alertEvents, type LiveAlerts } from "./live.js";
 import type { CodeSources } from "./source/index.js";
-import { attachLinks, suspectChanges } from "./source/links.js";
+import { enrichEvent, suspectChanges } from "./source/links.js";
+import { sourceMapRoutes } from "./sourcemaps-api.js";
 import { githubIssueRoutes } from "./github-issues.js";
 import { tagBreakdown, usersAffected } from "./issue-tags.js";
 import { configRoutes } from "./config-api.js";
@@ -34,8 +35,8 @@ import { people } from "./users.js";
 // request comes with one instead of a session.
 export type AppEnv = { Variables: { user?: User; token?: number } };
 
-// What an API token may do: its own project's releases and deploys.
-const TOKEN_PATHS = /^\/api\/projects\/(\d+)\/(releases|deploys)\/?$/;
+// What an API token may do: its own project's releases, deploys, and source maps.
+const TOKEN_PATHS = /^\/api\/projects\/(\d+)\/(releases|deploys|sourcemaps)\/?$/;
 
 export interface ApiDeps {
   auth: Authenticator;
@@ -74,7 +75,7 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
       const projectId = await tokenProject(db, bearer);
       if (!projectId) return c.json({ detail: "invalid API token" }, 401);
       const m = TOKEN_PATHS.exec(c.req.path);
-      if (!m || Number(m[1]) !== projectId) return c.json({ detail: "an API token only reaches its project's releases and deploys" }, 403);
+      if (!m || Number(m[1]) !== projectId) return c.json({ detail: "an API token only reaches its project's releases, deploys, and source maps" }, 403);
       // No person: the token stands for its project's admin, on these routes only.
       c.set("token", projectId);
       return next();
@@ -194,7 +195,7 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
     const sources = await getSources(db, found.project.id);
     let suspects = null;
     if (event && stored) {
-      await attachLinks(event, stored.payload, sources, deps.code);
+      await enrichEvent(event, stored.payload, { db, projectId: found.project.id, sources, code: deps.code });
       suspects = await suspectChanges(db, found.project.id, event, stored.payload, sources, deps.code);
     }
     const history = await listActivity(db, issue.id);
@@ -265,6 +266,7 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
   app.route("/", releaseRoutes(db, access));
   app.route("/", tokenRoutes(db, access));
   app.route("/", githubIssueRoutes(db, access, { code: deps.code, config: deps.config }));
+  app.route("/", sourceMapRoutes(db, access));
   app.route("/", sourcesRoutes(db, access, deps.code));
   app.route("/", siteRoutes(deps.config, deps.senders, deps.code));
   app.route("/", settingsRoutes(db, access, deps.baseURL));

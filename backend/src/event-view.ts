@@ -13,6 +13,7 @@ export type FrameView = {
   vars: [string, string][];
   link: string; // the line in the repository, "" when no code source covers it
   linesFrom: string; // "repo@sha" when the code lines were read from a code source, not sent by the SDK
+  mapped: string; // the minified location, when a source map turned it into this one
   changed: string; // added, modified, removed: how the file changed since the previous release
 };
 
@@ -65,6 +66,7 @@ function frameView(f: Frame & { vars?: Record<string, unknown> }): FrameView {
     vars: Object.entries(f.vars ?? {}).map(([k, v]) => [k, pretty(v)]),
     link: "",
     linesFrom: "",
+    mapped: "",
     changed: "",
   };
 }
