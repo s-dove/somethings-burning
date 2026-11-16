@@ -363,6 +363,7 @@ const ADDED_COLUMNS: [string, string, string][] = [
   ["issues", "stored_count", "BIGINT NOT NULL DEFAULT 0"],
   ["issues", "last_stored", "BIGINT NOT NULL DEFAULT 0"],
   ["notifications", "locked_until", "BIGINT NOT NULL DEFAULT 0"],
+  ["issues", "assignee", "TEXT NOT NULL DEFAULT ''"], // email of who handles it, '' for no one
 ];
 
 async function migrate(db: Db, exec: (sql: string) => Promise<void>): Promise<void> {
