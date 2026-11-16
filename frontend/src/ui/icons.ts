@@ -19,6 +19,7 @@ export {
   LuFlaskConical as FlaskConical,
   LuFolder as Folder,
   LuGitBranch as GitBranch,
+  LuGitCompare as GitCompare,
   LuGithub as Github,
   LuGitMerge as GitMerge,
   LuGripVertical as GripVertical,

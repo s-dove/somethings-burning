@@ -5,17 +5,17 @@ import { CodeBlock } from "../components/common/CodeBlock";
 import { Redacted } from "../components/Redacted";
 import { EventCard } from "./EventCard";
 import { StackTrace } from "./StackTrace";
-import type { EventView } from "../shared/api";
+import type { EventView, Suspects } from "../shared/api";
 import { clock } from "../shared/format";
 import { section, sectionTitle } from "../shared/ui";
 
 // EventPanels shows one stored event: the event card, a stack trace card per
 // exception, breadcrumbs, and context. The raw JSON is in the sidebar.
-export function EventPanels({ event }: { event: EventView }) {
+export function EventPanels({ event, suspects }: { event: EventView; suspects?: Suspects | null }) {
   return (
     <>
       <EventCard event={event} />
-      {event.exceptions.map((e, n) => e.frames.length > 0 && <StackTrace key={n} exception={e} platform={event.platform} causedBy={n > 0} />)}
+      {event.exceptions.map((e, n) => e.frames.length > 0 && <StackTrace key={n} exception={e} platform={event.platform} causedBy={n > 0} suspects={n === 0 ? suspects : null} />)}
 
       {event.breadcrumbs.length > 0 && (
         <section className={section}>

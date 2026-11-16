@@ -7,6 +7,7 @@ import { Redacted } from "../components/Redacted";
 import { Tag } from "../components/Tag";
 import { pill, pillTone } from "../shared/ui";
 import { AssigneePicker } from "./AssigneePicker";
+import { GitHubButton } from "./GitHubButton";
 import { IssueTriage } from "./IssueTriage";
 import { Tip, TimeTip } from "../components/Tip";
 
@@ -25,7 +26,7 @@ export function IssueHeader({ detail, onChange }: { detail: IssueDetail; onChang
       title={<Redacted text={type || msg} tip={false} />}
       titleText={type || msg}
       titleLines={type ? 1 : 2}
-      actions={<span className="flex flex-wrap items-center justify-end gap-2"><AssigneePicker detail={detail} onChange={onChange} /><IssueTriage detail={detail} onChange={onChange} /></span>}
+      actions={<span className="flex flex-wrap items-center justify-end gap-2"><GitHubButton detail={detail} onChange={onChange} /><AssigneePicker detail={detail} onChange={onChange} /><IssueTriage detail={detail} onChange={onChange} /></span>}
       // The message under the title belongs to it; a banner gets more room.
       spaceBelow={bannerNode ? "mb-5" : "mb-2"}
     >

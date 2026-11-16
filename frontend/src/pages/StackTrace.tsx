@@ -3,14 +3,15 @@ import { highlight, languageFor } from "../components/common/CodeBlock";
 import { Redacted } from "../components/Redacted";
 import { Link } from "../components/common/Link";
 import { Tip } from "../components/Tip";
-import type { EventView, FrameView } from "../shared/api";
+import type { EventView, FrameView, Suspects } from "../shared/api";
 import { ExternalLink } from "../ui/icons";
+import { SuspectsBlock } from "./SuspectsBlock";
 
 type Exception = EventView["exceptions"][number];
 
 // StackTrace is one exception's frames, newest call first, in its own card.
 // The first frames of your own code start open.
-export function StackTrace({ exception, platform, causedBy }: { exception: Exception; platform: string; causedBy: boolean }) {
+export function StackTrace({ exception, platform, causedBy, suspects }: { exception: Exception; platform: string; causedBy: boolean; suspects?: Suspects | null }) {
   const frames = exception.frames;
   return (
     // One card: the heading, then the frames edge to edge with dividers.
@@ -26,6 +27,7 @@ export function StackTrace({ exception, platform, causedBy }: { exception: Excep
           {frames.length} {frames.length === 1 ? "frame" : "frames"}, newest call first
         </span>
       </h2>
+      {suspects && <SuspectsBlock suspects={suspects} />}
       <div>
         {frames.map((f, k) => (
           <Disclosure key={k} as="div" defaultOpen={f.inApp && k < 3} className="border-t border-rule-soft">
@@ -43,6 +45,11 @@ export function StackTrace({ exception, platform, causedBy }: { exception: Excep
                       </>
                     )}
                     {f.lineno > 0 && <span className="text-cinder">line {f.lineno}</span>}
+                    {f.changed && (
+                      <Tip content="This file changed since the previous release: see Suspect changes">
+                        <span className="rounded-control bg-ember-soft px-1.5 text-[11px] font-medium text-ember-ink">{f.changed} in this release</span>
+                      </Tip>
+                    )}
                     {!f.inApp && <span className="ml-auto text-[11px] text-cinder">library</span>}
                   </DisclosureButton>
                   {f.link && (
@@ -58,6 +65,13 @@ export function StackTrace({ exception, platform, causedBy }: { exception: Excep
                   )}
                 </div>
                 <DisclosurePanel>
+                  {(f.mapped || f.linesFrom) && (
+                    <p className="mono border-t border-rule-soft px-5 py-1.5 text-[11px] text-cinder">
+                      {f.mapped && <>Source mapped from {f.mapped}</>}
+                      {f.mapped && f.linesFrom && " · "}
+                      {f.linesFrom && <>Code read from {f.linesFrom}; the SDK sent none</>}
+                    </p>
+                  )}
                   {f.lines.length > 0 && <FrameSource lines={f.lines} language={languageFor(platform, f.location)} />}
                   {f.vars.length > 0 && (
                     <dl className="mono grid grid-cols-[max-content_minmax(0,1fr)] gap-x-[18px] gap-y-0.5 border-t border-rule-soft py-2.5 pr-5 pl-[38px]">

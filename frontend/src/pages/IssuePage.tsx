@@ -102,7 +102,7 @@ export function IssuePage({ id, issueId }: { id: number; issueId: number }) {
             <IssueHeat issue={issue} />
           </div>
           {data.event ? (
-            <EventPanels event={data.event} />
+            <EventPanels event={data.event} suspects={data.suspects} />
           ) : (
             <div className="px-6 py-14 text-center text-cinder">
               <strong className="mb-1 block text-base text-soot">No stored payloads</strong>
