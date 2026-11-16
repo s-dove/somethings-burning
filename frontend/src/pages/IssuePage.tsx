@@ -8,6 +8,7 @@ import { Tip, TimeTip } from "../components/Tip";
 import { useApi, type IssueDetail } from "../shared/api";
 import { ago } from "../shared/format";
 import { section, sectionTitle } from "../shared/ui";
+import { translateActivity } from "../shared/activity";
 import { t } from "../shared/i18n";
 import { Comments } from "./Comments";
 import { EventList } from "./EventList";
@@ -139,7 +140,7 @@ export function IssuePage({ id, issueId }: { id: number; issueId: number }) {
                   key={i}
                   className={`relative pb-3.5 pl-3.5 before:absolute before:top-[7px] before:left-0 before:size-[7px] before:rounded-full before:content-[''] after:absolute after:top-[18px] after:bottom-0.5 after:left-[3px] after:w-px after:bg-rule after:content-[''] last:after:hidden ${historyDot[a.kind] ?? "before:bg-rule"}`}
                 >
-                  {a.text}
+                  {translateActivity(a.text)}
                   {(a.release || a.environment) && (
                     <div className="mt-1 flex flex-wrap gap-1">
                       {a.release && <Tag name="release" value={a.release} mono />}

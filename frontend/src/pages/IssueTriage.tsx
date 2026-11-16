@@ -47,7 +47,7 @@ export function IssueTriage({ detail, onChange }: { detail: IssueDetail; onChang
           <MenuItems anchor="bottom end" className="z-40 w-64 rounded-card border border-rule bg-ash p-1 text-[13px] shadow-lg [--anchor-gap:4px] focus:outline-none">
             <div className="px-2.5 pt-1.5 pb-1 text-[11px] text-cinder">{t("Mute for")}</div>
             {muteOptions.map(o => <MenuItem key={o.value}>
-              <button className="block w-full cursor-pointer rounded-control px-2.5 py-1.5 text-left data-focus:bg-rule-soft" onClick={() => act("mute", { for: o.value })}>{o.label}</button>
+              <button className="block w-full cursor-pointer rounded-control px-2.5 py-1.5 text-left data-focus:bg-rule-soft" onClick={() => act("mute", { for: o.value })}>{t(o.label)}</button>
             </MenuItem>)}
             <p className="m-0 border-t border-rule-soft px-2.5 pt-2 pb-1.5 text-[11px] leading-snug text-cinder">
               {t("Events keep counting, but nothing alerts until the mute ends.")}

@@ -42,7 +42,7 @@ export function IssueActions({ issue, muteOptions }: { issue: Issue; muteOptions
           <MenuItems anchor="bottom end" className="z-40 min-w-36 rounded-card border border-rule bg-ash p-1 text-[13px] shadow-lg [--anchor-gap:4px] focus:outline-none">
             <div className="px-2.5 pt-1.5 pb-1 text-[11px] text-cinder">{t("Mute for")}</div>
             {muteOptions.map(o => <MenuItem key={o.value}>
-              <button className="block w-full cursor-pointer rounded-control px-2.5 py-1.5 text-left data-focus:bg-rule-soft" onClick={() => act("mute", { for: o.value })}>{o.label}</button>
+              <button className="block w-full cursor-pointer rounded-control px-2.5 py-1.5 text-left data-focus:bg-rule-soft" onClick={() => act("mute", { for: o.value })}>{t(o.label)}</button>
             </MenuItem>)}
           </MenuItems>
         </Menu>}
