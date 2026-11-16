@@ -6,6 +6,7 @@ import { api, canTriage, type IssueDetail } from "../shared/api";
 import { ago } from "../shared/format";
 import { Button } from "../ui/components/Button";
 import { ChevronDown, ExternalLink, Github, Plus } from "../ui/icons";
+import { confirmDialog } from "../components/Confirm";
 import { t } from "../shared/i18n";
 
 function issueRef(url: string): string {
@@ -23,7 +24,9 @@ export function GitHubButton({ detail, onChange }: { detail: IssueDetail; onChan
 
   const create = async () => {
     const again = !!latest;
-    const ok = confirm(again ? t("Open another GitHub issue? The earlier ones stay listed.") : t("Open a GitHub issue in the project's primary repository, with the title, counts, and a link back here?"));
+    const ok = await confirmDialog(again
+      ? { title: t("Open another GitHub issue?"), body: t("The earlier ones stay listed."), confirm: t("Open it") }
+      : { title: t("Open a GitHub issue?"), body: t("In the project's primary repository, with the title, counts, and a link back here."), confirm: t("Open it") });
     if (!ok) return;
     setBusy(true);
     try {

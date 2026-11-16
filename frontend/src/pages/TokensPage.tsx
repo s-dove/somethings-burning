@@ -8,6 +8,7 @@ import { input, section, sectionTitle } from "../shared/ui";
 import { Button } from "../ui/components/Button";
 import { Plus } from "../ui/icons";
 import { backToSettings, SettingsFrame, useSettings } from "./SettingsPage";
+import { confirmDialog } from "../components/Confirm";
 import { t } from "../shared/i18n";
 
 export function TokensPage() {
@@ -28,7 +29,7 @@ export function TokensPage() {
     }
   };
   const revoke = async (tok: TokenView) => {
-    if (!confirm(`Revoke ${tok.name}? Anything using it stops working at once.`)) return;
+    if (!(await confirmDialog({ title: t("Revoke {name}?", { name: tok.name }), body: t("Anything using it stops working at once."), confirm: t("Revoke"), danger: true }))) return;
     try {
       await api(`/projects/${id}/tokens/${tok.id}`, { method: "DELETE" });
       if (made.startsWith(tok.prefix)) setMade("");

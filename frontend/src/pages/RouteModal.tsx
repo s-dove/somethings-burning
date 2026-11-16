@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { confirmDialog } from "../components/Confirm";
 import { Sheet } from "../components/Sheet";
 import { Button } from "../ui/components/Button";
 import { Trash2 } from "../ui/icons";
@@ -44,7 +45,7 @@ export function RouteModal({ route, index, fields, ops, kinds, readOnly, onDone,
     <Sheet open={!!route} onClose={onClose} title={title} back="Back to routes"
       actions={readOnly ? <Button size="sm" onClick={onClose}>{t("Close")}</Button> : <>
         {!isNew && <Button size="sm" variant="ghost" className="hover:text-ember-ink" icon={<Trash2 aria-hidden="true" />} disabled={busy}
-          onClick={() => { if (window.confirm("Delete this route?")) void run(onDelete); }}>{t("Delete")}</Button>}
+          onClick={() => { void confirmDialog({ title: t("Delete this route?"), confirm: t("Delete"), danger: true }).then((ok) => { if (ok) void run(onDelete); }); }}>{t("Delete")}</Button>}
         <Button size="sm" disabled={busy} onClick={onClose}>{t("Cancel")}</Button>
         <Button size="sm" variant="primary" disabled={!draft || busy} onClick={() => {
           if (!draft) return;

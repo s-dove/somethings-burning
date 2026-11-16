@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { confirmDialog } from "../components/Confirm";
 import { useParams } from "react-router";
 import { toast } from "sonner";
 import { Sheet } from "../components/Sheet";
@@ -109,7 +110,7 @@ export function SourcesPage() {
             title={editing?.index === -1 ? "New source" : editing?.draft.repo || "Source"}
             actions={!admin ? <Button size="sm" onClick={() => setEditing(null)}>{t("Close")}</Button> : editing && <>
               {editing.index >= 0 && <Button size="sm" variant="ghost" className="hover:text-ember-ink" icon={<Trash2 aria-hidden="true" />} disabled={busy}
-                onClick={() => { if (window.confirm("Delete this source?")) void save(withDraft(editing.index, null), "Source deleted"); }}>{t("Delete")}</Button>}
+                onClick={() => { void confirmDialog({ title: t("Delete this source?"), confirm: t("Delete"), danger: true }).then((ok) => { if (ok) void save(withDraft(editing.index, null), t("Source deleted")); }); }}>{t("Delete")}</Button>}
               <Button size="sm" icon={<FlaskConical aria-hidden="true" />} disabled={busy} onClick={() => void runTest(withDraft(editing.index, editing.draft))}>{t("Test")}</Button>
               <Button size="sm" disabled={busy} onClick={() => setEditing(null)}>{t("Cancel")}</Button>
               <Button size="sm" variant="primary" disabled={busy} onClick={() => void save(withDraft(editing.index, editing.draft), editing.index < 0 ? "Source added" : "Source saved")}>{busy ? "Saving…" : editing.index < 0 ? "Add source" : "Done"}</Button>

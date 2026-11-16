@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
 import { Toaster } from "sonner";
+import { ConfirmHost } from "./components/Confirm";
 import { watchSystemTheme } from "./components/ThemeSwitch";
 import { BoardPage } from "./pages/BoardPage";
 import { DsnPage } from "./pages/DsnPage";
@@ -55,6 +56,7 @@ createRoot(document.getElementById("root")!).render(
       </BrowserRouter>
     </TooltipProvider>
     <Toaster position="bottom-right" />
+    <ConfirmHost />
   </StrictMode>,
 );
 });
