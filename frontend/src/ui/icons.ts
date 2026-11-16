@@ -39,6 +39,7 @@ export {
   LuPencil as Pencil,
   LuPlus as Plus,
   LuQuote as Quote,
+  LuRocket as Rocket,
   LuRotateCcw as RotateCcw,
   LuSearch as Search,
   LuSendHorizontal as SendHorizontal,
