@@ -376,5 +376,8 @@ const zh: Record<string, string> = {
   "Grouping": "分组规则",
   "Code": "代码",
   "API tokens": "API 令牌",
+  "Your notifications": "你的通知",
+  "Back to profile": "返回个人资料",
+  "How alerts reach you, and the daily summary.": "告警如何送达你，以及每日汇总。",
 };
 export default zh;

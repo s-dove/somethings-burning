@@ -376,5 +376,8 @@ const de: Record<string, string> = {
   "Grouping": "Gruppierung",
   "Code": "Code",
   "API tokens": "API-Tokens",
+  "Your notifications": "Deine Benachrichtigungen",
+  "Back to profile": "Zurück zum Profil",
+  "How alerts reach you, and the daily summary.": "Wie dich Alarme erreichen, und die tägliche Zusammenfassung.",
 };
 export default de;

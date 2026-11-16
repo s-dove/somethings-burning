@@ -12,6 +12,7 @@ import { IssueByNumber, OldIssueLink } from "./pages/IssuePage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { OwnershipPage } from "./pages/OwnershipPage";
+import { ProfileNotificationsPage } from "./pages/ProfileNotificationsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { RbacPage } from "./pages/RbacPage";
 import { ReleasesPage } from "./pages/ReleasesPage";
@@ -36,6 +37,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/" element={<BoardPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile/notifications" element={<ProfileNotificationsPage />} />
           <Route path="/settings" element={<SiteSettingsPage />} />
           <Route path="/p/:id" element={<BoardPage />} />
           <Route path="/p/:id/settings" element={<SettingsPage />} />
