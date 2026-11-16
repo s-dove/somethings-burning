@@ -10,15 +10,17 @@ const CHANNEL = /^[a-z0-9][a-z0-9_-]*\/[a-z0-9][a-z0-9_-]*$/;
 const USERNAME = /^@?[a-z0-9][a-z0-9._-]*$/i;
 
 const LABEL: Record<ReceiverKind, string> = {
-  user: "Person", email: "Email", mattermost: "Mattermost channel", mattermost_dm: "Mattermost message", webhook: "Webhook",
+  user: "Person", assignee: "Assignee", email: "Email", mattermost: "Mattermost channel", slack: "Slack", mattermost_dm: "Mattermost message", webhook: "Webhook",
 };
 
 // badTarget says what is wrong with one receiver's address, or "".
 export function badTarget(x: Receiver): string {
+  if (x.kind === "assignee") return "";
   if ((x.kind === "user" || x.kind === "email") && !EMAIL.test(x.target)) return `${x.target} is not an email address`;
   if (x.kind === "mattermost" && !CHANNEL.test(x.target)) return `${x.target} should be team-name/channel-name`;
   if (x.kind === "mattermost_dm" && !USERNAME.test(x.target)) return `${x.target} is not a Mattermost username`;
   if (x.kind === "webhook" && !/^https?:\/\/\S+$/.test(x.target)) return `${x.target} is not an http(s) URL`;
+  if (x.kind === "slack" && !/^https:\/\/\S+$/.test(x.target)) return `${x.target} is not an https URL`;
   return "";
 }
 
@@ -35,6 +37,7 @@ export function routeProblems(r: Route): Problems {
   if (r.receivers.length === 0) out.set("r", "Add a receiver, or choose Sink to drop what matches.");
   const kinds = [...new Set(r.receivers.map(x => x.kind))];
   for (const kind of kinds) {
+    if (kind === "assignee") continue;
     const targets = r.receivers.filter(x => x.kind === kind && x.target);
     if (targets.length === 0) { out.set(`r:${kind}`, `${LABEL[kind]}: add at least one address.`); continue; }
     const bad = targets.map(badTarget).filter(Boolean);

@@ -9,6 +9,7 @@ import { DsnPage } from "./pages/DsnPage";
 import { IssueByNumber, OldIssueLink } from "./pages/IssuePage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { OwnershipPage } from "./pages/OwnershipPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { RbacPage } from "./pages/RbacPage";
 import { RoutingPage } from "./pages/RoutingPage";
@@ -36,6 +37,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/p/:id/settings/notifications" element={<RoutingPage />} />
           <Route path="/p/:id/settings/code" element={<SourcesPage />} />
           <Route path="/p/:id/settings/scrubbing" element={<ScrubbingPage />} />
+          <Route path="/p/:id/settings/ownership" element={<OwnershipPage />} />
           <Route path="/issues/:issueId" element={<IssueByNumber />} />
           <Route path="/p/:id/issues/:issueId" element={<OldIssueLink />} />
           <Route path="*" element={<NotFoundPage />} />
