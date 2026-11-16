@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { mutate } from "swr";
+import { LangSwitch } from "../components/LangSwitch";
 import { Layout } from "../components/Layout";
 import { Logo } from "../components/Logo";
 import { useApi, type Session } from "../shared/api";
@@ -40,6 +41,7 @@ export function LoginPage() {
         </section>
         <section className="flex items-center justify-center px-8 py-16 lg:p-16">
           <div className="w-full max-w-[360px]">
+            <div className="mb-6 flex justify-end"><LangSwitch /></div>
             <h2 className="text-2xl">Sign in to Burning</h2>
             {error && (
               <p role="alert" className="mt-4 text-sm text-ember-ink">

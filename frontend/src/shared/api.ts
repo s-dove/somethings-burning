@@ -202,7 +202,7 @@ export interface ConfigView {
 
 export interface Session {
   methods: { oidc: boolean; oidcName: string; password: boolean }; // how to sign in, as configured on the backend
-  user: { email: string; name: string; groups: string[]; username: string; displayName: string } | null;
+  user: { email: string; name: string; groups: string[]; username: string; displayName: string; lang: string } | null;
 }
 
 // Profile is what Burning keeps about the signed-in person.

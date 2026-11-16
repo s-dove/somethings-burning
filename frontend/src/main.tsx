@@ -22,9 +22,11 @@ import { SiteSettingsPage } from "./pages/SiteSettingsPage";
 import { SourceMapsPage } from "./pages/SourceMapsPage";
 import { TokensPage } from "./pages/TokensPage";
 import "./styles.css";
+import { loadDictionary } from "./shared/i18n";
 
 watchSystemTheme();
 
+void loadDictionary().then(() => {
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TooltipProvider delayDuration={300}>
@@ -55,3 +57,4 @@ createRoot(document.getElementById("root")!).render(
     <Toaster position="bottom-right" />
   </StrictMode>,
 );
+});

@@ -6,6 +6,7 @@ import { input } from "../shared/ui";
 import { Button } from "../ui/components/Button";
 import { ChevronRight, Plus } from "../ui/icons";
 import { Link } from "./common/Link";
+import { LangGate } from "./LangSwitch";
 import { ProjectSidebar } from "./ProjectSidebar";
 
 interface Props {
@@ -30,6 +31,7 @@ export function Layout({ project: given, nav, children }: Props) {
   return (
     <div className="min-h-dvh lg:grid lg:h-dvh lg:grid-cols-[232px_minmax(0,1fr)] lg:overflow-hidden">
       <ProjectSidebar board={board} project={project} session={session} profile={nav === "profile"} create={<NewProject onCreate={reload} />} />
+      <LangGate />
       <div className="flex min-h-0 min-w-0 flex-col">
         <header className="sticky top-0 z-30 flex min-h-14 shrink-0 flex-wrap items-center gap-x-4 border-b border-rule bg-ash/75 px-6 backdrop-blur-md backdrop-saturate-150 lg:h-16 lg:px-9">
           <Link to="/" className="text-[13px] text-cinder no-underline">
