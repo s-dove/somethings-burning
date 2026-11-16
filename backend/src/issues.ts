@@ -1,6 +1,7 @@
 import { addActivity, type ActivityExtra } from "./activity.js";
 import type { Db } from "./db.js";
 import { summarize, type SentryEvent } from "./event.js";
+import { countEvent } from "./issue-tags.js";
 import { muteBroken, MuteFor, MuteNextRelease, type Mute, type MuteOption } from "./triage.js";
 
 const HOUR = 3_600_000;
@@ -151,6 +152,7 @@ export function recordEvent(db: Db, projectId: number, event: SentryEvent, now =
       res.issueId,
       Math.floor(now / HOUR) * HOUR,
     );
+    await countEvent(t, projectId, res.issueId, event);
     await t.run(
       `INSERT INTO issue_releases (issue_id, release, environment, event_count, first_seen, last_seen) VALUES (?, ?, ?, 1, ?, ?)
        ON CONFLICT (issue_id, release, environment) DO UPDATE SET event_count = issue_releases.event_count + 1,

@@ -325,6 +325,22 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE INDEX IF NOT EXISTS notifications_due ON notifications (status, next_at);
 
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+
+-- How often each tag value shows on an issue's events, for the tag breakdown.
+CREATE TABLE IF NOT EXISTS issue_tags (
+  issue_id BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  key      TEXT NOT NULL,
+  value    TEXT NOT NULL,
+  count    BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (issue_id, key, value)
+);
+
+-- The users an issue reached, as hashes of their id, email, or address.
+CREATE TABLE IF NOT EXISTS issue_users (
+  issue_id BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  user_key TEXT NOT NULL,
+  PRIMARY KEY (issue_id, user_key)
+);
 `;
 
 // Columns added after their table first shipped, so an older database keeps working.

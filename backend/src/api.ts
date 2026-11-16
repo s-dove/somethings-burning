@@ -5,6 +5,7 @@ import type { Config } from "./env.js";
 import { alertEvents, type LiveAlerts } from "./live.js";
 import type { CodeSources } from "./source/index.js";
 import { attachLinks } from "./source/links.js";
+import { tagBreakdown, usersAffected } from "./issue-tags.js";
 import { getSources } from "./sources.js";
 import { sourcesRoutes } from "./sources-api.js";
 import { listActivity } from "./activity.js";
@@ -180,6 +181,8 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
       moreEvents: page.more,
       storedEvents: await storedEventCount(db, issue.id),
       event,
+      tags: await tagBreakdown(db, issue.id),
+      users: await usersAffected(db, issue.id),
     });
   });
 

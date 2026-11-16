@@ -21,6 +21,7 @@ export type EventView = {
   release: string;
   environment: string;
   serverName: string;
+  level: string; // as the SDK sent it; "" when it did not
   platform: string;
   sdk: string;
   message: string;
@@ -108,6 +109,7 @@ export function eventView(stored: StoredEvent): EventView {
     release: text(e.release),
     environment: text(e.environment),
     serverName: text(e.server_name),
+    level: text(e.level),
     platform: text(e.platform),
     sdk: sdk?.name ? `${sdk.name}${sdk.version ? ` ${sdk.version}` : ""}` : "",
     message: messageOf(e),
