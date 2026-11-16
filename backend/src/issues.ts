@@ -2,6 +2,8 @@ import { addActivity, type ActivityExtra } from "./activity.js";
 import type { Db } from "./db.js";
 import { summarize, type SentryEvent } from "./event.js";
 import { countEvent } from "./issue-tags.js";
+import { spikeKey } from "./notify/routing.js";
+import { getRouting } from "./notify/store.js";
 import { applyGrouping, ownerFor } from "./rules.js";
 import { scrubEvent } from "./scrub.js";
 import { getConfig, type ProjectConfig } from "./settings.js";
@@ -37,8 +39,8 @@ export type Issue = {
   eventCount: number;
 };
 
-/** Why an event alerts: a new issue, a resolved one firing again, or one firing after a mute. */
-export type AlertKind = "new" | "fired_again" | "unmuted";
+/** Why an event alerts: a new issue, a resolved one firing again, one firing after a mute, or a spike. */
+export type AlertKind = "new" | "fired_again" | "unmuted" | "spike";
 
 export type StoredEvent = {
   id: number;
@@ -99,7 +101,8 @@ export interface Recorded {
   issueId: number;
   title: string;
   alert: AlertKind | null; // why this event alerts, if it does
-  reason: string; // for fired_again and unmuted
+  reason: string; // for fired_again, unmuted, and spike
+  spike?: { events: number; usual: number; fresh: string[] }; // for spike: the numbers, and the route conditions newly met
 }
 
 /**
@@ -144,6 +147,7 @@ export async function recordEvent(db: Db, projectId: number, input: SentryEvent,
           now,
         );
     let stored = { count: 0, last: 0 };
+    let status = "open";
     if (created) {
       res.issueId = created.id;
       res.alert = "new";
@@ -162,6 +166,7 @@ export async function recordEvent(db: Db, projectId: number, input: SentryEvent,
       res.title = found.title;
       stored = { count: Number(found.stored_count), last: Number(found.last_stored) };
       await triageEvent(t, projectId, toIssue(found), Number(found.notify_next) === 1, release, environment, now, res);
+      status = res.alert ? "open" : found.status;
       await t.run(
         "UPDATE issues SET level = ?, last_seen = CASE WHEN last_seen > ? THEN last_seen ELSE ? END, count = count + 1 WHERE id = ?",
         s.level,
@@ -170,13 +175,15 @@ export async function recordEvent(db: Db, projectId: number, input: SentryEvent,
         found.id,
       );
     }
-    await t.run(
+    const hour = Math.floor(now / HOUR) * HOUR;
+    const inHour = (await t.get<{ event_count: number }>(
       `INSERT INTO issue_hours (issue_id, hour, event_count) VALUES (?, ?, 1)
-       ON CONFLICT (issue_id, hour) DO UPDATE SET event_count = issue_hours.event_count + 1`,
+       ON CONFLICT (issue_id, hour) DO UPDATE SET event_count = issue_hours.event_count + 1 RETURNING event_count`,
       res.issueId,
-      Math.floor(now / HOUR) * HOUR,
-    );
+      hour,
+    ))!.event_count;
     await countEvent(t, projectId, res.issueId, event);
+    if (!res.alert && status === "open") await spikeCheck(t, projectId, res, inHour, hour, now, where);
     await t.run(
       `INSERT INTO issue_releases (issue_id, release, environment, event_count, first_seen, last_seen) VALUES (?, ?, ?, 1, ?, ?)
        ON CONFLICT (issue_id, release, environment) DO UPDATE SET event_count = issue_releases.event_count + 1,
@@ -210,6 +217,41 @@ export async function recordEvent(db: Db, projectId: number, input: SentryEvent,
     }
     return res;
   });
+}
+
+const SPIKE_EVERY_MS = 6 * HOUR;
+
+/**
+ * A spike alert: this hour's events meet the spike numbers of one of the
+ * project's routes, at least `events`, and `factor` times the hourly average
+ * of the 24 hours before. Each route's numbers alert an issue at most every
+ * six hours; the routes whose numbers are newly met are the ones it goes to.
+ */
+async function spikeCheck(db: Db, projectId: number, res: Recorded, inHour: number, hour: number, now: number, where: ActivityExtra): Promise<void> {
+  const conditions = [...new Map((await getRouting(db, projectId)).flatMap((r) => (r.spike ? [[spikeKey(r.spike), r.spike] as const] : []))).values()];
+  if (!conditions.length || inHour < Math.min(...conditions.map((c) => c.events))) return;
+  const before = (await db.get<{ n: number }>(
+    "SELECT COALESCE(SUM(event_count), 0) AS n FROM issue_hours WHERE issue_id = ? AND hour >= ? AND hour < ?",
+    res.issueId,
+    hour - 24 * HOUR,
+    hour,
+  ))!.n;
+  const usual = Number(before) / 24;
+  const met = conditions.filter((c) => inHour >= c.events && inHour >= c.factor * usual).map(spikeKey);
+  if (!met.length) return;
+  const last = new Map(
+    (await db.all<{ cond: string; at: number }>("SELECT cond, at FROM issue_spikes WHERE issue_id = ?", res.issueId)).map((r) => [r.cond, Number(r.at)]),
+  );
+  const fresh = met.filter((k) => now - (last.get(k) ?? 0) >= SPIKE_EVERY_MS);
+  if (!fresh.length) return;
+  for (const k of fresh) {
+    await db.run("INSERT INTO issue_spikes (issue_id, cond, at) VALUES (?, ?, ?) ON CONFLICT (issue_id, cond) DO UPDATE SET at = excluded.at", res.issueId, k, now);
+  }
+  res.alert = "spike";
+  res.spike = { events: inHour, usual, fresh };
+  const was = usual === 0 ? "none in the day before" : `about ${usual < 1 ? usual.toFixed(1) : Math.round(usual)} an hour before`;
+  res.reason = `${inHour} events in the last hour, ${was}`;
+  await addActivity(db, res.issueId, now, "spike", `Spiking: ${res.reason}`, where);
 }
 
 async function triageEvent(db: Db, projectId: number, issue: Issue, notifyNext: boolean, release: string, environment: string, now: number, res: Recorded): Promise<void> {

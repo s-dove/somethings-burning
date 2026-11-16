@@ -6,6 +6,7 @@ import { alertEvents, type LiveAlerts } from "./live.js";
 import type { CodeSources } from "./source/index.js";
 import { enrichEvent, suspectChanges } from "./source/links.js";
 import { sourceMapRoutes } from "./sourcemaps-api.js";
+import { digestRoutes } from "./digest.js";
 import { githubIssueRoutes } from "./github-issues.js";
 import { tagBreakdown, usersAffected } from "./issue-tags.js";
 import { configRoutes } from "./config-api.js";
@@ -267,6 +268,7 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
   app.route("/", tokenRoutes(db, access));
   app.route("/", githubIssueRoutes(db, access, { code: deps.code, config: deps.config }));
   app.route("/", sourceMapRoutes(db, access));
+  app.route("/", digestRoutes(db, access, { senders: deps.senders, config: deps.config }));
   app.route("/", sourcesRoutes(db, access, deps.code));
   app.route("/", siteRoutes(deps.config, deps.senders, deps.code));
   app.route("/", settingsRoutes(db, access, deps.baseURL));
