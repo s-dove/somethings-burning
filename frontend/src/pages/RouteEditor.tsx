@@ -57,7 +57,9 @@ const OP_HINT: Record<MatchOp, string> = {
 type Kind = ReceiverKind | "sink";
 const RECEIVER: Record<Kind, { label: string; hint: string; placeholder: string; icon: React.ReactNode }> = {
   user: { label: "Person", hint: "Chosen by name; delivered the way they set up in their own routing", placeholder: "", icon: <UserRound size={14} /> },
+  assignee: { label: "Assignee", hint: "Whoever the issue is assigned to, through their own routing", placeholder: "", icon: <UserRound size={14} /> },
   email: { label: "Email", hint: "Mailed to this address as is: a person or a list", placeholder: "team@example.com", icon: <Mail size={14} /> },
+  slack: { label: "Slack", hint: "An incoming webhook", placeholder: "https://hooks.slack.com/services/...", icon: <Link2 size={14} /> },
   mattermost_dm: { label: "Mattermost message", hint: "A direct message to this username", placeholder: "Mattermost username", icon: <MessageCircle size={14} /> },
   mattermost: { label: "Mattermost channel", hint: "team-name/channel-name; add the bot first", placeholder: "team-name/alerts", icon: <MessageCircle size={14} /> },
   webhook: { label: "Webhook", hint: "Gets a JSON post", placeholder: "https://example.com/hook", icon: <Link2 size={14} /> },
@@ -146,6 +148,8 @@ export function RouteEditor({ route: r, fields, ops, kinds, readOnly, onChange, 
             <Picker label="Send by" className="w-44" value={g.kind} options={kindOptions} disabled={readOnly} onChange={kind => setKind(i, kind)} />
             {g.kind === "sink"
               ? <span className="flex h-8 min-w-40 flex-1 items-center text-xs text-cinder">Alerts that match are dropped silently. Matching stops here.</span>
+              : g.kind === "assignee"
+              ? <span className="flex h-8 min-w-40 flex-1 items-center text-xs text-cinder">Whoever the issue is assigned to, through their own routing.</span>
               : g.kind === "user"
               ? <PeopleInput values={g.targets} project={project} disabled={readOnly} invalid={problems.has("r:user")}
                   onChange={targets => setGroups(groups.map((x, j) => (j === i ? { ...x, targets } : x)))} />
@@ -153,7 +157,7 @@ export function RouteEditor({ route: r, fields, ops, kinds, readOnly, onChange, 
                   check={t => badTarget({ kind: g.kind as ReceiverKind, target: t })}
                   invalid={problems.has(`r:${g.kind}`)} bad={problems.has(`r:${g.kind}`) ? t => !!badTarget({ kind: g.kind as ReceiverKind, target: t }) : undefined}
                   onChange={targets => setGroups(groups.map((x, j) => (j === i ? { ...x, targets } : x)))} />}
-            {onTest && g.kind !== "sink" && <Tip content={g.targets.length > 1 ? "Send a test message to each" : "Send a test message"}><span className="inline-flex"><button type="button" className={iconBtn} aria-label={`Test ${RECEIVER[g.kind].label}`} disabled={g.targets.length === 0} onClick={() => g.targets.forEach(target => onTest({ kind: g.kind as ReceiverKind, target }))}><SendHorizontal size={14} /></button></span></Tip>}
+            {onTest && g.kind !== "sink" && g.kind !== "assignee" && <Tip content={g.targets.length > 1 ? "Send a test message to each" : "Send a test message"}><span className="inline-flex"><button type="button" className={iconBtn} aria-label={`Test ${RECEIVER[g.kind].label}`} disabled={g.targets.length === 0} onClick={() => g.targets.forEach(target => onTest({ kind: g.kind as ReceiverKind, target }))}><SendHorizontal size={14} /></button></span></Tip>}
             {!readOnly && !r.sink && <Tip content="Remove"><button type="button" className={iconBtn} aria-label={`Remove ${RECEIVER[g.kind].label}`} onClick={() => setGroups(groups.filter((_, j) => j !== i))}><X size={14} /></button></Tip>}
             {problems.has(`r:${g.kind}`) && <Problem text={problems.get(`r:${g.kind}`)!} />}
           </li>

@@ -107,7 +107,7 @@ function RouteSummary({ route: r, index, names, unavailable, onOpen }: { route: 
         key: kind,
         icon: RECEIVER_ICON[kind],
         label: RECEIVER_LABEL[kind],
-        text: r.receivers.filter(x => x.kind === kind).map(x => (kind === "user" ? names[x.target] : "") || x.target || "(empty)").join(", "),
+        text: kind === "assignee" ? "Whoever the issue is assigned to" : r.receivers.filter(x => x.kind === kind).map(x => (kind === "user" ? names[x.target] : "") || x.target || "(empty)").join(", "),
         warning: unavailable.includes(kind) ? `${RECEIVER_LABEL[kind]} is not set up on this server, so these messages are skipped.` : undefined,
       }));
   return (

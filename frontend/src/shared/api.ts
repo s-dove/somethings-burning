@@ -19,6 +19,7 @@ export interface Issue {
   resolvedAt: number;
   mute: Mute;
   reopenReason: string;
+  assignee: string; // email, "" for no one
   firstSeen: number;
   lastSeen: number;
   eventCount: number;
@@ -128,7 +129,17 @@ export interface IssueDetail {
   event: EventView | null;
 }
 
+export type RuleField = "path" | "type" | "message" | "culprit" | "tag";
+
+export interface OwnerRule {
+  field: RuleField;
+  tag?: string;
+  pattern: string;
+  owner: string;
+}
+
 export interface ProjectConfig {
+  owners: OwnerRule[];
   scrub: { defaults: boolean; fields: string[] };
 }
 
@@ -177,7 +188,7 @@ export interface ProjectSettings {
 
 export type MatchOp = "=" | "!=" | "=~" | "!~" | "value" | "empty" | "!value" | "absent" | "!absent";
 export interface Matcher { field: string; op: MatchOp; value: string }
-export type ReceiverKind = "user" | "email" | "mattermost" | "webhook" | "mattermost_dm";
+export type ReceiverKind = "user" | "assignee" | "email" | "mattermost" | "slack" | "webhook" | "mattermost_dm";
 export interface Receiver { kind: ReceiverKind; target: string }
 export interface Route { name: string; matchers: Matcher[]; sink: boolean; receivers: Receiver[]; continue: boolean }
 
