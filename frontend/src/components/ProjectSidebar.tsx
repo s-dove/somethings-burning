@@ -6,7 +6,7 @@ import { useUnseenAlerts } from "../shared/live";
 import { LayoutGrid, Menu, X } from "../ui/icons";
 import { Link } from "./common/Link";
 import { Logo } from "./Logo";
-import { ThemeSwitch } from "./ThemeSwitch";
+import { ProfileMenu } from "./ProfileMenu";
 import { Tip } from "./Tip";
 import { t } from "../shared/i18n";
 
@@ -92,24 +92,7 @@ export function ProjectSidebar({ board, project, session, profile, create }: {
       {/* The divider sits on this wrapper, so each row's hover box only
           covers the row. The avatar is centered on the icon column. */}
       <div className={`mt-auto flex shrink-0 items-center gap-1 border-t border-rule pt-3 ${expanded ? "" : "max-lg:hidden"}`}>
-        {session?.user ? (
-          <Link
-            to="/profile"
-            className={`${row} min-w-0 flex-1 gap-1.5 py-1.5 pr-3 pl-1.5`}
-            aria-current={profile ? "page" : undefined}
-            aria-label={`Profile: ${session.user.displayName || session.user.email}`}
-          >
-            <span className="grid size-7 shrink-0 place-items-center rounded-full border border-rule bg-ash text-xs font-semibold text-soot">
-              {(session.user.displayName || session.user.email).slice(0, 1).toUpperCase()}
-            </span>
-            <Tip content={session.user.email} side="right">
-              <span className="min-w-0 flex-1 truncate text-xs">{session.user.displayName || session.user.email}</span>
-            </Tip>
-          </Link>
-        ) : (
-          <span className="flex-1" />
-        )}
-        <ThemeSwitch />
+        <ProfileMenu session={session} current={!!profile} />
       </div>
     </aside>
   );

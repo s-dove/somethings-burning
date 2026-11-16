@@ -346,5 +346,6 @@ const ko: Record<string, string> = {
   "The project goes, with all its issues and events.": "프로젝트가 모든 문제와 이벤트와 함께 사라집니다.",
   "Delete this route?": "이 경로를 삭제할까요?",
   "Confirm": "확인",
+  "Profile: {name}": "프로필: {name}",
 };
 export default ko;

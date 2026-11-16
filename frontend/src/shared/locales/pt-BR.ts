@@ -346,5 +346,6 @@ const pt_BR: Record<string, string> = {
   "The project goes, with all its issues and events.": "O projeto some, com todos os problemas e eventos.",
   "Delete this route?": "Excluir esta rota?",
   "Confirm": "Confirmar",
+  "Profile: {name}": "Perfil: {name}",
 };
 export default pt_BR;

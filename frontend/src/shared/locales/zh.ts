@@ -346,5 +346,6 @@ const zh: Record<string, string> = {
   "The project goes, with all its issues and events.": "项目会消失，连同它的全部问题和事件。",
   "Delete this route?": "删除这条路由？",
   "Confirm": "确认",
+  "Profile: {name}": "个人资料：{name}",
 };
 export default zh;

@@ -346,5 +346,6 @@ const es: Record<string, string> = {
   "The project goes, with all its issues and events.": "El proyecto desaparece, con todos sus problemas y eventos.",
   "Delete this route?": "¿Eliminar esta ruta?",
   "Confirm": "Confirmar",
+  "Profile: {name}": "Perfil: {name}",
 };
 export default es;

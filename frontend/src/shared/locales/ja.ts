@@ -346,5 +346,6 @@ const ja: Record<string, string> = {
   "The project goes, with all its issues and events.": "プロジェクトが、その問題とイベントすべてと一緒に消えます。",
   "Delete this route?": "このルートを削除しますか？",
   "Confirm": "確認",
+  "Profile: {name}": "プロフィール：{name}",
 };
 export default ja;
