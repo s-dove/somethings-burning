@@ -8,7 +8,7 @@ import { HeatStrip } from "../components/HeatStrip";
 import { Redacted } from "../components/Redacted";
 import { Tip } from "../components/Tip";
 import { Button } from "../ui/components/Button";
-import { Check, Inbox, VolumeX, X } from "../ui/icons";
+import { Check, GitMerge, Inbox, VolumeX, X } from "../ui/icons";
 import { api, canTriage, type Board, type Issue } from "../shared/api";
 import { ago, edgeBg, edgeTip, muteSummary, plural, sentence, splitTitle } from "../shared/format";
 import { pill, pillTone } from "../shared/ui";
@@ -96,6 +96,24 @@ function BulkBar({ issues, muteOptions, onDone }: { issues: Issue[]; muteOptions
   const { mutate } = useSWRConfig();
   const open = issues.filter(i => i.status !== "resolved");
   const mutable = issues.filter(i => i.status === "open");
+  const mergeable = issues.length >= 2 && new Set(issues.map(i => i.projectId)).size === 1;
+  async function mergeAll() {
+    const keep = [...issues].sort((a, b) => b.eventCount - a.eventCount || a.id - b.id)[0]!;
+    const n = issues.length - 1;
+    if (!confirm(`Merge ${n === 1 ? "1 issue" : `${n} issues`} into "${keep.title}"?\n\nTheir events, comments, and history move there, and later events of theirs join it. Each can be split back out.`)) return;
+    setBusy(true);
+    try {
+      await api(`/projects/${keep.projectId}/issues/merge`, { method: "POST", body: { into: keep.id, issues: issues.map(i => i.id) } });
+      toast(`Merged into "${keep.title}"`);
+      void mutate((key) => typeof key === "string" && key.startsWith("/board"));
+      onDone();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
 
   async function run(list: Issue[], path: "resolve" | "mute", body: unknown, done: string) {
     setBusy(true);
@@ -124,6 +142,9 @@ function BulkBar({ issues, muteOptions, onDone }: { issues: Issue[]; muteOptions
           </MenuItem>)}
         </MenuItems>
       </Menu>
+      <Tip content={mergeable ? "Fold them into one issue, the one with the most events" : "Choose two or more issues of one project to merge"}>
+        <span className="inline-flex"><Button size="sm" variant="secondary" disabled={busy || !mergeable} icon={<GitMerge aria-hidden="true" />} onClick={() => void mergeAll()}>Merge</Button></span>
+      </Tip>
       <Button size="sm" variant="ghost" disabled={busy} icon={<X aria-hidden="true" />} onClick={onDone}>Clear</Button>
     </div>
   );

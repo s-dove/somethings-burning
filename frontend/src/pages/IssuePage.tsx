@@ -12,6 +12,7 @@ import { Comments } from "./Comments";
 import { EventList } from "./EventList";
 import { EventPanels, RawJson } from "./EventPanels";
 import { IssueHeader, IssueSummary } from "./IssueHeader";
+import { MergedCard } from "./MergedCard";
 import { TagsCard } from "./TagsCard";
 
 const historyDot: Record<string, string> = {
@@ -22,6 +23,8 @@ const historyDot: Record<string, string> = {
   unmuted: "before:bg-heat-4",
   muted: "before:bg-rule",
   notified: "before:bg-cinder",
+  merged: "before:bg-doused",
+  unmerged: "before:bg-doused",
 };
 
 // History lines Burning writes on its own, with no one behind them.
@@ -114,6 +117,7 @@ export function IssuePage({ id, issueId }: { id: number; issueId: number }) {
             <IssueHeat issue={issue} />
           </div>
           <TagsCard tags={data.tags} users={data.users} />
+          <MergedCard detail={data} onChange={reload} />
 
           {data.releases.length > 0 && (
             <section className={section}>

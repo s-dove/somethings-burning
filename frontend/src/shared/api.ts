@@ -122,6 +122,7 @@ export interface IssueDetail {
   latestRelease: string;
   tags: { key: string; total: number; values: { value: string; count: number }[] }[];
   users: number;
+  merged: { fingerprint: string; title: string; mergedAt: number; events: number }[];
   releases: { release: string; environment: string; eventCount: number; lastSeen: number }[];
   events: EventRow[];
   moreEvents: boolean;
@@ -138,8 +139,16 @@ export interface OwnerRule {
   owner: string;
 }
 
+export interface GroupingRule {
+  field: RuleField;
+  tag?: string;
+  pattern: string;
+  fingerprint: string;
+}
+
 export interface ProjectConfig {
   owners: OwnerRule[];
+  grouping: GroupingRule[];
   scrub: { defaults: boolean; fields: string[] };
 }
 
