@@ -30,7 +30,7 @@ export function LoginPage() {
         <section className="flex flex-col justify-between border-b border-rule bg-smoke p-8 lg:border-r lg:border-b-0 lg:p-16">
           <Logo size="lg" tagline={false} />
           <div className="max-w-[480px] py-12 lg:py-20">
-            <h1 className="text-4xl leading-[1.15] font-semibold tracking-tight sm:text-5xl">{t("Something's burning.")}</h1>
+            <h1 className="text-4xl leading-[1.15] font-semibold tracking-tight sm:text-5xl">{t("Something's burning!")}</h1>
             <p className="mt-6 max-w-[34ch] text-lg leading-relaxed text-cinder">{t("Find the error. Follow the trace. Get back to building.")}</p>
             <div className="mt-12 grid h-12 grid-cols-24 gap-1.5" aria-hidden="true">
               {Array.from({ length: 24 }, (_, i) => (
