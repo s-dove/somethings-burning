@@ -154,6 +154,62 @@ An issue is open, resolved, or muted.
 
 Members and admins triage, one issue at a time or several from the list. Every change is in the issue's history, with who made it.
 
+## Releases
+
+Each project has a Releases page: every release the SDKs reported or CI created, newest first, with its first-seen time, commit, deploys, events, issues, issues first seen in it, and issues that fired again in it. Opening a release shows its issues (the board filtered with `release=`).
+
+CI creates releases and marks deploys with a project API token (see API tokens):
+
+```sh
+curl -X POST <web app URL>/api/projects/<id>/releases -H "Authorization: Bearer $BURNING_TOKEN" \
+  -H "Content-Type: application/json" -d '{"version": "'"$RELEASE"'", "commit": "'"$(git rev-parse HEAD)"'"}'
+curl -X POST <web app URL>/api/projects/<id>/deploys -H "Authorization: Bearer $BURNING_TOKEN" \
+  -H "Content-Type: application/json" -d '{"release": "'"$RELEASE"'", "environment": "production"}'
+```
+
+`RELEASE` is the app's release, exactly as its SDK reports it (the SDK's `release` option; Sentry SDKs also read the `SENTRY_RELEASE` environment variable). Releases, deploys, and source maps are matched to events by it.
+
+A release's commit, when CI gives one, is what suspect changes compare.
+
+## Tags and users
+
+The issue page shows how an issue's events spread over each tag (environment, release, browser, OS, server, level when the SDK sent one, and the SDK's own tags), and how many distinct users it reached, counted from the event's `user` (id, email, username, or IP address, kept only as a hash). The counts include every event, kept or sampled away.
+
+## Assignment and ownership
+
+Members assign an issue to a person from its page; the board filters by assignee (everyone's, assigned to me, unassigned). A project's ownership rules (Settings, Ownership) assign new issues: the first rule whose pattern matches the issue's path (any in-app frame's file), type, message, culprit, or a tag gives its owner. A route can send to **the assignee**, delivered through their own routing.
+
+## Grouping rules and merging
+
+A project's grouping rules (Settings, Grouping) give matching events a fingerprint of their own: `db-timeout {{ tag.region }}` groups every matching event by region. `{{ type }}`, `{{ message }}`, `{{ culprit }}`, `{{ tag.<name> }}`, and `{{ default }}` take the event's values.
+
+Members merge issues from the board: check two or more of one project and choose Merge. The one with the most events is kept; the others' events, counts, comments, and history move to it, and their later events join it. The kept issue lists what was merged into it, and each can be split back out: its stored events move to a new issue, with their counts (counts of events whose payloads were sampled away stay).
+
+## Data scrubbing
+
+Before an event is stored, values that look secret are replaced with `[Filtered]`: fields named like password, secret, token, API key, authorization, cookie, session, card number, CVV, or SSN anywhere in the event (request headers, cookies, body, query string, extra, contexts, breadcrumb data, local variables), and in any text card numbers that pass the Luhn check, `Bearer` tokens, and JWTs. A project can turn these defaults off and add field names of its own (Settings, Data scrubbing).
+
+## Source maps
+
+JavaScript source maps are uploaded per release, named by the URL path of their script with `~` for any host (`~/static/js/app.min.js.map`), from Settings, Source maps, or from CI:
+
+```sh
+curl -X POST <web app URL>/api/projects/<id>/sourcemaps -H "Authorization: Bearer $BURNING_TOKEN" \
+  -F release="$RELEASE" -F prefix="~/static/js/" -F file=@dist/app.min.js.map
+```
+
+The issue page then shows minified frames as their original file, line, function, and code. Mapping happens when the page is shown, so a map uploaded after the events still applies.
+
+## API tokens
+
+A project admin creates API tokens (Settings, API tokens). A token is shown once, kept only as a hash, and reaches only its project's releases, deploys, and source maps, as `Authorization: Bearer brn_...`.
+
+## Languages
+
+The web app is in English, Simplified Chinese, Traditional Chinese, Japanese, Korean, Spanish, French, German, and Brazilian Portuguese. Each person picks theirs at their first sign-in; it is kept with them, so it follows them to any browser, and they change it on their profile. Before signing in, the page follows the browser's language, and the sign-in page has a switch. Alert messages stay English. Known history lines are translated on the issue page; anything unrecognized stays as the server wrote it.
+
+To add a language, add a dictionary under `frontend/src/shared/locales/` (the keys are the English texts) and list it in `frontend/src/shared/i18n.tsx` and in `LANGS` in `backend/src/users.ts`.
+
 ## Live alerts
 
 When an issue alerts (new, firing again, or firing after a mute), its project's square in the sidebar gets a pulsing red ring in every open browser that can see the project, without a reload. Opening the project clears it. The browser listens on `GET /api/alerts`, a server-sent events stream that carries only `{ "projectId": <id> }`, with a ping every 25 seconds to keep proxies from closing it.
@@ -166,11 +222,15 @@ Only the author can edit a comment, and earlier texts are kept (not shown). The 
 
 ## Notifications
 
-A new issue, an issue firing again, and an issue firing after a mute are alerts. Each project has a routing table in the style of Alertmanager: routes are tried from the top, a route matches when all its conditions do, and matching stops at the first route that matches unless it says continue. A sink route drops what it matches. When no route matches, the default route sends to the project's members and admins.
+A new issue, an issue firing again, an issue firing after a mute, and a spike are alerts. Each project has a routing table in the style of Alertmanager: routes are tried from the top, a route matches when all its conditions do (one with none matches every alert of its kinds), and matching stops at the first route that matches unless it says continue. A sink route drops what it matches. When no route matches, the default route sends to the project's members and admins.
 
-Conditions test `trigger` (`new`, `fired_again`, `unmuted`), `env`, `release`, `level`, `type`, `message`, `culprit`, `path` (any in-app frame's file), or `tag.<name>`, with `=`, `!=`, `=~`, `!~` (regexes match the whole value), or whether the field has a value, is empty, or is absent.
+Conditions test `env`, `release`, `level`, `type`, `message`, `culprit`, `path` (any in-app frame's file), or `tag.<name>`, with `=`, `!=`, `=~`, `!~` (regexes match the whole value), or whether the field has a value, is empty, or is absent.
 
-A route sends to people, email addresses, Mattermost channels, or webhooks (a JSON post). A person gets alerts the way their own routing on their profile says: by email or Mattermost direct message, or not at all. It starts as everything by email.
+Each route picks the kinds of alert it takes at the top of its editor: new issue, fired again, after a mute, and spike (stored as a `trigger` condition). **Spikes** are routed like any alert, but a route that takes them says what counts as one: "at least 50 events in an hour, and 5 times the usual rate" (the issue's hourly average over the 24 hours before). So spikes can go somewhere more urgent than the rest. The default route takes no spikes. Each route's spike numbers alert an open issue at most every six hours; a route with higher numbers still alerts when the issue reaches them.
+
+A route sends to people, the assignee, email addresses, Mattermost channels, Slack (an incoming webhook URL), or webhooks (a JSON post). A person gets alerts the way their own routing on their profile says: by email or Mattermost direct message, or not at all; spikes come with the trigger `spike`. It starts as everything by email.
+
+Anyone can turn on a **daily summary** on their profile: one email a day from `BURNING_DIGEST_HOUR` (UTC, 8 by default) about their projects: issues first seen and firing again in the last day, and the busiest. Nothing is sent on a quiet day.
 
 Email needs `BURNING_SMTP_HOST` and `BURNING_SMTP_FROM`; Mattermost needs `BURNING_MATTERMOST_URL` and a bot token. Messages go through an outbox and are retried up to five times. The issue's history records who was notified and by which route.
 
@@ -190,7 +250,11 @@ Each source also says how an event's release becomes a commit:
 
 Anything that does not resolve falls back to the default branch. The recommended release is `<service>@<version>+<full commit>`; Sentry SDKs read it from the `SENTRY_RELEASE` environment variable, so a build only has to set that.
 
-Stack frames on the issue page link to their line at the resolved commit. The settings page can test a draft against the latest stored event.
+Stack frames on the issue page link to their line at the resolved commit, and a frame the SDK sent without its code lines gets them from the repository. The settings page can test a draft against the latest stored event.
+
+**Suspect changes**: when an event's release follows an earlier one, the issue page lists the stack's files that changed in the primary source between the two releases' commits (CI's commit for a release when it gave one, else the release rule), the commits that changed them, and a compare link; those frames are marked "modified in this release".
+
+**GitHub issues**: when the primary source is on GitHub and its host has a token, members can open a GitHub issue from an issue page. It links back, and the issue links to it.
 
 Credentials come from the environment, matched by host:
 
@@ -211,13 +275,22 @@ The API needs a session, except `/api/session`, `/api/health`, and the ingest pa
 
 - `GET /api/health`
 - `GET /api/session`: the ways to sign in, and who is signed in
+- `POST /api/projects/<id>/issues/<issue>/assign` with `{ "assignee": "<email>" | "" }` (member)
+- `POST /api/projects/<id>/issues/merge` with `{ "into": <issue>, "issues": [<issue>, ...] }` (member), and `POST /api/projects/<id>/issues/<issue>/unmerge` with `{ "fingerprint" }` (member)
+- `POST /api/projects/<id>/issues/<issue>/github` (member): opens a GitHub issue
+- `GET /api/projects/<id>/config`, and `PUT /api/projects/<id>/config/<owners|grouping|scrub>` (admin)
+- `GET /api/projects/<id>/releases`; `POST /api/projects/<id>/releases` with `{ "version", "commit"? }` and `POST /api/projects/<id>/deploys` with `{ "release", "environment"?, "url"? }` (admin or API token)
+- `GET /api/projects/<id>/sourcemaps?release=`, `POST` (multipart, or JSON `{ "release", "name", "content" }`; admin or API token), `DELETE` with `{ "release", "name"? }` (admin)
+- `GET /api/projects/<id>/tokens`, `POST` with `{ "name" }`, `DELETE /api/projects/<id>/tokens/<id>` (admin)
+- `GET /api/profile/digest`, `PUT` with `{ "enabled" }`, `POST /api/profile/digest/test`
 - `GET /api/alerts`: server-sent events, `{ "projectId": <id> }` when one of its issues alerts (projects you can see)
-- `GET /api/board?project=<id>&status=open|resolved|muted|all&sort=hot|latest|count&q=<text>`
+- `GET /api/board?project=<id>&status=open|resolved|muted|all&sort=hot|latest|count&q=<text>&assignee=me|none|<email>&release=<version>`
 - `GET /api/projects`: the projects you can see
 - `POST /api/projects` with `{ "name": "<name>" }`: creates a project, with you as admin (409 when the name is taken)
 - `GET /api/projects/<id>`, `PATCH` with `{ "name": "<name>" }` (admin), `DELETE` (admin)
 - `GET /api/projects/<id>/issues`
-- `GET /api/projects/<id>/issues/<issue>?event=<id>`: the issue, its releases, history, comments, latest events, and one event in full
+- `GET /api/issues/<issue>`: the issue's project, for links by number (`/issues/<issue>` in the web app); a merged issue gives the one it went into
+- `GET /api/projects/<id>/issues/<issue>?event=<id>`: the issue, its releases, history, comments, tags, users affected, merged fingerprints, suspect changes, latest events, and one event in full
 - `POST /api/projects/<id>/issues/<issue>/comments` with `{ "body": "<markdown>" }` (anyone with a role)
 - `PATCH /api/projects/<id>/issues/<issue>/comments/<comment>` with `{ "body": "<markdown>" }` (the author)
 - `DELETE /api/projects/<id>/issues/<issue>/comments/<comment>` (the author or an admin)
@@ -228,9 +301,9 @@ The API needs a session, except `/api/session`, `/api/health`, and the ingest pa
 - `GET /api/projects/<id>/settings`: the DSN, grants, and your role
 - `PUT /api/projects/<id>/access` with `{ "kind": "user" | "group", "subject": "<email or group>", "role": "viewer" | "member" | "admin" }` (admin)
 - `DELETE /api/projects/<id>/access` with `{ "kind", "subject" }` (admin)
-- `GET /api/projects/<id>/routing`, `PUT` with `{ "routes": [...] }` (admin)
+- `GET /api/projects/<id>/routing`, `PUT` with `{ "routes": [...] }` (admin); a route is `{ name, matchers, receivers, sink, continue, spike? }`, with `spike` as `{ "events", "factor" }`
 - `GET /api/projects/<id>/sources`, `PUT` with `{ "sources": [...] }` (admin), and `POST /api/projects/<id>/sources/test` with a draft list (admin): the project's code sources
 - `GET /api/people?project=<id>`: who a route can send to
 - `GET /api/site/settings`: the server's sign-in, email, Mattermost, and code access settings, without secrets
-- `GET /api/profile`, `PUT` with `{ "displayName": "<name>" }`
+- `GET /api/profile`, `PUT` with `{ "displayName": "<name>" }`; `PUT /api/profile/lang` with `{ "lang": "en" | "zh" | "zh-TW" | "ja" | "ko" | "es" | "fr" | "de" | "pt-BR" }`
 - `GET /api/profile/notifications`, `PUT` with `{ "routes": [...] }`, and `POST /api/profile/notifications/test` with one receiver
