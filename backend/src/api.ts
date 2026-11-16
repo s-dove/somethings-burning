@@ -6,6 +6,7 @@ import { alertEvents, type LiveAlerts } from "./live.js";
 import type { CodeSources } from "./source/index.js";
 import { attachLinks } from "./source/links.js";
 import { tagBreakdown, usersAffected } from "./issue-tags.js";
+import { configRoutes } from "./config-api.js";
 import { getSources } from "./sources.js";
 import { sourcesRoutes } from "./sources-api.js";
 import { listActivity } from "./activity.js";
@@ -220,6 +221,7 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
   );
 
   app.route("/", commentRoutes(db, access));
+  app.route("/", configRoutes(db, access));
   app.route("/", sourcesRoutes(db, access, deps.code));
   app.route("/", siteRoutes(deps.config, deps.senders, deps.code));
   app.route("/", settingsRoutes(db, access, deps.baseURL));
