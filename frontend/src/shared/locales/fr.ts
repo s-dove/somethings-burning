@@ -290,5 +290,6 @@ const fr: Record<string, string> = {
   "A spike needs at least 1 event in an hour.": "Un pic demande au moins 1 événement par heure.",
   "The factor is between 1 and 1000.": "Le facteur est compris entre 1 et 1000.",
   "Add a receiver, or choose Sink to drop what matches.": "Ajoutez un destinataire, ou choisissez Abandon pour écarter ce qui correspond.",
+  "Firing again": "Ça se reproduit",
 };
 export default fr;

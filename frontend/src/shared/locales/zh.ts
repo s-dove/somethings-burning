@@ -290,5 +290,6 @@ const zh: Record<string, string> = {
   "A spike needs at least 1 event in an hour.": "突增至少需要每小时 1 个事件。",
   "The factor is between 1 and 1000.": "倍数要在 1 到 1000 之间。",
   "Add a receiver, or choose Sink to drop what matches.": "请添加接收方，或者选择“丢弃”来丢掉匹配的告警。",
+  "Firing again": "再次触发",
 };
 export default zh;

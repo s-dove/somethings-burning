@@ -68,7 +68,7 @@ export function IssueList({ issues, showProject, status, query, noProjects, mute
               <div className="mb-1.5 flex min-w-0 items-center gap-2">
                 <Tip content={type || msg} truncated><Link data-row className="min-w-0 truncate text-sm font-semibold no-underline after:absolute after:inset-0 focus-visible:outline-none" to={`/issues/${i.id}`}><Redacted text={type || msg} tip={false} /></Link></Tip>
                 {i.status !== "open" && <span className={`${pill} ${pillTone[i.status]} shrink-0`}>{sentence(i.status)}</span>}
-                {i.status === "open" && i.reopenReason && <span className={`${pill} ${pillTone.open} shrink-0`}>Firing again</span>}
+                {i.status === "open" && i.reopenReason && <span className={`${pill} ${pillTone.open} shrink-0`}>{t("Firing again")}</span>}
               </div>
               {type && <p className="mb-2 truncate text-[13px] text-cinder"><Redacted text={msg} tip={false} /></p>}
               <div className="flex min-w-0 items-center gap-x-3 text-xs text-cinder">

@@ -290,5 +290,6 @@ const ko: Record<string, string> = {
   "A spike needs at least 1 event in an hour.": "급증에는 시간당 최소 1개의 이벤트가 필요합니다.",
   "The factor is between 1 and 1000.": "배수는 1에서 1000 사이입니다.",
   "Add a receiver, or choose Sink to drop what matches.": "받는 대상을 추가하거나, 버리기를 선택해 일치하는 것을 버리세요.",
+  "Firing again": "다시 발생",
 };
 export default ko;

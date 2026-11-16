@@ -290,5 +290,6 @@ const ja: Record<string, string> = {
   "A spike needs at least 1 event in an hour.": "スパイクには 1 時間に最低 1 件のイベントが必要です。",
   "The factor is between 1 and 1000.": "倍率は 1 から 1000 の間です。",
   "Add a receiver, or choose Sink to drop what matches.": "送信先を追加するか、「破棄」を選んで一致したものを捨ててください。",
+  "Firing again": "再発",
 };
 export default ja;

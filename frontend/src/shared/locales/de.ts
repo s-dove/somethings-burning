@@ -290,5 +290,6 @@ const de: Record<string, string> = {
   "A spike needs at least 1 event in an hour.": "Ein Spike braucht mindestens 1 Ereignis pro Stunde.",
   "The factor is between 1 and 1000.": "Der Faktor liegt zwischen 1 und 1000.",
   "Add a receiver, or choose Sink to drop what matches.": "Füge einen Empfänger hinzu, oder wähle Verwerfen, um Passendes zu verwerfen.",
+  "Firing again": "Tritt wieder auf",
 };
 export default de;
