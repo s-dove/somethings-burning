@@ -64,7 +64,7 @@ export function IssueList({ issues, showProject, status, query, noProjects, mute
               : <span />}
             <div className="min-w-0">
               <div className="mb-1.5 flex min-w-0 items-center gap-2">
-                <Tip content={type || msg} truncated><Link data-row className="min-w-0 truncate text-sm font-semibold no-underline after:absolute after:inset-0 focus-visible:outline-none" to={`/p/${i.projectId}/issues/${i.id}`}>{type || msg}</Link></Tip>
+                <Tip content={type || msg} truncated><Link data-row className="min-w-0 truncate text-sm font-semibold no-underline after:absolute after:inset-0 focus-visible:outline-none" to={`/issues/${i.id}`}>{type || msg}</Link></Tip>
                 {i.status !== "open" && <span className={`${pill} ${pillTone[i.status]} shrink-0`}>{sentence(i.status)}</span>}
                 {i.status === "open" && i.reopenReason && <span className={`${pill} ${pillTone.open} shrink-0`}>Firing again</span>}
               </div>

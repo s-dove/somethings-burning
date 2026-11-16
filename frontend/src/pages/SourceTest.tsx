@@ -9,7 +9,7 @@ export function SourceTestResult({ test, sources, projectId }: { test: SourcesTe
   return (
     <div className="rounded-card border border-rule bg-ash">
       <div className="border-b border-rule px-4 py-3 text-xs text-cinder">
-        Latest event <Link to={`/p/${projectId}/issues/${test.event.issueId}`} className="mono">{test.event.eventId.slice(0, 12)}</Link>, release <span className="mono text-soot">{test.event.release || "none"}</span>
+        Latest event <Link to={`/issues/${test.event.issueId}`} className="mono">{test.event.eventId.slice(0, 12)}</Link>, release <span className="mono text-soot">{test.event.release || "none"}</span>
       </div>
       <ul className="m-0 list-none divide-y divide-rule-soft p-0">
         {test.sources.map((r, i) => (
