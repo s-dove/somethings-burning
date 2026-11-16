@@ -7,6 +7,7 @@ import { section } from "../shared/ui";
 import { Redacted } from "../components/Redacted";
 import { Tag } from "../components/Tag";
 import { Tip, TimeTip } from "../components/Tip";
+import { t } from "../shared/i18n";
 
 type Exception = EventView["exceptions"][number];
 
@@ -40,7 +41,7 @@ export function EventCard({ event }: { event: EventView }) {
         </dl>
         {causes.map((e, n) => (
           <div key={n} className="mt-4">
-            <h3 className="mb-2 flex items-baseline gap-2 text-xs font-semibold">Caused by<span className="font-normal text-cinder">{n + 2} of {event.exceptions.length}, raised before the one above</span></h3>
+            <h3 className="mb-2 flex items-baseline gap-2 text-xs font-semibold">{t("Caused by")}<span className="font-normal text-cinder">{n + 2} of {event.exceptions.length}, raised before the one above</span></h3>
             <dl className={`${facts} rounded-control border border-rule bg-smoke/60 px-3.5 py-3`}><ExceptionFacts exception={e} /></dl>
           </div>
         ))}
@@ -74,7 +75,7 @@ function Fact({ label, field, value, hint }: { label: string; field: string; val
       <Tip content={field}><dt className="text-cinder">{label}</dt></Tip>
       <dd className="group m-0 flex min-w-0 items-start gap-2">
         <span className="min-w-0">
-          {value ? <span className="mono whitespace-pre-wrap wrap-anywhere"><Redacted text={value} /></span> : !hint && <span className="text-cinder">empty</span>}
+          {value ? <span className="mono whitespace-pre-wrap wrap-anywhere"><Redacted text={value} /></span> : !hint && <span className="text-cinder">{t("empty")}</span>}
           {hint && <span className="text-cinder">{value ? " · " : ""}{hint}</span>}
         </span>
         {value && (

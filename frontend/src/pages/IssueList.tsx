@@ -13,6 +13,7 @@ import { api, canTriage, type Board, type Issue } from "../shared/api";
 import { ago, edgeBg, edgeTip, muteSummary, plural, sentence, splitTitle } from "../shared/format";
 import { pill, pillTone } from "../shared/ui";
 import { IssueActions } from "./IssueActions";
+import { t } from "../shared/i18n";
 
 const box = "size-4 shrink-0 cursor-pointer rounded border-rule";
 
@@ -44,7 +45,7 @@ export function IssueList({ issues, showProject, status, query, noProjects, mute
                 ref={el => { if (el) el.indeterminate = chosen.length > 0 && !all; }}
                 onChange={e => setPicked(e.target.checked ? new Set(triageable.map(i => i.id)) : new Set())} />
             : <span />}
-          <span aria-hidden="true">Issue</span><span aria-hidden="true">Activity</span><span className="text-right" aria-hidden="true">Events</span><span className="text-right max-xl:hidden" aria-hidden="true">Last seen</span><span className="sr-only">Actions</span>
+          <span aria-hidden="true">{t("Issue")}</span><span aria-hidden="true">{t("Activity")}</span><span className="text-right" aria-hidden="true">{t("Events")}</span><span className="text-right max-xl:hidden" aria-hidden="true">{t("Last seen")}</span><span className="sr-only">{t("Actions")}</span>
         </div>
         {issues.map(i => {
           const [type, msg] = splitTitle(i.title);
@@ -127,7 +128,7 @@ function BulkBar({ issues, muteOptions, onDone }: { issues: Issue[]; muteOptions
   }
 
   return (
-    <div className="sticky bottom-4 z-30 mt-4 flex flex-wrap items-center gap-3 rounded-card border border-rule bg-ash/95 px-4 py-3 shadow-lg backdrop-blur" role="region" aria-label="Selected issues">
+    <div className="sticky bottom-4 z-30 mt-4 flex flex-wrap items-center gap-3 rounded-card border border-rule bg-ash/95 px-4 py-3 shadow-lg backdrop-blur" role="region" aria-label={t("Selected issues")}>
       <span className="mr-auto text-[13px] font-medium">{plural(issues.length, "issue")} selected</span>
       <Button size="sm" variant="primary" disabled={busy || open.length === 0} icon={<Check aria-hidden="true" />}
         onClick={() => void run(open, "resolve", {}, "Resolved")}>Resolve{open.length < issues.length ? ` ${open.length}` : ""}</Button>
@@ -136,16 +137,16 @@ function BulkBar({ issues, muteOptions, onDone }: { issues: Issue[]; muteOptions
           <VolumeX aria-hidden="true" />Mute{mutable.length < issues.length ? ` ${mutable.length}` : ""}
         </MenuButton>
         <MenuItems anchor="top end" className="z-40 min-w-36 rounded-card border border-rule bg-ash p-1 text-[13px] shadow-lg [--anchor-gap:6px] focus:outline-none">
-          <div className="px-2.5 pt-1.5 pb-1 text-[11px] text-cinder">Mute for</div>
+          <div className="px-2.5 pt-1.5 pb-1 text-[11px] text-cinder">{t("Mute for")}</div>
           {muteOptions.map(o => <MenuItem key={o.value}>
             <button className="block w-full cursor-pointer rounded-control px-2.5 py-1.5 text-left data-focus:bg-rule-soft" onClick={() => void run(mutable, "mute", { for: o.value }, "Muted")}>{o.label}</button>
           </MenuItem>)}
         </MenuItems>
       </Menu>
       <Tip content={mergeable ? "Fold them into one issue, the one with the most events" : "Choose two or more issues of one project to merge"}>
-        <span className="inline-flex"><Button size="sm" variant="secondary" disabled={busy || !mergeable} icon={<GitMerge aria-hidden="true" />} onClick={() => void mergeAll()}>Merge</Button></span>
+        <span className="inline-flex"><Button size="sm" variant="secondary" disabled={busy || !mergeable} icon={<GitMerge aria-hidden="true" />} onClick={() => void mergeAll()}>{t("Merge")}</Button></span>
       </Tip>
-      <Button size="sm" variant="ghost" disabled={busy} icon={<X aria-hidden="true" />} onClick={onDone}>Clear</Button>
+      <Button size="sm" variant="ghost" disabled={busy} icon={<X aria-hidden="true" />} onClick={onDone}>{t("Clear")}</Button>
     </div>
   );
 }

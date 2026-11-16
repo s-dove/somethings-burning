@@ -5,6 +5,7 @@ import { Loading } from "../components/Loading";
 import { PageHeader } from "../components/PageHeader";
 import { useApi } from "../shared/api";
 import { ArrowLeft, Code, KeyRound, Mail, MessageCircle } from "../ui/icons";
+import { t } from "../shared/i18n";
 
 interface SiteSettings {
   signIn: {
@@ -38,7 +39,7 @@ interface SiteSettings {
 }
 
 const SECURITY = { none: "None (plain SMTP)", starttls: "STARTTLS", ssl: "SSL/TLS from the start" } as const;
-const unset = <span className="text-cinder">Not set</span>;
+const unset = <span className="text-cinder">{t("Not set")}</span>;
 const mono = (v: string) => <span className="mono">{v}</span>;
 
 // SiteSettingsPage shows the server's settings. They come from its
@@ -54,8 +55,8 @@ export function SiteSettingsPage() {
             Back to issues
           </Link>
         }
-        title="Global settings"
-        after={<p className="mt-2 text-sm text-cinder">Settings for this Burning server. They come from its environment variables and are read-only here.</p>}
+        title={t("Global settings")}
+        after={<p className="mt-2 text-sm text-cinder">{t("Settings for this Burning server. They come from its environment variables and are read-only here.")}</p>}
         spaceBelow="mb-8"
       />
       {!data ? (
@@ -84,9 +85,9 @@ function SignInSection({ s }: { s: SiteSettings["signIn"] }) {
     <Section id="signin" icon={<KeyRound aria-hidden="true" />} title="Sign-in" hint="How people sign in. Either way can be on, or both." status={methods ? `On: ${methods}` : "Off"} on={!!methods}>
       <dl className="m-0 divide-y divide-rule overflow-hidden rounded-card border border-rule bg-ash">
         <Row label="Passwords" env="BURNING_PASSWORD_FILE">
-          {s.password.enabled ? <>{mono(s.password.file)}<span className="text-cinder">, one email:hash[:groups] per line</span></> : <span className="text-cinder">Off</span>}
+          {s.password.enabled ? <>{mono(s.password.file)}<span className="text-cinder">{t(", one email:hash[:groups] per line")}</span></> : <span className="text-cinder">{t("Off")}</span>}
         </Row>
-        <Row label="OIDC issuer" env="BURNING_OIDC_ISSUER">{s.oidc.enabled ? mono(s.oidc.issuer) : <span className="text-cinder">Off</span>}</Row>
+        <Row label="OIDC issuer" env="BURNING_OIDC_ISSUER">{s.oidc.enabled ? mono(s.oidc.issuer) : <span className="text-cinder">{t("Off")}</span>}</Row>
         {s.oidc.enabled && (
           <>
             <Row label="Client" env="BURNING_OIDC_CLIENT_ID, BURNING_OIDC_CLIENT_AUTH">
@@ -110,7 +111,7 @@ function SignInSection({ s }: { s: SiteSettings["signIn"] }) {
         <Row label="Site admins" env="BURNING_SITE_ADMINS">
           {s.siteAdmins ? `${s.siteAdmins} ${s.siteAdmins === 1 ? "entry" : "entries"}, admin on every project` : <span className="text-cinder">None. Projects are managed by their own admins.</span>}
         </Row>
-        <Row label="Session secret" env="BURNING_SESSION_SECRET">{s.sessionSecretSet ? "Set" : <span className="text-cinder">Not set: a random one kept in the database</span>}</Row>
+        <Row label="Session secret" env="BURNING_SESSION_SECRET">{s.sessionSecretSet ? "Set" : <span className="text-cinder">{t("Not set: a random one kept in the database")}</span>}</Row>
       </dl>
     </Section>
   );
@@ -118,7 +119,7 @@ function SignInSection({ s }: { s: SiteSettings["signIn"] }) {
 
 function EmailSection({ email }: { email: SiteSettings["email"] }) {
   return (
-    <Section id="email" icon={<Mail aria-hidden="true" />} title="Email" hint="The server that sends alert email to people and addresses." status={email.enabled ? "Sending" : "Off"} on={email.enabled}>
+    <Section id="email" icon={<Mail aria-hidden="true" />} title={t("Email")} hint="The server that sends alert email to people and addresses." status={email.enabled ? "Sending" : "Off"} on={email.enabled}>
       {!email.enabled && (
         <p className="mb-4 rounded-card border border-rule bg-smoke px-4 py-3 text-[13px] text-cinder">
           No alert email is sent until these are set: <span className="mono">{email.missing.join(", ")}</span>.
@@ -135,7 +136,7 @@ function EmailSection({ email }: { email: SiteSettings["email"] }) {
               <span className="text-cinder">{email.passwordSet ? ", password set" : ", no password"}</span>
             </>
           ) : (
-            <span className="text-cinder">None. The server accepts mail without signing in.</span>
+            <span className="text-cinder">{t("None. The server accepts mail without signing in.")}</span>
           )}
         </Row>
       </dl>
@@ -148,7 +149,7 @@ function MattermostSection({ mm }: { mm: SiteSettings["mattermost"] }) {
     <Section
       id="mm"
       icon={<MessageCircle aria-hidden="true" />}
-      title="Mattermost"
+      title={t("Mattermost")}
       hint="A bot that sends direct messages to people and posts in channels. Add the bot to a channel before routing alerts there."
       status={mm.enabled ? "Sending" : "Off"}
       on={mm.enabled}
@@ -164,7 +165,7 @@ function MattermostSection({ mm }: { mm: SiteSettings["mattermost"] }) {
 function GitSection({ git }: { git: SiteSettings["git"] }) {
   const on = git.hosts.length > 0 || git.sshKey;
   return (
-    <Section id="git" icon={<Code aria-hidden="true" />} title="Code access" hint="How projects' code sources are read. Public repositories need nothing." status={on ? "Set" : "Public only"} on={on}>
+    <Section id="git" icon={<Code aria-hidden="true" />} title={t("Code access")} hint="How projects' code sources are read. Public repositories need nothing." status={on ? "Set" : "Public only"} on={on}>
       <dl className="m-0 divide-y divide-rule overflow-hidden rounded-card border border-rule bg-ash">
         <Row label="Tokens" env="BURNING_GIT_CREDENTIALS">{git.hosts.length ? mono(git.hosts.join(", ")) : unset}</Row>
         <Row label="SSH key" env="BURNING_GIT_SSH_KEY">{git.sshKey ? "Set" : unset}</Row>

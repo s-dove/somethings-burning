@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { t } from "./i18n";
 
 // copyText puts text on the clipboard and says so in a toast. Plain http (the
 // preview) has no Clipboard API, so it falls back to a hidden textarea. Inside
@@ -18,7 +19,7 @@ export async function copyText(text: string, within?: HTMLElement | null): Promi
       area.remove();
       if (!ok) throw new Error("Copy unavailable");
     }
-    toast("Copied");
+    toast(t("Copied"));
     return true;
   } catch {
     toast.error("Could not copy. Select and copy the text manually.");

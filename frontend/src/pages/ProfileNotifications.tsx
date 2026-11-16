@@ -6,6 +6,7 @@ import { api, unavailableKinds, useApi, type PersonalRouting, type Receiver, typ
 import { RouteList } from "./RouteList";
 import { RouteModal } from "./RouteModal";
 import { useRouteTable } from "./useRouteTable";
+import { t } from "../shared/i18n";
 
 const card = "mt-6 rounded-card border border-rule bg-smoke p-6";
 
@@ -33,7 +34,7 @@ export function ProfileNotifications() {
 
   return (
     <section className={card}>
-      <h2 className="text-base">Notifications</h2>
+      <h2 className="text-base">{t("Notifications")}</h2>
       <p className="mt-1 mb-4 text-xs leading-relaxed text-cinder">
         How alerts that a project sends to you as a person reach you: by email, by Mattermost message, or not at all (sink).
         Routes work like a project's: tried from the top, all conditions must match, and you can match on <span className="mono">project</span> too.
@@ -43,7 +44,7 @@ export function ProfileNotifications() {
 
       <RouteList routes={routes} readOnly={false} empty="No routes. You get no notifications." unavailable={unavailable}
         onReorder={reorder} onOpen={i => setEditing({ index: i, route: routes[i]! })} />
-      <Button size="sm" className="mt-3" icon={<Plus aria-hidden="true" />} onClick={() => setEditing({ index: -1, route: newRoute() })}>Add route</Button>
+      <Button size="sm" className="mt-3" icon={<Plus aria-hidden="true" />} onClick={() => setEditing({ index: -1, route: newRoute() })}>{t("Add route")}</Button>
 
       <RouteModal route={editing?.route ?? null} index={editing?.index ?? -1}
         fields={saved.fields} ops={saved.ops} kinds={saved.receiverKinds} readOnly={false} unavailable={unavailable}

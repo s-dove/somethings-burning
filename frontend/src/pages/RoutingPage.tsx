@@ -7,6 +7,7 @@ import { RouteList } from "./RouteList";
 import { RouteModal } from "./RouteModal";
 import { backToSettings, SettingsFrame, useSettings } from "./SettingsPage";
 import { useRouteTable } from "./useRouteTable";
+import { t } from "../shared/i18n";
 
 const newRoute = (): Route => ({
   name: "",
@@ -80,7 +81,7 @@ export function RoutingPage() {
               }}
             />
 
-            {!admin && <p className="mt-6 text-xs text-cinder">Only project admins can change notifications.</p>}
+            {!admin && <p className="mt-6 text-xs text-cinder">{t("Only project admins can change notifications.")}</p>}
           </div>
         )
       }

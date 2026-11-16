@@ -4,6 +4,7 @@ import { Button } from "../ui/components/Button";
 import { Check, Plus, Search, X } from "../ui/icons";
 import { useApi } from "../shared/api";
 import { Tip } from "./Tip";
+import { t } from "../shared/i18n";
 
 interface Person {
   email: string;
@@ -47,7 +48,7 @@ export function PeopleInput({ values, onChange, project, disabled, invalid }: {
       })}
       {!disabled && <>
         <input
-          aria-label="Find people"
+          aria-label={t("Find people")}
           className="h-6 min-w-40 flex-1 border-0 bg-transparent px-1 py-0 text-xs text-soot outline-none placeholder:text-cinder focus:ring-0"
           placeholder={values.length ? "Add someone" : "Type a name or @username"}
           value=""
@@ -118,22 +119,22 @@ function PeopleModal({ open, people, chosen, query, onQuery, onClose, onDone }: 
       <div className="fixed inset-0 flex items-center justify-center p-4">
         <DialogPanel transition className="flex h-[min(640px,85vh)] w-full max-w-[1040px] flex-col overflow-hidden rounded-card border border-rule bg-ash shadow-2xl data-closed:scale-[0.98] data-closed:opacity-0 motion-safe:transition motion-safe:duration-100">
           <div className="flex shrink-0 items-center gap-3 border-b border-rule px-4 py-3">
-            <DialogTitle className="text-sm font-semibold">Choose people</DialogTitle>
+            <DialogTitle className="text-sm font-semibold">{t("Choose people")}</DialogTitle>
             <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-control border border-rule bg-ash px-2.5 focus-within:border-cinder">
               <Search size={14} className="shrink-0 text-cinder" aria-hidden="true" />
-              <input autoFocus aria-label="Search people" className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-[13px] outline-none focus:ring-0" placeholder="Name, @username, or email"
+              <input autoFocus aria-label={t("Search people")} className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-[13px] outline-none focus:ring-0" placeholder={t("Name, @username, or email")}
                 value={query} onChange={e => onQuery(e.target.value)} onKeyDown={onKey}
                 aria-activedescendant={items[active] ? `person-${active}` : undefined} />
             </label>
-            <button type="button" className="-mr-1 cursor-pointer rounded-control p-1 text-cinder hover:bg-rule-soft hover:text-soot" aria-label="Close" onClick={onClose}><X size={16} /></button>
+            <button type="button" className="-mr-1 cursor-pointer rounded-control p-1 text-cinder hover:bg-rule-soft hover:text-soot" aria-label={t("Close")} onClick={onClose}><X size={16} /></button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
-            {shown.length === 0 && !extra && <p className="py-10 text-center text-[13px] text-cinder">No one matches. People appear here once they have signed in; you can also type a full email address.</p>}
+            {shown.length === 0 && !extra && <p className="py-10 text-center text-[13px] text-cinder">{t("No one matches. People appear here once they have signed in; you can also type a full email address.")}</p>}
             <ul className="m-0 grid list-none grid-cols-1 gap-2.5 p-0 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {extra && (
                 <li><button type="button" id="person-0" ref={el => { refs.current[0] = el; }} tabIndex={-1} className={panel(picked.includes(extra), 0)} aria-pressed={picked.includes(extra)} onMouseEnter={() => setActive(0)} onClick={() => toggle(extra)}>
                   <span className="grid size-8 shrink-0 place-items-center rounded-full border border-dashed border-rule text-cinder" aria-hidden="true"><Plus size={14} /></span>
-                  <span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-medium">Add {extra}</span><span className="block text-xs text-cinder">Has not signed in yet</span></span>
+                  <span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-medium">Add {extra}</span><span className="block text-xs text-cinder">{t("Has not signed in yet")}</span></span>
                   {picked.includes(extra) && <Check size={14} className="shrink-0" aria-hidden="true" />}
                 </button></li>
               )}
@@ -157,12 +158,12 @@ function PeopleModal({ open, people, chosen, query, onQuery, onClose, onDone }: 
             <span className="text-xs text-cinder">{picked.length ? `${picked.length} chosen` : "No one chosen"}</span>
             <span className="flex flex-1 flex-wrap items-center justify-end gap-x-3 gap-y-1 text-[11px] text-cinder max-sm:hidden" aria-hidden="true">
               <span><Key>←</Key><Key>↑</Key><Key>↓</Key><Key>→</Key> move</span>
-              <span><Key>Space</Key> check</span>
-              <span><Key>Enter</Key> done</span>
-              <span><Key>Esc</Key> close</span>
+              <span><Key>{t("Space")}</Key> check</span>
+              <span><Key>{t("Enter")}</Key> done</span>
+              <span><Key>{t("Esc")}</Key> close</span>
             </span>
-            <Button size="sm" onClick={onClose}>Cancel</Button>
-            <Button size="sm" variant="primary" onClick={() => onDone(picked)}>Done</Button>
+            <Button size="sm" onClick={onClose}>{t("Cancel")}</Button>
+            <Button size="sm" variant="primary" onClick={() => onDone(picked)}>{t("Done")}</Button>
           </div>
         </DialogPanel>
       </div>

@@ -7,6 +7,7 @@ import { ago } from "../shared/format";
 import { section, sectionTitle } from "../shared/ui";
 import { Markdown } from "../components/Markdown";
 import { Tip, TimeTip } from "../components/Tip";
+import { t } from "../shared/i18n";
 
 const MAX = 10_000;
 
@@ -72,8 +73,8 @@ export function Comments({ projectId, issueId, comments: fromPage }: { projectId
         </ol>
       )}
       <form onSubmit={e => { e.preventDefault(); void post(); }}>
-        <label htmlFor="comment-draft" className="sr-only">Add a comment</label>
-        <Editor id="comment-draft" ref={box} value={draft} onChange={setDraft} onSubmit={() => void post()} placeholder="Add a comment. What you found, what you tried, who is on it." />
+        <label htmlFor="comment-draft" className="sr-only">{t("Add a comment")}</label>
+        <Editor id="comment-draft" ref={box} value={draft} onChange={setDraft} onSubmit={() => void post()} placeholder={t("Add a comment. What you found, what you tried, who is on it.")} />
         <div className="mt-2 flex items-center justify-between gap-3">
           <Hint length={draft.length} />
           <Button variant="primary" size="sm" type="submit" disabled={busy || !draft.trim()}>{busy ? "Posting…" : "Comment"}</Button>
@@ -100,13 +101,13 @@ function CommentItem({ comment: c, busy, names, onQuote, onMention, onSave, onDe
                   <span className="font-semibold">{c.authorName || c.author}</span> <span className="text-cinder">@{c.authorUsername}</span>
                 </button>
               </Tip>
-            : <span className="font-semibold">Someone</span>}
+            : <span className="font-semibold">{t("Someone")}</span>}
           <TimeTip at={c.createdAt}><span className="text-cinder">{ago(c.createdAt)}</span></TimeTip>
           {c.editedAt > 0 && <TimeTip at={c.editedAt}><span className="text-cinder">· edited {ago(c.editedAt)}</span></TimeTip>}
           {editing === null && (
             <span className="ml-auto flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
-              <button type="button" className={action} onClick={onQuote}><Quote size={12} aria-hidden="true" />Quote</button>
-              {c.canEdit && <button type="button" className={action} onClick={() => setEditing(c.body)}><Pencil size={12} aria-hidden="true" />Edit</button>}
+              <button type="button" className={action} onClick={onQuote}><Quote size={12} aria-hidden="true" />{t("Quote")}</button>
+              {c.canEdit && <button type="button" className={action} onClick={() => setEditing(c.body)}><Pencil size={12} aria-hidden="true" />{t("Edit")}</button>}
               {c.canDelete && <Tip content="Delete"><button type="button" className={`${action} hover:text-ember-ink`} aria-label="Delete comment" onClick={onDelete}><Trash2 size={12} /></button></Tip>}
             </span>
           )}
@@ -120,8 +121,8 @@ function CommentItem({ comment: c, busy, names, onQuote, onMention, onSave, onDe
             <div className="mt-2 flex items-center justify-between gap-3">
               <Hint length={editing.length} editing />
               <span className="flex gap-2">
-                <Button size="sm" onClick={() => setEditing(null)}>Cancel</Button>
-                <Button size="sm" variant="primary" disabled={busy || !editing.trim() || editing === c.body} onClick={() => void save()}>Save</Button>
+                <Button size="sm" onClick={() => setEditing(null)}>{t("Cancel")}</Button>
+                <Button size="sm" variant="primary" disabled={busy || !editing.trim() || editing === c.body} onClick={() => void save()}>{t("Save")}</Button>
               </span>
             </div>
           </div>
@@ -140,12 +141,12 @@ function Editor({ id, value, onChange, onSubmit, onCancel, placeholder, autoFocu
   const tab = "cursor-pointer rounded-control px-2.5 py-1 text-xs text-cinder aria-selected:bg-ash aria-selected:font-medium aria-selected:text-soot aria-selected:shadow-sm";
   return (
     <div className="overflow-hidden rounded-control border border-rule bg-ash focus-within:border-cinder">
-      <div className="flex gap-1 border-b border-rule-soft bg-smoke p-1" role="tablist" aria-label="Comment">
-        <button type="button" role="tab" aria-selected={!preview} className={tab} onClick={() => setPreview(false)}>Write</button>
-        <button type="button" role="tab" aria-selected={preview} className={tab} onClick={() => setPreview(true)}>Preview</button>
+      <div className="flex gap-1 border-b border-rule-soft bg-smoke p-1" role="tablist" aria-label={t("Comment")}>
+        <button type="button" role="tab" aria-selected={!preview} className={tab} onClick={() => setPreview(false)}>{t("Write")}</button>
+        <button type="button" role="tab" aria-selected={preview} className={tab} onClick={() => setPreview(true)}>{t("Preview")}</button>
       </div>
       {preview ? (
-        <div className="min-h-20 px-3 py-2.5">{value.trim() ? <Markdown text={value} /> : <span className="text-xs text-cinder">Nothing to preview.</span>}</div>
+        <div className="min-h-20 px-3 py-2.5">{value.trim() ? <Markdown text={value} /> : <span className="text-xs text-cinder">{t("Nothing to preview.")}</span>}</div>
       ) : (
         <textarea
           id={id} ref={ref} autoFocus={autoFocus} placeholder={placeholder} value={value} maxLength={MAX}

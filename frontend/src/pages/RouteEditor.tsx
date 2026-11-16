@@ -7,6 +7,7 @@ import { Ban, Link2, Mail, MessageCircle, Plus, SendHorizontal, TrendingUp, User
 import { TRIGGERS, TRIGGER_HINT, TRIGGER_LABEL, triggersOf, withTriggers, type Trigger } from "./routeTriggers";
 import type { Matcher, MatchOp, Receiver, ReceiverKind, Route } from "../shared/api";
 import { input } from "../shared/ui";
+import { t } from "../shared/i18n";
 
 const FIELD_HINT: Record<string, string> = {
   project: "the project's name",
@@ -121,11 +122,11 @@ export function RouteEditor({ route: r, fields, ops, kinds, readOnly, onChange, 
 
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-semibold" htmlFor="route-name">Name</label>
+      <label className="mb-1.5 block text-xs font-semibold" htmlFor="route-name">{t("Name")}</label>
       <input id="route-name" className={`${input} mb-6 h-8 w-full py-1`} placeholder="Optional, shown in the list" value={r.name} disabled={readOnly} maxLength={80} onChange={e => onChange({ ...r, name: e.target.value })} />
 
-      <h3 className="mb-2 text-xs font-semibold">Alerts <span className="font-normal text-cinder">which kinds of alert this route takes</span></h3>
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Alerts">
+      <h3 className="mb-2 text-xs font-semibold">Alerts <span className="font-normal text-cinder">{t("which kinds of alert this route takes")}</span></h3>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("Alerts")}>
         {TRIGGERS.map(trig => {
           const picked = on.has(trig);
           const last = picked && on.size === 1;
@@ -145,7 +146,7 @@ export function RouteEditor({ route: r, fields, ops, kinds, readOnly, onChange, 
       </div>
       {spikes && r.spike && <SpikeRow spike={r.spike} readOnly={readOnly} problem={problems.get("spike")} onChange={spike => onChange({ ...r, spike })} />}
 
-      <h3 className="mt-6 mb-2 text-xs font-semibold">When all of these match <span className="font-normal text-cinder">none means every alert of the kinds above</span></h3>
+      <h3 className="mt-6 mb-2 text-xs font-semibold">When all of these match <span className="font-normal text-cinder">{t("none means every alert of the kinds above")}</span></h3>
       <ul className="m-0 grid list-none gap-1.5 p-0">
         {r.matchers.map((m, i) => {
           if (m.field === "trigger") return null;
@@ -163,7 +164,7 @@ export function RouteEditor({ route: r, fields, ops, kinds, readOnly, onChange, 
               <Picker label="Operator" className="w-44" value={m.op} options={opOptions} disabled={readOnly} onChange={op => setMatcher(i, { ...m, op, value: NO_VALUE.includes(op) ? "" : m.value })} />
               {NO_VALUE.includes(m.op) ? <span className="flex h-8 min-w-40 flex-1 items-center rounded-control border border-dashed border-rule px-3 text-xs text-cinder">{NO_VALUE_SAYS[m.op]}</span> : <input aria-label="Value" aria-invalid={valueBad || undefined} className={`${input} mono h-8 min-w-40 flex-1 py-1 text-xs ${valueBad ? "border-ember-ink!" : ""}`} placeholder={PLACEHOLDER[base] ?? ""} value={m.value} disabled={readOnly}
                 onChange={e => setMatcher(i, { ...m, value: e.target.value })} />}
-              {!readOnly && <Tip content="Remove condition"><button type="button" className={iconBtn} aria-label="Remove condition" onClick={() => onChange({ ...r, matchers: r.matchers.filter((_, j) => j !== i) })}><X size={14} /></button></Tip>}
+              {!readOnly && <Tip content={t("Remove condition")}><button type="button" className={iconBtn} aria-label={t("Remove condition")} onClick={() => onChange({ ...r, matchers: r.matchers.filter((_, j) => j !== i) })}><X size={14} /></button></Tip>}
               {problems.has(`m${i}`) && <Problem text={problems.get(`m${i}`)!} />}
             </li>
           );
@@ -172,13 +173,13 @@ export function RouteEditor({ route: r, fields, ops, kinds, readOnly, onChange, 
       {problems.has("m") && <Problem text={problems.get("m")!} />}
       {!readOnly && <button type="button" className={`${addBtn} mt-1.5`} onClick={() => onChange({ ...r, matchers: [...r.matchers, { field: "env", op: "=~", value: "" }] })}><Plus size={12} aria-hidden="true" />Add condition</button>}
 
-      <h3 className="mt-6 mb-2 text-xs font-semibold">Send to</h3>
+      <h3 className="mt-6 mb-2 text-xs font-semibold">{t("Send to")}</h3>
       <ul className="m-0 grid list-none gap-1.5 p-0">
         {rows.map((g, i) => (
           <li key={i} className="flex flex-wrap items-start gap-1.5">
             <Picker label="Send by" className="w-44" value={g.kind} options={kindOptions} disabled={readOnly} onChange={kind => setKind(i, kind)} />
             {g.kind === "sink"
-              ? <span className="flex h-8 min-w-40 flex-1 items-center text-xs text-cinder">Alerts that match are dropped silently. Matching stops here.</span>
+              ? <span className="flex h-8 min-w-40 flex-1 items-center text-xs text-cinder">{t("Alerts that match are dropped silently. Matching stops here.")}</span>
               : g.kind === "assignee"
               ? <span className="flex h-8 min-w-40 flex-1 items-center text-xs text-cinder">Whoever the issue is assigned to, through their own routing.</span>
               : g.kind === "user"
@@ -201,7 +202,7 @@ export function RouteEditor({ route: r, fields, ops, kinds, readOnly, onChange, 
         <label className="mt-6 flex w-fit cursor-pointer items-center gap-2 text-[13px]">
           <input type="checkbox" checked={r.continue} disabled={readOnly} onChange={e => onChange({ ...r, continue: e.target.checked })} />
           Continue
-          <span className="text-xs text-cinder">keep matching the routes below after this one</span>
+          <span className="text-xs text-cinder">{t("keep matching the routes below after this one")}</span>
         </label>
       )}
     </div>
@@ -237,15 +238,15 @@ function SpikeRow({ spike, readOnly, problem, onChange }: { spike: { events: num
   return (
     <div className="mt-3">
       <div className="flex flex-wrap items-center gap-2 text-[13px]">
-        <span className="font-semibold text-ember-ink">A spike is</span>
+        <span className="font-semibold text-ember-ink">{t("A spike is")}</span>
         at least
-        <input type="number" min={1} aria-label="Events in an hour" className={num} value={spike.events || ""} disabled={readOnly} onChange={e => onChange({ ...spike, events: Math.floor(Number(e.target.value)) })} />
+        <input type="number" min={1} aria-label={t("Events in an hour")} className={num} value={spike.events || ""} disabled={readOnly} onChange={e => onChange({ ...spike, events: Math.floor(Number(e.target.value)) })} />
         events in an hour, and
-        <input type="number" min={1} step={0.5} aria-label="Times the usual rate" className={num} value={spike.factor || ""} disabled={readOnly} onChange={e => onChange({ ...spike, factor: Number(e.target.value) })} />
+        <input type="number" min={1} step={0.5} aria-label={t("Times the usual rate")} className={num} value={spike.factor || ""} disabled={readOnly} onChange={e => onChange({ ...spike, factor: Number(e.target.value) })} />
         times the usual hourly rate.
       </div>
       {problem && <p className="m-0 mt-1 text-xs text-ember-ink">{problem}</p>}
-      <p className="m-0 mt-1.5 text-xs text-cinder">For this route. It alerts an issue at most every six hours. The default route takes no spikes.</p>
+      <p className="m-0 mt-1.5 text-xs text-cinder">{t("For this route. It alerts an issue at most every six hours. The default route takes no spikes.")}</p>
     </div>
   );
 }

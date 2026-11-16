@@ -1,4 +1,5 @@
 // The flame is both the logo and the favicon.
+import { t } from "../shared/i18n";
 export function LogoMark({ size = "md" }: { size?: "md" | "lg" }) {
   return (
     <img
@@ -20,7 +21,7 @@ export function Logo({ size = "md", tagline = true }: { size?: "md" | "lg"; tagl
         <span className={`brand-wordmark block text-soot ${size === "lg" ? "text-[34px]" : "text-[27px]"}`}>
           burning
         </span>
-        {tagline && <span className="block whitespace-nowrap text-[10px] leading-tight text-cinder">Something’s burning.</span>}
+        {tagline && <span className="block whitespace-nowrap text-[10px] leading-tight text-cinder">{t("Something’s burning.")}</span>}
       </span>
     </span>
   );

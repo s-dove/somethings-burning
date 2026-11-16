@@ -1,6 +1,7 @@
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from "@headlessui/react";
 import { useState, type ReactNode } from "react";
 import { Check, X } from "../ui/icons";
+import { t } from "../shared/i18n";
 
 export interface PickOption<T extends string> {
   value: T;
@@ -43,7 +44,7 @@ export function Picker<T extends string>({ label, value, options, onChange, disa
           <DialogPanel transition className="flex max-h-[85vh] w-full max-w-[1040px] flex-col overflow-hidden rounded-card border border-rule bg-ash shadow-2xl data-closed:scale-[0.98] data-closed:opacity-0 motion-safe:transition motion-safe:duration-100">
             <div className="flex shrink-0 items-center gap-3 border-b border-rule px-4 py-3">
               <DialogTitle className="min-w-0 flex-1 truncate text-sm font-semibold">{label}</DialogTitle>
-              <button type="button" className="-mr-1 cursor-pointer rounded-control p-1 text-cinder hover:bg-rule-soft hover:text-soot" aria-label="Close" onClick={() => setOpen(false)}><X size={16} /></button>
+              <button type="button" className="-mr-1 cursor-pointer rounded-control p-1 text-cinder hover:bg-rule-soft hover:text-soot" aria-label={t("Close")} onClick={() => setOpen(false)}><X size={16} /></button>
             </div>
             <ul className="m-0 grid min-h-0 flex-1 list-none grid-cols-1 gap-2.5 overflow-y-auto p-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {options.map(o => {

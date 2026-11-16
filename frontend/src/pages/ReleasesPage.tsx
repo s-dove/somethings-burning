@@ -8,6 +8,7 @@ import { Tip, TimeTip } from "../components/Tip";
 import { useApi, type ProjectRef, type ReleaseSummary } from "../shared/api";
 import { ago, plural } from "../shared/format";
 import { Rocket } from "../ui/icons";
+import { t } from "../shared/i18n";
 
 /** A project's releases, newest first: what each brought, and where it was deployed. */
 export function ReleasesPage() {
@@ -21,22 +22,22 @@ export function ReleasesPage() {
       {data && (
         <>
           <PageHeader
-            title="Releases"
+            title={t("Releases")}
             after={<p className="mt-2 text-[13px] text-cinder">Each release the SDKs reported, or CI created, newest first. Open one to see its issues.</p>}
             spaceBelow="mb-6"
           />
           {data.releases.length === 0 ? (
             <div className="rounded-card border border-dashed border-rule px-6 py-16 text-center text-[13px] text-cinder">
-              No releases yet. Set the SDK's <span className="mono">release</span>, or create releases from CI with an API token.
+              No releases yet. Set the SDK's <span className="mono">{t("release")}</span>, or create releases from CI with an API token.
             </div>
           ) : (
             <div className="overflow-hidden rounded-card border border-rule bg-ash">
               <div className="grid grid-cols-[minmax(0,1fr)_90px_80px_80px_100px] gap-4 border-b border-rule bg-smoke/60 px-5 py-3 text-xs text-cinder max-md:hidden">
-                <span>Release</span>
-                <span className="text-right">New issues</span>
-                <span className="text-right">Fired again</span>
-                <span className="text-right">Issues</span>
-                <span className="text-right">Events</span>
+                <span>{t("Release")}</span>
+                <span className="text-right">{t("New issues")}</span>
+                <span className="text-right">{t("Fired again")}</span>
+                <span className="text-right">{t("Issues")}</span>
+                <span className="text-right">{t("Events")}</span>
               </div>
               {data.releases.map((r) => (
                 <article key={r.version} className="grid grid-cols-[minmax(0,1fr)_90px_80px_80px_100px] items-center gap-4 border-b border-rule-soft px-5 py-4 last:border-b-0 max-md:grid-cols-1">
