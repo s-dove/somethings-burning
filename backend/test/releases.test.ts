@@ -25,7 +25,7 @@ describe("releases and deploys", () => {
 });
 
 describe("API tokens", () => {
-  it("lets a token create releases and deploys for its project only", async () => {
+  it("lets a token create releases, deploys, and source maps for its project only", async () => {
     const s = await setup({ auth: true });
     await setGrant(s.db, s.project.id, "user", "ana@example.com", "admin");
     const made = await s.app.request(`/api/projects/${s.project.id}/tokens`, { method: "POST", ...json({ name: "CI" }, as("ana@example.com")) });
@@ -34,6 +34,8 @@ describe("API tokens", () => {
     const ci = (path: string, body: unknown) => s.app.request(path, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(body) });
     expect((await ci(`/api/projects/${s.project.id}/releases`, { version: "web@3", commit: "abc1234" })).status).toBe(201);
     expect((await ci(`/api/projects/${s.project.id}/deploys`, { release: "web@3", environment: "production" })).status).toBe(201);
+    const map = JSON.stringify({ version: 3, sources: ["a.ts"], names: [], mappings: "AAAA" });
+    expect((await ci(`/api/projects/${s.project.id}/sourcemaps`, { release: "web@3", name: "~/a.js.map", content: map })).status).toBe(201);
     // Nothing else, and not another project.
     expect((await s.app.request(`/api/projects/${s.project.id}/issues`, { headers: { authorization: `Bearer ${token}` } })).status).toBe(403);
     expect((await ci(`/api/projects/${s.project.id}/tokens`, { name: "more" })).status).toBe(403);

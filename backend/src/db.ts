@@ -357,7 +357,7 @@ CREATE TABLE IF NOT EXISTS issue_redirects (
   to_id   BIGINT NOT NULL
 );
 
--- Project API tokens, for CI: releases and deploys.
+-- Project API tokens, for CI: releases, deploys, and source map uploads.
 CREATE TABLE IF NOT EXISTS api_tokens (
   id         ${ID},
   project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -367,6 +367,17 @@ CREATE TABLE IF NOT EXISTS api_tokens (
   created_by TEXT NOT NULL DEFAULT '',
   created_at BIGINT NOT NULL,
   last_used  BIGINT NOT NULL DEFAULT 0
+);
+
+-- Uploaded files a release needs to read its events: JS source maps.
+CREATE TABLE IF NOT EXISTS artifacts (
+  project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  release    TEXT NOT NULL,
+  name       TEXT NOT NULL,
+  content    TEXT NOT NULL,
+  size       BIGINT NOT NULL,
+  created_at BIGINT NOT NULL,
+  PRIMARY KEY (project_id, release, name)
 );
 
 -- Deploys of a release to an environment, marked by CI.

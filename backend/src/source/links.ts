@@ -4,6 +4,7 @@ import type { EventView } from "../event-view.js";
 import { inAppFrames } from "../grouping.js";
 import type { SourceConfig } from "./config.js";
 import { matchFrame, type CodeSources } from "./index.js";
+import { applySourceMaps } from "./sourcemaps.js";
 import type { Commit } from "./source.js";
 
 const LINK_TIMEOUT_MS = 4000;
@@ -45,7 +46,7 @@ export async function attachLinks(view: EventView, ev: SentryEvent, sources: Sou
     await Promise.all(
       view.exceptions[e]!.frames.map(async (fv, k) => {
         const f = raw[k];
-        if (!f) return;
+        if (!f || fv.mapped) return; // mapped frames are original code, not in this path
         const spot = app.has(f) && matchFrame(sources, f);
         if (!spot) return;
         const commit = await sha(spot.source);
@@ -67,6 +68,12 @@ export async function attachLinks(view: EventView, ev: SentryEvent, sources: Sou
     );
   });
   await Promise.race([Promise.all(work), new Promise((r) => setTimeout(r, LINK_TIMEOUT_MS))]);
+}
+
+/** Source maps first (they change a frame's file and line), then repository links and lines. */
+export async function enrichEvent(view: EventView, ev: SentryEvent, ctx: { db: Db; projectId: number; sources: SourceConfig[]; code: CodeSources }): Promise<void> {
+  for (const { e, raw } of pairs(view, ev)) await applySourceMaps(ctx.db, ctx.projectId, releaseOf(ev), view.exceptions[e]!.frames, raw);
+  await attachLinks(view, ev, ctx.sources, ctx.code);
 }
 
 export interface Suspects {
