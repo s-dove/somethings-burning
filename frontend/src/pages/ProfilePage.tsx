@@ -10,6 +10,8 @@ import { api, useApi, type Profile, type Session } from "../shared/api";
 import { ago, stamp } from "../shared/format";
 import { input } from "../shared/ui";
 import { Tip } from "../components/Tip";
+import { LangGrid } from "../components/LangSwitch";
+import { chooseLang, lang, t } from "../shared/i18n";
 import { ProfileDigest } from "./ProfileDigest";
 import { ProfileNotifications } from "./ProfileNotifications";
 
@@ -59,6 +61,11 @@ function ProfileDetails({ profile: p, onSaved }: { profile: Profile; onSaved: ()
   return (
     <>
       <Names profile={p} onSaved={onSaved} />
+      <section className={card}>
+        <h2 className="text-base">{t("Language")}</h2>
+        <p className="mt-1 mb-4 text-xs text-cinder">{t("Language follows your account. The rest of Burning stays in English for now.")}</p>
+        <LangGrid cols={2} onPick={(l) => void chooseLang(l, true)} current={lang} />
+      </section>
       <ProfileDigest />
       <ProfileNotifications />
 

@@ -26,6 +26,7 @@ export {
   LuGripVertical as GripVertical,
   LuInbox as Inbox,
   LuKeyRound as KeyRound,
+  LuLanguages as Languages,
   LuLayers as Layers,
   LuLayoutGrid as LayoutGrid,
   LuLink2 as Link2,
