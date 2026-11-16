@@ -12,7 +12,9 @@
       // The code theme is chosen on its own. Nothing saved yet means Burning dark.
       try {
         var t = localStorage.getItem("burning-theme");
-        if (t) document.documentElement.dataset.theme = t;
+        // Nothing chosen yet is Burning. "" is an older "follow the system".
+        if (t === null) t = "burning";
+        if (t && t !== "system") document.documentElement.dataset.theme = t;
         var known = ["burning-light", "burning-dark", "github-light", "github-dark"];
         var c = localStorage.getItem("burning-code-theme");
         if (c === "system") c = window.matchMedia("(prefers-color-scheme: dark)").matches ? "burning-dark" : "burning-light";
