@@ -2,6 +2,7 @@ import { Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
 import { useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router";
 import { api, useApi, type Board, type ProjectRef, type Session } from "../shared/api";
+import { t } from "../shared/i18n";
 import { input } from "../shared/ui";
 import { Button } from "../ui/components/Button";
 import { ChevronRight, Plus } from "../ui/icons";
@@ -35,19 +36,19 @@ export function Layout({ project: given, nav, children }: Props) {
       <div className="flex min-h-0 min-w-0 flex-col">
         <header className="sticky top-0 z-30 flex min-h-14 shrink-0 flex-wrap items-center gap-x-4 border-b border-rule bg-ash/75 px-6 backdrop-blur-md backdrop-saturate-150 lg:h-16 lg:px-9">
           <Link to="/" className="text-[13px] text-cinder no-underline">
-            Projects
+            {t("Projects")}
           </Link>
           <ChevronRight className="shrink-0 text-cinder" aria-hidden="true" />
-          <span className="min-w-0 truncate text-[13px] font-medium">{nav === "profile" ? "Profile" : project ? project.name : "All issues"}</span>
+          <span className="min-w-0 truncate text-[13px] font-medium">{nav === "profile" ? t("Profile") : project ? project.name : t("All issues")}</span>
           {/* A project has Issues and its Settings; All issues has Issues and
               the global Settings, in the same place. */}
           {nav !== "profile" && (
-            <nav className="ml-auto flex gap-6" aria-label={project ? "Project" : "All projects"}>
+            <nav className="ml-auto flex gap-6" aria-label={project ? t("Project") : t("All projects")}>
               <Link className={tab} to={project ? `/p/${project.id}` : "/"} aria-current={nav === "issues" ? "page" : undefined}>
-                Issues
+                {t("Issues")}
               </Link>
               <Link className={tab} to={project ? `/p/${project.id}/settings` : "/settings"} aria-current={nav === "settings" || nav === "site" ? "page" : undefined}>
-                Settings
+                {t("Settings")}
               </Link>
             </nav>
           )}
@@ -72,14 +73,14 @@ function NewProject({ onCreate }: { onCreate: () => void }) {
         <>
           <PopoverButton className="flex w-full cursor-pointer items-center gap-3 rounded-control px-3 py-2.5 text-[13px] text-cinder hover:bg-rule-soft hover:text-soot">
             <Plus aria-hidden="true" />
-            New project
+            {t("New project")}
           </PopoverButton>
           <PopoverPanel
             anchor="bottom start"
             className="z-40 w-[300px] max-w-[calc(100vw-32px)] rounded-card border border-rule bg-ash p-5 shadow-lg [--anchor-gap:8px]"
           >
-            <h2 className="mb-1">New project</h2>
-            <p className="mb-4 text-xs text-cinder">Connect a service to start collecting errors.</p>
+            <h2 className="mb-1">{t("New project")}</h2>
+            <p className="mb-4 text-xs text-cinder">{t("Connect a service to start collecting errors.")}</p>
             <form
               className="grid gap-3"
               onSubmit={async (e) => {
@@ -103,7 +104,7 @@ function NewProject({ onCreate }: { onCreate: () => void }) {
               }}
             >
               <label className="grid gap-2 text-xs font-medium">
-                Project name
+                {t("Project name")}
                 <input className={input} autoFocus name="name" placeholder="e.g. billing-api" required maxLength={80} />
               </label>
               {error && (
@@ -112,7 +113,7 @@ function NewProject({ onCreate }: { onCreate: () => void }) {
                 </p>
               )}
               <Button variant="primary" type="submit" disabled={busy}>
-                {busy ? "Creating…" : "Create project"}
+                {busy ? t("Creating…") : t("Create project")}
               </Button>
             </form>
           </PopoverPanel>

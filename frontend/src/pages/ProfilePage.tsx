@@ -63,7 +63,7 @@ function ProfileDetails({ profile: p, onSaved }: { profile: Profile; onSaved: ()
       <Names profile={p} onSaved={onSaved} />
       <section className={card}>
         <h2 className="text-base">{t("Language")}</h2>
-        <p className="mt-1 mb-4 text-xs text-cinder">{t("Language follows your account. The rest of Burning stays in English for now.")}</p>
+        <p className="mt-1 mb-4 text-xs text-cinder">{t("Language follows your account.")}</p>
         <LangGrid cols={2} onPick={(l) => void chooseLang(l, true)} current={lang} />
       </section>
       <ProfileDigest />
