@@ -12,6 +12,7 @@ import { Comments } from "./Comments";
 import { EventList } from "./EventList";
 import { EventPanels, RawJson } from "./EventPanels";
 import { IssueHeader, IssueSummary } from "./IssueHeader";
+import { TagsCard } from "./TagsCard";
 
 const historyDot: Record<string, string> = {
   created: "before:bg-heat-3",
@@ -112,6 +113,7 @@ export function IssuePage({ id, issueId }: { id: number; issueId: number }) {
           <div className="max-lg:hidden">
             <IssueHeat issue={issue} />
           </div>
+          <TagsCard tags={data.tags} users={data.users} />
 
           {data.releases.length > 0 && (
             <section className={section}>

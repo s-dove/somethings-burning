@@ -17,6 +17,7 @@ export function EventCard({ event }: { event: EventView }) {
     ["release", event.release, "release"],
     ["env", event.environment, "environment"],
     ["server", event.serverName, "server_name"],
+    ["level", event.level, "level: how bad the SDK says it is"],
     ["sdk", event.sdk, "sdk.name and sdk.version"],
     ...event.tags.map(([k, v]): [string, string, string] => [k, v, `tags.${k}`]),
   ];
