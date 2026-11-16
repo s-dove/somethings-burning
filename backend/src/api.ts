@@ -186,6 +186,20 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
 
   // The issue page: the issue, its releases, the latest stored events, and
   // one event in full (?event=<id>, or the latest).
+  // An issue by its number alone: its project, for /issues/<n> links. A
+  // merged issue leads to the one it went into. No access reads as not found.
+  app.get("/issues/:issue{[0-9]+}", async (c) => {
+    const asked = Number(c.req.param("issue"));
+    const find = (id: number) => db.get<{ id: number; project_id: number }>("SELECT id, project_id FROM issues WHERE id = ?", id);
+    let row = await find(asked);
+    if (!row) {
+      const to = await db.get<{ to_id: number }>("SELECT to_id FROM issue_redirects WHERE from_id = ?", asked);
+      if (to) row = await find(Number(to.to_id));
+    }
+    if (!row || !(await access.role(Number(row.project_id), c.get("user")))) return notFound(c);
+    return c.json({ project: Number(row.project_id), issue: Number(row.id), merged: Number(row.id) !== asked });
+  });
+
   app.get("/projects/:id{[0-9]+}/issues/:issue{[0-9]+}", async (c) => {
     const found = await load(c);
     const issue = found && (await getIssue(db, found.project.id, Number(c.req.param("issue"))));

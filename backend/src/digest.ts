@@ -17,7 +17,7 @@ const DAY = 86_400_000;
  */
 export async function digestFor(db: Db, access: Access, email: string, groups: string[], baseURL: string, now = Date.now()): Promise<string> {
   const projects = await db.all<{ id: number; name: string }>("SELECT id, name FROM projects ORDER BY lower(name)");
-  const roles = await access.roles(projects.map((p) => p.id), { email, groups, name: "", username: "", displayName: "" });
+  const roles = await access.roles(projects.map((p) => p.id), { email, groups, name: "", username: "", displayName: "", lang: "" });
   const since = now - DAY;
   const parts: string[] = [];
   for (const p of projects.filter((x) => roles.has(x.id))) {
@@ -38,7 +38,7 @@ export async function digestFor(db: Db, access: Access, email: string, groups: s
       Math.floor(since / 3_600_000) * 3_600_000,
     );
     if (!created.length && !fired.length && !busiest.length) continue;
-    const link = (id: number) => `${baseURL}/p/${p.id}/issues/${id}`;
+    const link = (id: number) => `${baseURL}/issues/${id}`;
     const lines = [`${p.name}`];
     if (created.length) lines.push(`  New (${created.length}):`, ...created.slice(0, 10).map((i) => `    ${i.title}\n    ${link(i.id)}`));
     if (fired.length) lines.push(`  Fired again (${fired.length}):`, ...fired.slice(0, 10).map((i) => `    ${i.title}\n    ${link(i.id)}`));

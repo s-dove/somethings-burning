@@ -410,6 +410,8 @@ CREATE TABLE IF NOT EXISTS issue_users (
 
 // Columns added after their table first shipped, so an older database keeps working.
 const ADDED_COLUMNS: [string, string, string][] = [
+  // The person's interface language; "" until they choose one.
+  ["users", "lang", "TEXT NOT NULL DEFAULT ''"],
   // A route's spike condition, JSON { events, factor }; "" for none.
   ["project_routes", "spike", "TEXT NOT NULL DEFAULT ''"],
   // Triage: open, resolved, or muted; see triage.ts.
