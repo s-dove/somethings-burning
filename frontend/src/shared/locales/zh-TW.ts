@@ -346,5 +346,6 @@ const zh_TW: Record<string, string> = {
   "The project goes, with all its issues and events.": "專案會消失，連同它的全部問題和事件。",
   "Delete this route?": "刪除這條路由？",
   "Confirm": "確認",
+  "Profile: {name}": "個人資料：{name}",
 };
 export default zh_TW;
