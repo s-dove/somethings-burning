@@ -12,6 +12,9 @@ export type FrameView = {
   lines: { no: number; text: string; current: boolean }[];
   vars: [string, string][];
   link: string; // the line in the repository, "" when no code source covers it
+  linesFrom: string; // "repo@sha" when the code lines were read from a code source, not sent by the SDK
+  mapped: string; // the minified location, when a source map turned it into this one
+  changed: string; // added, modified, removed: how the file changed since the previous release
 };
 
 export type EventView = {
@@ -21,6 +24,7 @@ export type EventView = {
   release: string;
   environment: string;
   serverName: string;
+  level: string; // as the SDK sent it; "" when it did not
   platform: string;
   sdk: string;
   message: string;
@@ -61,6 +65,9 @@ function frameView(f: Frame & { vars?: Record<string, unknown> }): FrameView {
     lines,
     vars: Object.entries(f.vars ?? {}).map(([k, v]) => [k, pretty(v)]),
     link: "",
+    linesFrom: "",
+    mapped: "",
+    changed: "",
   };
 }
 
@@ -108,6 +115,7 @@ export function eventView(stored: StoredEvent): EventView {
     release: text(e.release),
     environment: text(e.environment),
     serverName: text(e.server_name),
+    level: text(e.level),
     platform: text(e.platform),
     sdk: sdk?.name ? `${sdk.name}${sdk.version ? ` ${sdk.version}` : ""}` : "",
     message: messageOf(e),

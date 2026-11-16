@@ -17,6 +17,7 @@ export interface User {
   groups: string[];
   username: string; // preferred_username at sign-in
   displayName: string; // what the app shows: the person's own choice, else the username
+  lang: string; // the interface language they chose; "" for not yet
 }
 
 /** The ways to sign in that the backend has configured. */
@@ -99,6 +100,7 @@ export class Sessions {
       groups: groupsFromClaims({ groups: JSON.parse(row.groups) }, "groups"),
       username,
       displayName: saved ? displayOf(saved) : username,
+      lang: saved?.lang ?? "",
     };
   }
 

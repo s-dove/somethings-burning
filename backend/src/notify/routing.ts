@@ -8,7 +8,7 @@ import { exceptions, summarize, type SentryEvent } from "../event.js";
 //   delivered to them. It has no default: nothing matching means nothing.
 //
 // Routes are tried top to bottom. A route matches when all its matchers do
-// (AND; there is no OR). A matching route sends to its receivers and stops
+// (AND; there is no OR); one with none matches every alert. A matching route sends to its receivers and stops
 // there unless it says continue. A sink route drops what matches, silently,
 // and always stops.
 
@@ -32,9 +32,23 @@ export type Op = (typeof OPS)[number];
 export const FIELDS = ["trigger", "env", "release", "level", "type", "message", "culprit", "path"] as const;
 export const PERSONAL_FIELDS = ["project", ...FIELDS] as const;
 
-// What fires an alert: a new issue, a resolved issue firing again, or one
-// firing after a mute.
-export type Trigger = "new" | "fired_again" | "unmuted";
+// What fires an alert: a new issue, a resolved issue firing again, one
+// firing after a mute, or a spike in its events.
+export type Trigger = "new" | "fired_again" | "unmuted" | "spike";
+
+// What a project route that takes spikes counts as one (project routes
+// only): an issue's events in the last hour reach `events`, and `factor`
+// times its hourly average over the 24 hours before. Spikes are routed like
+// any alert, by trigger and the other conditions, and a route takes them only
+// with these numbers; the default route has none, so it takes no spikes. Each
+// route's numbers alert an issue at most every six hours. A person's own
+// table matches spikes like any alert, by trigger.
+export interface Spike {
+  events: number;
+  factor: number;
+}
+export const spikeKey = (s: Spike) => `${s.events}x${s.factor}`;
+export const SPIKE_LIMITS = { events: 1_000_000, factor: 1000 };
 
 export interface Matcher {
   field: string;
@@ -43,11 +57,13 @@ export interface Matcher {
 }
 
 // user: a person by email, reached through their own routing (project only).
+// assignee: whoever the issue is assigned to, through their own routing (project only; no target).
 // email: an address mailed as is: a person, a list, anything.
 // mattermost: a channel, "team-name/channel-name" (project only).
 // mattermost_dm: a direct message to a username (personal only).
+// slack: a Slack incoming webhook URL (project only).
 // webhook: a URL that gets a JSON post (project only).
-export const PROJECT_KINDS = ["user", "email", "mattermost", "webhook"] as const;
+export const PROJECT_KINDS = ["user", "assignee", "email", "mattermost", "slack", "webhook"] as const;
 export const PERSONAL_KINDS = ["email", "mattermost_dm"] as const;
 export type ReceiverKind = (typeof PROJECT_KINDS)[number] | (typeof PERSONAL_KINDS)[number];
 
@@ -62,6 +78,7 @@ export interface Route {
   sink: boolean; // drop what matches; receivers are ignored
   receivers: Receiver[];
   continue: boolean;
+  spike?: Spike; // a spike condition; project routes only
 }
 
 export type Context = "project" | "personal";
@@ -79,6 +96,8 @@ export interface Facts {
   culprit: string;
   paths: string[];
   tags: Record<string, string>;
+  // For a spike alert: this hour's events, the hourly average before, and the spike conditions it newly meets.
+  spike?: { events: number; usual: number; fresh: string[] };
 }
 
 const str = (v: unknown) => (typeof v === "string" ? v : v == null ? "" : String(v));
@@ -161,10 +180,21 @@ export function matches(f: Facts, m: Matcher): boolean {
   }
 }
 
-/** The routes that match, in order, or null when none does. A sink ends the list. */
-export function evaluate(routes: Route[], f: Facts): Route[] | null {
+/** A spike alert fits a route whose spike numbers it newly meets; other alerts fit any route. */
+function spikeFits(r: Route, f: Facts): boolean {
+  if (!f.spike) return true;
+  return !!r.spike && f.spike.fresh.includes(spikeKey(r.spike));
+}
+
+/**
+ * The routes that match, in order, or null when none does. A sink ends the
+ * list. A project's table also matches spike conditions; a person's (spikes
+ * false) does not have them and takes spikes like any alert.
+ */
+export function evaluate(routes: Route[], f: Facts, spikes = true): Route[] | null {
   const hit: Route[] = [];
   for (const r of routes) {
+    if (spikes && !spikeFits(r, f)) continue;
     if (!r.matchers.every((m) => matches(f, m))) continue;
     hit.push(r);
     if (r.sink || !r.continue) break;
@@ -180,11 +210,13 @@ export const LIMITS = { routes: 50, matchers: 20, receivers: 20, value: 500 };
 export function receiverError(kind: string, target: string, ctx: Context): string {
   const kinds: readonly string[] = ctx === "project" ? PROJECT_KINDS : PERSONAL_KINDS;
   if (!kinds.includes(kind)) return `unknown receiver kind "${kind}"`;
+  if (kind === "assignee") return "";
   if (!target) return "fill in every receiver, or remove the empty one";
   if ((kind === "user" || kind === "email") && !EMAIL.test(target)) return `"${target}" is not an email address`;
   if (kind === "mattermost" && !CHANNEL.test(target)) return `"${target}" should be team-name/channel-name`;
   if (kind === "mattermost_dm" && !USERNAME.test(target.replace(/^@/, ""))) return `"${target}" is not a Mattermost username`;
   if (kind === "webhook" && !/^https?:\/\/\S+$/.test(target)) return `"${target}" is not an http(s) URL`;
+  if (kind === "slack" && !/^https:\/\/\S+$/.test(target)) return `"${target}" is not a Slack webhook URL (https://hooks.slack.com/...)`;
   return "";
 }
 
@@ -200,7 +232,16 @@ export function checkRoutes(input: unknown, ctx: Context): { error: string } | {
     const ms = Array.isArray(r.matchers) ? r.matchers : [];
     const sink = r.sink === true;
     const rs = sink ? [] : Array.isArray(r.receivers) ? r.receivers : [];
-    if (ms.length === 0) return { error: `${at}: add at least one condition` };
+    let spike: Spike | undefined;
+    if (r.spike != null) {
+      if (ctx !== "project") return { error: `${at}: spike conditions are for project routes` };
+      const s = r.spike as Record<string, unknown>;
+      const events = Math.floor(Number(s.events));
+      const factor = Number(s.factor);
+      if (!Number.isFinite(events) || events < 1 || events > SPIKE_LIMITS.events) return { error: `${at}: a spike needs at least 1 event in an hour` };
+      if (!Number.isFinite(factor) || factor < 1 || factor > SPIKE_LIMITS.factor) return { error: `${at}: the spike's factor is between 1 and ${SPIKE_LIMITS.factor}` };
+      spike = { events, factor: Math.round(factor * 10) / 10 };
+    }
     if (!sink && rs.length === 0) return { error: `${at}: add a receiver, or make it a sink to drop what matches` };
     if (ms.length > LIMITS.matchers || rs.length > LIMITS.receivers) return { error: `${at}: too many conditions or receivers` };
     const matchers: Matcher[] = [];
@@ -228,9 +269,10 @@ export function checkRoutes(input: unknown, ctx: Context): { error: string } | {
       if (bad) return { error: `${at}: ${bad}` };
       if (kind === "user" || kind === "email") target = target.toLowerCase();
       if (kind === "mattermost_dm") target = target.replace(/^@/, "");
+      if (kind === "assignee") target = "";
       receivers.push({ kind, target });
     }
-    routes.push({ name: String(r.name ?? "").trim().slice(0, 80), matchers, sink, receivers, continue: !sink && r.continue === true });
+    routes.push({ name: String(r.name ?? "").trim().slice(0, 80), matchers, sink, receivers, continue: !sink && r.continue === true, ...(spike ? { spike } : {}) });
   }
   return { routes };
 }

@@ -5,10 +5,20 @@ export interface ChangedFile {
   patch: string; // the diff, only for the paths asked about
 }
 
+export interface Commit {
+  sha: string;
+  message: string; // the first line
+  author: string;
+  url: string; // "" when there is no web view
+}
+
 export interface Source {
   resolve(ref: string): Promise<string | null>; // a commit, tag, or branch to a full commit id
   read(sha: string, path: string): Promise<string | null>; // null: no such file, or too big
   diff(base: string, head: string, paths: string[]): Promise<ChangedFile[]>;
+  /** The given files that changed from base to head, and the commits that changed them, newest first. */
+  changes(base: string, head: string, paths: string[]): Promise<{ files: { path: string; status: string }[]; commits: Commit[] }>;
+  compareLink(base: string, head: string): string; // "" when there is no web view
   link(sha: string, path: string, line?: number): string; // "" when there is no web view
 }
 

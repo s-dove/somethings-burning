@@ -10,6 +10,7 @@ export interface Plan {
   people: string[]; // display names of the people reached
   others: string[]; // email addresses, channels, and webhooks reached
   skipped: string[]; // people whose own routing sent them nothing
+  spike: boolean; // a spike alert, which has no default route
 }
 
 const label = (routes: Route[], r: Route) => r.name || `route ${routes.indexOf(r) + 1}`;
@@ -21,13 +22,15 @@ const label = (routes: Route[], r: Route) => r.name || `route ${routes.indexOf(r
  * receiver is sent as is. Every address gets one message however many
  * routes lead to it.
  */
-export async function planFor(db: Db, projectId: number, f: Facts): Promise<Plan> {
+export async function planFor(db: Db, projectId: number, f: Facts, assignee = ""): Promise<Plan> {
   const routes = await getRouting(db, projectId);
   const hit = evaluate(routes, f);
   const sending = (hit ?? []).filter((r) => !r.sink);
   const receivers: Receiver[] = hit
     ? sending.flatMap((r) => r.receivers)
-    : (await defaultRecipients(db, projectId)).map((email) => ({ kind: "user" as const, target: email }));
+    : f.spike
+      ? []
+      : (await defaultRecipients(db, projectId)).map((email) => ({ kind: "user" as const, target: email }));
 
   const plan: Plan = {
     routes: hit ? hit.map((r) => label(routes, r)) : [],
@@ -36,6 +39,7 @@ export async function planFor(db: Db, projectId: number, f: Facts): Promise<Plan
     people: [],
     others: [],
     skipped: [],
+    spike: !!f.spike,
   };
   const seen = new Set<string>();
   const add = (d: Delivery) => {
@@ -46,11 +50,18 @@ export async function planFor(db: Db, projectId: number, f: Facts): Promise<Plan
     return true;
   };
 
-  const users = [...new Set(receivers.filter((r) => r.kind === "user").map((r) => r.target.toLowerCase()))];
+  // "The assignee" is a person receiver for whoever the issue is assigned to.
+  const users = [
+    ...new Set(
+      receivers
+        .flatMap((r) => (r.kind === "user" ? [r.target] : r.kind === "assignee" && assignee ? [assignee] : []))
+        .map((e) => e.toLowerCase()),
+    ),
+  ];
   const names = await people(db, users);
   for (const email of users) {
     const name = names.get(email)?.displayName ?? email;
-    const own = evaluate((await getPersonalRoutes(db, email)).routes, f)?.filter((r) => !r.sink) ?? [];
+    const own = evaluate((await getPersonalRoutes(db, email)).routes, f, false)?.filter((r) => !r.sink) ?? [];
     let reached = false;
     for (const x of own.flatMap((r) => r.receivers)) {
       if (x.kind === "email" && add({ kind: "email", target: x.target })) reached = true;
@@ -63,6 +74,7 @@ export async function planFor(db: Db, projectId: number, f: Facts): Promise<Plan
     if (r.kind === "email" && add({ kind: "email", target: r.target })) plan.others.push(r.target);
     if (r.kind === "mattermost" && add({ kind: "mattermost_channel", target: r.target })) plan.others.push(`~${r.target}`);
     if (r.kind === "webhook" && add({ kind: "webhook", target: r.target })) plan.others.push(new URL(r.target).host);
+    if (r.kind === "slack" && add({ kind: "slack", target: r.target })) plan.others.push("Slack");
   }
   return plan;
 }
@@ -71,6 +83,7 @@ export async function planFor(db: Db, projectId: number, f: Facts): Promise<Plan
 export function summary(p: Plan): string {
   const list = (xs: string[]) => (xs.length > 4 ? `${xs.slice(0, 4).join(", ")} and ${xs.length - 4} more` : xs.join(", "));
   const quoted = p.routes.map((r) => `"${r}"`).join(", ");
+  if (!p.routes.length && p.spike) return "No one notified: no route with a spike condition matched";
   const via = p.routes.length ? `route ${quoted}` : "the default route";
   const who = [...p.people, ...p.others];
   let text = who.length ? `Notified ${list(who)} by ${via}` : p.sunk ? `Dropped by route ${quoted}` : `No one notified: ${via} sends to no one`;

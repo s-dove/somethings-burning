@@ -45,7 +45,7 @@ describe("routing", () => {
   it("checks tables from the settings pages", async () => {
     const ok = checkRoutes([{ matchers: [{ field: "env", op: "=", value: "x" }], receivers: [{ kind: "email", target: "A@Example.com" }] }], "project");
     expect(ok).toEqual({ routes: [{ name: "", matchers: [{ field: "env", op: "=", value: "x" }], sink: false, receivers: [{ kind: "email", target: "a@example.com" }], continue: false }] });
-    expect(checkRoutes([{ matchers: [], receivers: [] }], "project")).toEqual({ error: "route 1: add at least one condition" });
+    expect(checkRoutes([{ matchers: [], receivers: [] }], "project")).toEqual({ error: "route 1: add a receiver, or make it a sink to drop what matches" });
     expect(checkRoutes([{ matchers: [{ field: "env", op: "=~", value: "(" }], sink: true }], "project")).toMatchObject({ error: expect.stringMatching(/not a valid regex/) });
     expect(checkRoutes([{ matchers: [{ field: "project", op: "=", value: "x" }], sink: true }], "project")).toMatchObject({ error: expect.stringMatching(/unknown field/) });
     expect(checkRoutes([{ matchers: [{ field: "project", op: "=", value: "x" }], receivers: [{ kind: "webhook", target: "https://x" }] }], "personal")).toMatchObject({ error: expect.stringMatching(/unknown receiver kind/) });

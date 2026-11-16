@@ -6,6 +6,7 @@ import { createApp } from "./app.js";
 import { Auth, OidcLogin, Sessions, sessionSecret } from "./auth.js";
 import { isPostgresURL, openDb } from "./db.js";
 import { loadEnvFile, readConfig } from "./env.js";
+import { sendDueDigests } from "./digest.js";
 import { expireMutes, prune } from "./issues.js";
 import { PasswordLogin } from "./passwords.js";
 
@@ -28,7 +29,7 @@ if (!sso && !password) console.warn("no sign-in configured (BURNING_OIDC_ISSUER 
 const secure = (config.baseURL || config.oidc.redirectURL).startsWith("https:");
 const auth = new Auth(new Sessions(db, await sessionSecret(db, config.sessionSecret), secure), sso, password);
 
-const { app, outbox, live } = createApp(db, { auth, config });
+const { app, outbox, live, access, senders } = createApp(db, { auth, config });
 // With Postgres, alerts reach the browsers connected to every server.
 if (isPostgresURL(config.db)) await live.listenPostgres(config.db);
 
@@ -69,6 +70,12 @@ every(30_000, "outbox", async () => outbox.kick());
 every(60_000, "expiring mutes", async () => {
   const n = await expireMutes(db);
   if (n) console.log(`mutes ended: ${n}`);
+});
+// Daily digests, from BURNING_DIGEST_HOUR (UTC) on, to people who turned them on.
+every(15 * 60_000, "digests", async () => {
+  if (!senders.emailEnabled) return;
+  const n = await sendDueDigests(db, access, senders, config.baseURL || `http://localhost:${config.port}`, config.digestHour, config.oidc.groupsClaim);
+  if (n) console.log(`digests sent: ${n}`);
 });
 every(3_600_000, "pruning events", async () => {
   const n = await prune(db, config.retentionDays * 86_400_000);

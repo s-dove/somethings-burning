@@ -23,7 +23,7 @@ export interface AppDeps {
  * createApp puts it all together: Sentry ingest (by project key), sign-in,
  * and the web app's JSON API. With no auth, no one can sign in.
  */
-export function createApp(db: Db, deps: AppDeps = {}): { app: Hono; outbox: Outbox; queue: IngestQueue; live: LiveAlerts } {
+export function createApp(db: Db, deps: AppDeps = {}): { app: Hono; outbox: Outbox; queue: IngestQueue; live: LiveAlerts; access: Access; senders: Senders } {
   const config = deps.config ?? readConfig({});
   const senders = deps.senders ?? new Senders(config.smtp, new Mattermost(config.mattermost));
   const outbox = new Outbox(db, senders);
@@ -49,7 +49,8 @@ export function createApp(db: Db, deps: AppDeps = {}): { app: Hono; outbox: Outb
   });
   const auth = deps.auth ?? noAuth;
   app.route("/", auth.routes());
-  app.route("/api", apiRoutes(db, { auth, access: new Access(db, config.siteAdmins), senders, baseURL: config.baseURL, config, live, code }));
+  const access = new Access(db, config.siteAdmins);
+  app.route("/api", apiRoutes(db, { auth, access, senders, baseURL: config.baseURL, config, live, code }));
   app.all("/api/*", (c) => c.json({ detail: "not found" }, 404));
-  return { app, outbox, queue, live };
+  return { app, outbox, queue, live, access, senders };
 }

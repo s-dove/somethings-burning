@@ -1,6 +1,12 @@
+import { createHash } from "node:crypto";
 import { addActivity, type ActivityExtra } from "./activity.js";
 import type { Db } from "./db.js";
 import { summarize, type SentryEvent } from "./event.js";
+import { spikeKey } from "./notify/routing.js";
+import { getRouting } from "./notify/store.js";
+import { applyGrouping, ownerFor } from "./rules.js";
+import { scrubEvent } from "./scrub.js";
+import { getConfig, type ProjectConfig } from "./settings.js";
 import { muteBroken, MuteFor, MuteNextRelease, type Mute, type MuteOption } from "./triage.js";
 
 const HOUR = 3_600_000;
@@ -26,13 +32,15 @@ export type Issue = {
   resolvedAt: number;
   mute: Mute;
   reopenReason: string; // why it last fired again
+  assignee: string; // email of who handles it, "" for no one
+  externalUrl: string; // a GitHub issue made from it, "" for none
   firstSeen: number;
   lastSeen: number;
   eventCount: number;
 };
 
-/** Why an event alerts: a new issue, a resolved one firing again, or one firing after a mute. */
-export type AlertKind = "new" | "fired_again" | "unmuted";
+/** Why an event alerts: a new issue, a resolved one firing again, one firing after a mute, or a spike. */
+export type AlertKind = "new" | "fired_again" | "unmuted" | "spike";
 
 export type StoredEvent = {
   id: number;
@@ -64,6 +72,8 @@ export type IssueRow = {
   count: number;
   stored_count: number;
   last_stored: number;
+  assignee: string;
+  external_url: string;
 };
 
 export const toIssue = (r: IssueRow): Issue => ({
@@ -77,6 +87,8 @@ export const toIssue = (r: IssueRow): Issue => ({
   resolvedAt: r.resolved_at,
   mute: { kind: r.mute_kind, until: r.mute_until, mutedAt: r.muted_at },
   reopenReason: r.reopen_reason,
+  assignee: r.assignee ?? "",
+  externalUrl: r.external_url ?? "",
   firstSeen: r.first_seen,
   lastSeen: r.last_seen,
   eventCount: r.count,
@@ -89,7 +101,8 @@ export interface Recorded {
   issueId: number;
   title: string;
   alert: AlertKind | null; // why this event alerts, if it does
-  reason: string; // for fired_again and unmuted
+  reason: string; // for fired_again, unmuted, and spike
+  spike?: { events: number; usual: number; fresh: string[] }; // for spike: the numbers, and the route conditions newly met
 }
 
 /**
@@ -99,7 +112,11 @@ export interface Recorded {
  * servers may record at once: the unique fingerprint decides which one creates
  * a new issue, and the issue's row is locked while an event changes it.
  */
-export function recordEvent(db: Db, projectId: number, event: SentryEvent, now = Date.now()): Promise<Recorded> {
+export async function recordEvent(db: Db, projectId: number, input: SentryEvent, now = Date.now(), config?: ProjectConfig): Promise<Recorded> {
+  const cfg = config ?? (await getConfig(db, projectId));
+  // Secrets out first, so nothing below (or the stored payload) sees them;
+  // then the project's grouping rules may set the fingerprint.
+  const event = applyGrouping(scrubEvent(input, cfg.scrub), cfg.grouping);
   const s = summarize(event);
   const release = str(event.release);
   const environment = str(event.environment);
@@ -107,7 +124,12 @@ export function recordEvent(db: Db, projectId: number, event: SentryEvent, now =
   return db.tx(async (t) => {
     if (release) await t.run("INSERT INTO releases (project_id, version, first_seen) VALUES (?, ?, ?) ON CONFLICT DO NOTHING", projectId, release, now);
     const res: Recorded = { eventId: s.eventId, issueId: 0, title: s.title, alert: null, reason: "" };
-    const existing = () => t.get<IssueRow>(`SELECT * FROM issues WHERE project_id = ? AND fingerprint = ? ${t.forUpdate}`, projectId, s.fingerprint);
+    // A fingerprint merged into another issue belongs to that issue.
+    const alias = await t.get<{ issue_id: number }>("SELECT issue_id FROM issue_fingerprints WHERE project_id = ? AND fingerprint = ?", projectId, s.fingerprint);
+    const existing = () =>
+      alias
+        ? t.get<IssueRow>(`SELECT * FROM issues WHERE id = ? ${t.forUpdate}`, alias.issue_id)
+        : t.get<IssueRow>(`SELECT * FROM issues WHERE project_id = ? AND fingerprint = ? ${t.forUpdate}`, projectId, s.fingerprint);
     // Most events belong to a known issue: look first, and insert only when there is none.
     let found = await existing();
     const created = found
@@ -125,10 +147,17 @@ export function recordEvent(db: Db, projectId: number, event: SentryEvent, now =
           now,
         );
     let stored = { count: 0, last: 0 };
+    let status = "open";
     if (created) {
       res.issueId = created.id;
       res.alert = "new";
       await addActivity(t, created.id, now, "created", "First seen", where);
+      // The project's ownership rules pick who handles a new issue.
+      const owned = ownerFor(event, cfg.owners);
+      if (owned) {
+        await t.run("UPDATE issues SET assignee = ? WHERE id = ?", owned.owner, created.id);
+        await addActivity(t, created.id, now, "assigned", `Assigned to ${owned.owner} by ownership rule ${owned.rule}`);
+      }
     } else {
       // Another server may have created it a moment ago.
       found ??= await existing();
@@ -137,6 +166,7 @@ export function recordEvent(db: Db, projectId: number, event: SentryEvent, now =
       res.title = found.title;
       stored = { count: Number(found.stored_count), last: Number(found.last_stored) };
       await triageEvent(t, projectId, toIssue(found), Number(found.notify_next) === 1, release, environment, now, res);
+      status = res.alert ? "open" : found.status;
       await t.run(
         "UPDATE issues SET level = ?, last_seen = CASE WHEN last_seen > ? THEN last_seen ELSE ? END, count = count + 1 WHERE id = ?",
         s.level,
@@ -145,12 +175,17 @@ export function recordEvent(db: Db, projectId: number, event: SentryEvent, now =
         found.id,
       );
     }
-    await t.run(
+    const hour = Math.floor(now / HOUR) * HOUR;
+    const inHour = (await t.get<{ event_count: number }>(
       `INSERT INTO issue_hours (issue_id, hour, event_count) VALUES (?, ?, 1)
-       ON CONFLICT (issue_id, hour) DO UPDATE SET event_count = issue_hours.event_count + 1`,
+       ON CONFLICT (issue_id, hour) DO UPDATE SET event_count = issue_hours.event_count + 1 RETURNING event_count`,
       res.issueId,
-      Math.floor(now / HOUR) * HOUR,
-    );
+      hour,
+    ))!.event_count;
+    await countTags(t, res.issueId, event);
+    const user = userKey(projectId, event);
+    if (user) await t.run("INSERT INTO issue_users (issue_id, user_key) VALUES (?, ?) ON CONFLICT DO NOTHING", res.issueId, user);
+    if (!res.alert && status === "open") await spikeCheck(t, projectId, res, inHour, hour, now, where);
     await t.run(
       `INSERT INTO issue_releases (issue_id, release, environment, event_count, first_seen, last_seen) VALUES (?, ?, ?, 1, ?, ?)
        ON CONFLICT (issue_id, release, environment) DO UPDATE SET event_count = issue_releases.event_count + 1,
@@ -163,7 +198,7 @@ export function recordEvent(db: Db, projectId: number, event: SentryEvent, now =
     );
     if (res.alert || stored.count < STORE.firstN || now - stored.last >= STORE.everyMs) {
       await t.run(
-        "INSERT INTO events (project_id, issue_id, event_id, received_at, release, environment, payload) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO events (project_id, issue_id, event_id, received_at, release, environment, payload, fingerprint) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         projectId,
         res.issueId,
         s.eventId,
@@ -171,6 +206,7 @@ export function recordEvent(db: Db, projectId: number, event: SentryEvent, now =
         release,
         environment,
         JSON.stringify({ ...event, event_id: s.eventId }),
+        s.fingerprint,
       );
       // Past the cap, drop the oldest payloads. The counts keep the full number.
       await t.run(
@@ -183,6 +219,83 @@ export function recordEvent(db: Db, projectId: number, event: SentryEvent, now =
     }
     return res;
   });
+}
+
+// ---- Tags, users, and spikes ----
+
+const MAX_TAG_KEYS = 25;
+
+/** The tags an event is counted under: where it ran, the SDK's tags, and the browser and OS from its contexts. */
+export function tagsOf(ev: SentryEvent): [string, string][] {
+  const out = new Map<string, string>();
+  const put = (k: string, v: unknown) => {
+    if (typeof v !== "string" && typeof v !== "number") return;
+    const val = String(v).slice(0, 200);
+    if (val && !out.has(k) && out.size < MAX_TAG_KEYS) out.set(k.slice(0, 64), val);
+  };
+  put("environment", ev.environment);
+  put("release", ev.release);
+  put("level", ev.level); // only when the SDK sent one
+  put("server", ev.server_name);
+  const ctx = (ev.contexts ?? {}) as Record<string, { name?: string; version?: string } | undefined>;
+  if (ctx.browser?.name) put("browser", [ctx.browser.name, ctx.browser.version].filter(Boolean).join(" "));
+  if (ctx.os?.name) put("os", [ctx.os.name, ctx.os.version].filter(Boolean).join(" "));
+  const tags = ev.tags as Record<string, unknown> | [string, unknown][] | undefined;
+  for (const [k, v] of Array.isArray(tags) ? tags : Object.entries(tags ?? {})) put(String(k), v);
+  return [...out];
+}
+
+async function countTags(db: Db, issueId: number, ev: SentryEvent): Promise<void> {
+  for (const [key, value] of tagsOf(ev)) {
+    await db.run(
+      "INSERT INTO issue_tags (issue_id, key, value, count) VALUES (?, ?, ?, 1) ON CONFLICT (issue_id, key, value) DO UPDATE SET count = issue_tags.count + 1",
+      issueId,
+      key,
+      value,
+    );
+  }
+}
+
+/** A hash standing for the user the event reached: their id, email, username, or address. */
+export function userKey(projectId: number, ev: SentryEvent): string {
+  const u = (ev.user ?? {}) as Record<string, unknown>;
+  const id = ["id", "email", "username", "ip_address"].map((k) => u[k]).find((v) => typeof v === "string" || typeof v === "number");
+  return id === undefined ? "" : createHash("sha256").update(`${projectId}:${String(id)}`).digest("hex").slice(0, 24);
+}
+
+const SPIKE_EVERY_MS = 6 * HOUR;
+
+/**
+ * A spike alert: this hour's events meet a spike condition of the project's
+ * routes, at least `events`, and `factor` times the hourly average of the 24
+ * hours before. Each condition alerts an issue at most every six hours; the
+ * routes whose condition is newly met are the ones it goes to.
+ */
+async function spikeCheck(db: Db, projectId: number, res: Recorded, inHour: number, hour: number, now: number, where: ActivityExtra): Promise<void> {
+  const conditions = [...new Map((await getRouting(db, projectId)).flatMap((r) => (r.spike ? [[spikeKey(r.spike), r.spike] as const] : []))).values()];
+  if (!conditions.length || inHour < Math.min(...conditions.map((c) => c.events))) return;
+  const before = (await db.get<{ n: number }>(
+    "SELECT COALESCE(SUM(event_count), 0) AS n FROM issue_hours WHERE issue_id = ? AND hour >= ? AND hour < ?",
+    res.issueId,
+    hour - 24 * HOUR,
+    hour,
+  ))!.n;
+  const usual = Number(before) / 24;
+  const met = conditions.filter((c) => inHour >= c.events && inHour >= c.factor * usual).map(spikeKey);
+  if (!met.length) return;
+  const last = new Map(
+    (await db.all<{ cond: string; at: number }>("SELECT cond, at FROM issue_spikes WHERE issue_id = ?", res.issueId)).map((r) => [r.cond, Number(r.at)]),
+  );
+  const fresh = met.filter((k) => now - (last.get(k) ?? 0) >= SPIKE_EVERY_MS);
+  if (!fresh.length) return;
+  for (const k of fresh) {
+    await db.run("INSERT INTO issue_spikes (issue_id, cond, at) VALUES (?, ?, ?) ON CONFLICT (issue_id, cond) DO UPDATE SET at = excluded.at", res.issueId, k, now);
+  }
+  res.alert = "spike";
+  res.spike = { events: inHour, usual, fresh };
+  const was = usual === 0 ? "none in the day before" : `about ${usual < 1 ? usual.toFixed(1) : Math.round(usual)} an hour before`;
+  res.reason = `${inHour} events in the last hour, ${was}`;
+  await addActivity(db, res.issueId, now, "spike", `Spiking: ${res.reason}`, where);
 }
 
 async function triageEvent(db: Db, projectId: number, issue: Issue, notifyNext: boolean, release: string, environment: string, now: number, res: Recorded): Promise<void> {

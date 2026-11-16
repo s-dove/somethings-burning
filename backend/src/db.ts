@@ -325,10 +325,96 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE INDEX IF NOT EXISTS notifications_due ON notifications (status, next_at);
 
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+
+-- How often each tag value shows on an issue's events, for the tag breakdown.
+CREATE TABLE IF NOT EXISTS issue_tags (
+  issue_id BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  key      TEXT NOT NULL,
+  value    TEXT NOT NULL,
+  count    BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (issue_id, key, value)
+);
+
+-- When an issue last alerted for each spike condition ("<events>x<factor>")
+-- of its project's routes: each waits six hours before alerting again.
+CREATE TABLE IF NOT EXISTS issue_spikes (
+  issue_id  BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  cond      TEXT NOT NULL,
+  at        BIGINT NOT NULL,
+  PRIMARY KEY (issue_id, cond)
+);
+
+-- Issues merged away, and the issue each went into, so their links still work.
+CREATE TABLE IF NOT EXISTS issue_redirects (
+  from_id BIGINT PRIMARY KEY,
+  to_id   BIGINT NOT NULL
+);
+
+-- The users an issue reached, as hashes of their id, email, or address.
+CREATE TABLE IF NOT EXISTS issue_users (
+  issue_id BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  user_key TEXT NOT NULL,
+  PRIMARY KEY (issue_id, user_key)
+);
+
+-- Fingerprints merged into another issue: their events go to issue_id.
+CREATE TABLE IF NOT EXISTS issue_fingerprints (
+  project_id  BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  fingerprint TEXT NOT NULL,
+  issue_id    BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  title       TEXT NOT NULL DEFAULT '',
+  merged_at   BIGINT NOT NULL,
+  PRIMARY KEY (project_id, fingerprint)
+);
+
+-- A project's settings that are not their own page's table (JSON): ownership
+-- rules, data scrubbing, grouping rules.
+CREATE TABLE IF NOT EXISTS project_settings (
+  project_id BIGINT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+  config     TEXT NOT NULL
+);
+
+-- Project API tokens, for CI: releases, deploys, and source map uploads.
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id         ${ID},
+  project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  name       TEXT NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  prefix     TEXT NOT NULL,
+  created_by TEXT NOT NULL DEFAULT '',
+  created_at BIGINT NOT NULL,
+  last_used  BIGINT NOT NULL DEFAULT 0
+);
+
+-- Uploaded files a release needs to read its events: JS source maps.
+CREATE TABLE IF NOT EXISTS artifacts (
+  project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  release    TEXT NOT NULL,
+  name       TEXT NOT NULL,
+  content    TEXT NOT NULL,
+  size       BIGINT NOT NULL,
+  created_at BIGINT NOT NULL,
+  PRIMARY KEY (project_id, release, name)
+);
+
+-- Deploys of a release to an environment, marked by CI.
+CREATE TABLE IF NOT EXISTS deploys (
+  id          ${ID},
+  project_id  BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  release     TEXT NOT NULL,
+  environment TEXT NOT NULL DEFAULT '',
+  url         TEXT NOT NULL DEFAULT '',
+  at          BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS deploys_project ON deploys (project_id, at DESC);
 `;
 
 // Columns added after their table first shipped, so an older database keeps working.
 const ADDED_COLUMNS: [string, string, string][] = [
+  // The person's interface language; "" until they choose one.
+  ["users", "lang", "TEXT NOT NULL DEFAULT ''"],
+  // A route's spike condition, JSON { events, factor }; "" for none.
+  ["project_routes", "spike", "TEXT NOT NULL DEFAULT ''"],
   // Triage: open, resolved, or muted; see triage.ts.
   ["issues", "status", "TEXT NOT NULL DEFAULT 'open'"],
   ["issues", "resolved_at", "BIGINT NOT NULL DEFAULT 0"],
@@ -341,6 +427,12 @@ const ADDED_COLUMNS: [string, string, string][] = [
   ["issues", "stored_count", "BIGINT NOT NULL DEFAULT 0"],
   ["issues", "last_stored", "BIGINT NOT NULL DEFAULT 0"],
   ["notifications", "locked_until", "BIGINT NOT NULL DEFAULT 0"],
+  ["issues", "assignee", "TEXT NOT NULL DEFAULT ''"], // email of who handles it, '' for no one
+  ["issues", "external_url", "TEXT NOT NULL DEFAULT ''"], // a GitHub issue made from it
+  ["events", "fingerprint", "TEXT NOT NULL DEFAULT ''"], // the event's own, so a merge can be undone
+  ["users", "digest", "BIGINT NOT NULL DEFAULT 0"], // 1: a daily summary email
+  ["users", "last_digest", "BIGINT NOT NULL DEFAULT 0"],
+  ["releases", "commit_sha", "TEXT NOT NULL DEFAULT ''"], // set by CI with a release
 ];
 
 async function migrate(db: Db, exec: (sql: string) => Promise<void>): Promise<void> {

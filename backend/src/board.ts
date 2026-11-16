@@ -15,7 +15,11 @@ const heat = (hours: number[]) => hours.reduce((sum, n, i) => sum + n * Math.pow
 const inList = (n: number) => (n ? Array.from({ length: n }, () => "?").join(",") : "NULL");
 
 /** The board: every project for the sidebar, and the issues of one project (or all). */
-export async function board(db: Db, opts: { projectId?: number; status?: StatusFilter; sort: Sort; q: string; scope?: number[] }, now = Date.now()) {
+export async function board(
+  db: Db,
+  opts: { projectId?: number; status?: StatusFilter; sort: Sort; q: string; scope?: number[]; assignee?: string; release?: string },
+  now = Date.now(),
+) {
   const status = opts.status ?? "open";
   // The last 24 hourly cells, this one included, as on the heat strips.
   const since = (Math.floor(now / HOUR) - 23) * HOUR;
@@ -43,6 +47,14 @@ export async function board(db: Db, opts: { projectId?: number; status?: StatusF
   if (status !== "all") {
     where.push("i.status = ?");
     args.push(status);
+  }
+  if (opts.assignee !== undefined) {
+    where.push("i.assignee = ?");
+    args.push(opts.assignee);
+  }
+  if (opts.release) {
+    where.push("i.id IN (SELECT issue_id FROM issue_releases WHERE release = ?)");
+    args.push(opts.release);
   }
   if (opts.q) {
     where.push("(lower(i.title) LIKE ? ESCAPE '\\' OR lower(i.culprit) LIKE ? ESCAPE '\\')");
@@ -93,7 +105,7 @@ export async function board(db: Db, opts: { projectId?: number; status?: StatusF
     project,
     projects,
     issues,
-    filter: { status, sort: opts.sort, query: opts.q },
+    filter: { status, sort: opts.sort, query: opts.q, assignee: opts.assignee ?? null, release: opts.release ?? "" },
     counts,
     burning,
     events,

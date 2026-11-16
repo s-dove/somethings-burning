@@ -4,7 +4,10 @@ import type { Authenticator, User } from "./auth.js";
 import type { Config } from "./env.js";
 import { alertEvents, type LiveAlerts } from "./live.js";
 import type { CodeSources } from "./source/index.js";
-import { attachLinks } from "./source/links.js";
+import { enrichEvent, suspectChanges } from "./source/links.js";
+import { extrasRoutes } from "./extras-api.js";
+import { mergedInto, tagBreakdown, usersAffected } from "./issue-extras.js";
+import { tokenProject } from "./tokens.js";
 import { getSources } from "./sources.js";
 import { sourcesRoutes } from "./sources-api.js";
 import { listActivity } from "./activity.js";
@@ -23,7 +26,12 @@ import { MUTE_OPTIONS, muteOption } from "./triage.js";
 import { dsn } from "./url.js";
 import { people } from "./users.js";
 
-export type AppEnv = { Variables: { user?: User } };
+// user: who is signed in. token: the project an API token is for, when a
+// request comes with one instead of a session.
+export type AppEnv = { Variables: { user?: User; token?: number } };
+
+// What an API token may do: its own project's releases, deploys, and source maps.
+const TOKEN_PATHS = /^\/api\/projects\/(\d+)\/(releases|deploys|sourcemaps)\/?$/;
 
 export interface ApiDeps {
   auth: Authenticator;
@@ -55,8 +63,18 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
   // How to sign in, and who is signed in. Readable without a session.
   app.get("/session", async (c) => c.json({ methods: auth.methods, user: await auth.user(c) }));
 
-  // Everything below needs a session.
+  // Everything below needs a session, or an API token for the few routes CI uses.
   app.use("*", async (c, next) => {
+    const bearer = /^Bearer\s+(brn_\S+)$/i.exec(c.req.header("authorization") ?? "")?.[1];
+    if (bearer) {
+      const projectId = await tokenProject(db, bearer);
+      if (!projectId) return c.json({ detail: "invalid API token" }, 401);
+      const m = TOKEN_PATHS.exec(c.req.path);
+      if (!m || Number(m[1]) !== projectId) return c.json({ detail: "an API token only reaches its project's releases, deploys, and source maps" }, 403);
+      // No person: the token stands for its project's admin, on these routes only.
+      c.set("token", projectId);
+      return next();
+    }
     const user = await auth.user(c);
     if (!user) return c.json({ detail: "sign in first" }, 401);
     c.set("user", user);
@@ -83,12 +101,16 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
   app.get("/board", async (c) => {
     const sort = pick(c.req.query("sort"), SORTS, "hot");
     const status = pick(c.req.query("status"), STATUSES, "open");
+    // assignee: "me", "none", or an email.
+    const who = (c.req.query("assignee") ?? "").trim().toLowerCase();
+    const assignee = who === "me" ? (c.get("user")?.email.toLowerCase() ?? "") : who === "none" ? "" : who || undefined;
+    const release = (c.req.query("release") ?? "").trim() || undefined;
     const all = (await db.all<{ id: number }>("SELECT id FROM projects")).map((r) => r.id);
     const roles = await access.roles(all, c.get("user"));
     const scope = [...roles.keys()];
     const projectId = Number(c.req.query("project")) || undefined;
     if (projectId && !roles.has(projectId)) return notFound(c);
-    const b = await board(db, { projectId, status, sort, q: (c.req.query("q") ?? "").trim().slice(0, 200), scope });
+    const b = await board(db, { projectId, status, sort, q: (c.req.query("q") ?? "").trim().slice(0, 200), scope, assignee, release });
     return c.json({
       ...b,
       project: b.project && { ...b.project, role: roles.get(b.project.id) },
@@ -158,6 +180,20 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
 
   // The issue page: the issue, its releases, the latest stored events, and
   // one event in full (?event=<id>, or the latest).
+  // An issue by its number alone: its project, for /issues/<n> links. A
+  // merged issue leads to the one it went into. No access reads as not found.
+  app.get("/issues/:issue{[0-9]+}", async (c) => {
+    const asked = Number(c.req.param("issue"));
+    const find = (id: number) => db.get<{ id: number; project_id: number }>("SELECT id, project_id FROM issues WHERE id = ?", id);
+    let row = await find(asked);
+    if (!row) {
+      const to = await db.get<{ to_id: number }>("SELECT to_id FROM issue_redirects WHERE from_id = ?", asked);
+      if (to) row = await find(Number(to.to_id));
+    }
+    if (!row || !(await access.role(Number(row.project_id), c.get("user")))) return notFound(c);
+    return c.json({ project: Number(row.project_id), issue: Number(row.id), merged: Number(row.id) !== asked });
+  });
+
   app.get("/projects/:id{[0-9]+}/issues/:issue{[0-9]+}", async (c) => {
     const found = await load(c);
     const issue = found && (await getIssue(db, found.project.id, Number(c.req.param("issue"))));
@@ -165,7 +201,12 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
     const page = await eventPage(db, issue.id);
     const stored = await getEvent(db, issue.id, Number(c.req.query("event")) || undefined);
     const event = stored ? eventView(stored) : null;
-    if (event && stored) await attachLinks(event, stored.payload, await getSources(db, found.project.id), deps.code);
+    const sources = await getSources(db, found.project.id);
+    let suspects = null;
+    if (event && stored) {
+      await enrichEvent(event, stored.payload, { db, projectId: found.project.id, sources, code: deps.code });
+      suspects = await suspectChanges(db, found.project.id, event, stored.payload, sources, deps.code);
+    }
     const history = await listActivity(db, issue.id);
     const actors = await people(db, history.map((a) => a.actor));
     return c.json({
@@ -180,6 +221,17 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
       moreEvents: page.more,
       storedEvents: await storedEventCount(db, issue.id),
       event,
+      tags: await tagBreakdown(db, issue.id),
+      users: await usersAffected(db, issue.id),
+      merged: await mergedInto(db, issue.id),
+      suspects,
+      // A GitHub issue can be made when the primary source is on GitHub with a token.
+      github: sources.some((s) => s.primary && s.kind === "github" && deps.code.credentials.token(s.repo.split("/")[0]!) !== ""),
+      // Every GitHub issue made from it, newest first.
+      githubIssues: history
+        .filter((a) => a.kind === "linked" && a.text.startsWith("GitHub issue "))
+        .map((a) => ({ url: a.text.slice("GitHub issue ".length), at: a.at, by: a.actor ? (actors.get(a.actor)?.displayName ?? a.actor) : "" }))
+        .sort((a, b) => b.at - a.at),
     });
   });
 
@@ -217,6 +269,7 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
   );
 
   app.route("/", commentRoutes(db, access));
+  app.route("/", extrasRoutes(db, access, { senders: deps.senders, code: deps.code, config: deps.config }));
   app.route("/", sourcesRoutes(db, access, deps.code));
   app.route("/", siteRoutes(deps.config, deps.senders, deps.code));
   app.route("/", settingsRoutes(db, access, deps.baseURL));

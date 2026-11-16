@@ -1,12 +1,12 @@
 import { listGrants } from "../access.js";
 import type { Db } from "../db.js";
-import type { Receiver, Route } from "./routing.js";
+import type { Receiver, Route, Spike } from "./routing.js";
 
 // ---- Project routing ----
 
 export async function getRouting(db: Db, projectId: number): Promise<Route[]> {
-  const rows = await db.all<{ name: string; matchers: string; receivers: string; sink: number; cont: number }>(
-    "SELECT name, matchers, receivers, sink, cont FROM project_routes WHERE project_id = ? ORDER BY position",
+  const rows = await db.all<{ name: string; matchers: string; receivers: string; sink: number; cont: number; spike: string }>(
+    "SELECT name, matchers, receivers, sink, cont, spike FROM project_routes WHERE project_id = ? ORDER BY position",
     projectId,
   );
   return rows.map((r) => ({
@@ -15,6 +15,7 @@ export async function getRouting(db: Db, projectId: number): Promise<Route[]> {
     receivers: JSON.parse(r.receivers) as Receiver[],
     sink: Number(r.sink) === 1,
     continue: Number(r.cont) === 1,
+    ...(r.spike ? { spike: JSON.parse(r.spike) as Spike } : {}),
   }));
 }
 
@@ -23,7 +24,7 @@ export function saveRouting(db: Db, projectId: number, routes: Route[]): Promise
     await t.run("DELETE FROM project_routes WHERE project_id = ?", projectId);
     for (const [i, r] of routes.entries()) {
       await t.run(
-        "INSERT INTO project_routes (project_id, position, name, matchers, receivers, sink, cont) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO project_routes (project_id, position, name, matchers, receivers, sink, cont, spike) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         projectId,
         i,
         r.name,
@@ -31,6 +32,7 @@ export function saveRouting(db: Db, projectId: number, routes: Route[]): Promise
         JSON.stringify(r.sink ? [] : r.receivers),
         r.sink ? 1 : 0,
         r.continue ? 1 : 0,
+        r.spike ? JSON.stringify(r.spike) : "",
       );
     }
   });
@@ -77,7 +79,7 @@ export async function savePersonalRoutes(db: Db, email: string, routes: Route[])
 
 // ---- Outbox ----
 
-export type DeliveryKind = "email" | "mattermost_dm" | "mattermost_channel" | "webhook";
+export type DeliveryKind = "email" | "mattermost_dm" | "mattermost_channel" | "slack" | "webhook";
 export interface Delivery {
   kind: DeliveryKind;
   target: string;

@@ -25,7 +25,7 @@ export const testAuth = (fallback: string | null = ADMIN): Authenticator => ({
     const raw = c.req.header("x-test-user") ?? fallback;
     if (!raw) return null;
     const [email, groups] = raw.split("|");
-    return { email: email!, name: "", groups: groups ? groups.split(",") : [], username: email!.split("@")[0]!, displayName: email! };
+    return { email: email!, name: "", groups: groups ? groups.split(",") : [], username: email!.split("@")[0]!, displayName: email!, lang: "" };
   },
   routes: () => new Hono(),
 });
@@ -73,9 +73,9 @@ export async function setup(opts: { auth?: boolean; siteAdmins?: string; code?: 
   const db = await testDb();
   const senders = new FakeSenders();
   const config = readConfig({ BURNING_SITE_ADMINS: [ADMIN, opts.siteAdmins ?? ""].join(",") });
-  const { app, outbox, queue, live } = createApp(db, { auth: testAuth(opts.auth ? null : ADMIN), config, senders, code: opts.code });
+  const { app, outbox, queue, live, access } = createApp(db, { auth: testAuth(opts.auth ? null : ADMIN), config, senders, code: opts.code });
   const project = await createProject(db, "web");
-  return { db, app, outbox, queue, live, senders, project };
+  return { db, app, outbox, queue, live, access, senders, project };
 }
 
 export const as = (email: string, groups: string[] = []) => ({ "x-test-user": groups.length ? `${email}|${groups.join(",")}` : email });
