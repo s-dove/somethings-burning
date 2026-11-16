@@ -341,6 +341,22 @@ CREATE TABLE IF NOT EXISTS project_settings (
   config     TEXT NOT NULL
 );
 
+-- Fingerprints merged into another issue: their events go to issue_id.
+CREATE TABLE IF NOT EXISTS issue_fingerprints (
+  project_id  BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  fingerprint TEXT NOT NULL,
+  issue_id    BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  title       TEXT NOT NULL DEFAULT '',
+  merged_at   BIGINT NOT NULL,
+  PRIMARY KEY (project_id, fingerprint)
+);
+
+-- Issues merged away, and the issue each went into, so their links still work.
+CREATE TABLE IF NOT EXISTS issue_redirects (
+  from_id BIGINT PRIMARY KEY,
+  to_id   BIGINT NOT NULL
+);
+
 -- The users an issue reached, as hashes of their id, email, or address.
 CREATE TABLE IF NOT EXISTS issue_users (
   issue_id BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
@@ -364,6 +380,7 @@ const ADDED_COLUMNS: [string, string, string][] = [
   ["issues", "last_stored", "BIGINT NOT NULL DEFAULT 0"],
   ["notifications", "locked_until", "BIGINT NOT NULL DEFAULT 0"],
   ["issues", "assignee", "TEXT NOT NULL DEFAULT ''"], // email of who handles it, '' for no one
+  ["events", "fingerprint", "TEXT NOT NULL DEFAULT ''"], // the event's own, so a merge can be undone
 ];
 
 async function migrate(db: Db, exec: (sql: string) => Promise<void>): Promise<void> {

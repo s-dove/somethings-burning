@@ -11,14 +11,24 @@ export interface OwnerRule {
   owner: string; // an email
 }
 
+/** Events that match get this fingerprint instead of the default grouping. */
+export interface GroupingRule {
+  field: "type" | "message" | "culprit" | "path" | "tag";
+  tag?: string;
+  pattern: string; // a regex matched anywhere in the value
+  fingerprint: string; // parts split by spaces; {{ default }}, {{ type }}, {{ message }}, {{ culprit }}, {{ tag.<name> }} expand
+}
+
 export interface ProjectConfig {
   owners: OwnerRule[];
   scrub: { defaults: boolean; fields: string[] };
+  grouping: GroupingRule[];
 }
 
 export const DEFAULT_CONFIG: ProjectConfig = {
   owners: [],
   scrub: { defaults: true, fields: [] },
+  grouping: [],
 };
 
 const FIELDS = ["path", "type", "message", "culprit", "tag"] as const;
@@ -30,6 +40,7 @@ export async function getConfig(db: Db, projectId: number): Promise<ProjectConfi
   return {
     owners: saved.owners ?? [],
     scrub: { ...DEFAULT_CONFIG.scrub, ...(saved.scrub ?? {}) },
+    grouping: saved.grouping ?? [],
   };
 }
 
@@ -86,6 +97,20 @@ export function checkSection(section: string, input: unknown): { error: string }
       if (fields.length > 100) return { error: "at most 100 fields" };
       if (fields.some((f) => !/^[\w.-]+$/.test(f))) return { error: "field names are letters, digits, and _ . -" };
       return { value: { defaults: o.defaults !== false, fields: [...new Set(fields)] } };
+    }
+    case "grouping": {
+      const list = Array.isArray(input) ? input : [];
+      if (list.length > 50) return { error: "at most 50 rules" };
+      const out: GroupingRule[] = [];
+      for (const [i, raw] of list.entries()) {
+        const r = (raw ?? {}) as Record<string, unknown>;
+        const f = checkField(r, `rule ${i + 1}`);
+        if ("error" in f) return f;
+        const fingerprint = String(r.fingerprint ?? "").trim().slice(0, 300);
+        if (!fingerprint) return { error: `rule ${i + 1}: write the fingerprint, like "db-timeout" or "{{ type }} {{ tag.region }}"` };
+        out.push({ ...f, fingerprint });
+      }
+      return { value: out };
     }
   }
   return { error: "unknown section" };
