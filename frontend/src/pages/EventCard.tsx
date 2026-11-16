@@ -4,6 +4,7 @@ import type { EventView } from "../shared/api";
 import { copyText } from "../shared/clipboard";
 import { ago } from "../shared/format";
 import { section } from "../shared/ui";
+import { Redacted } from "../components/Redacted";
 import { Tag } from "../components/Tag";
 import { Tip, TimeTip } from "../components/Tip";
 
@@ -73,7 +74,7 @@ function Fact({ label, field, value, hint }: { label: string; field: string; val
       <Tip content={field}><dt className="text-cinder">{label}</dt></Tip>
       <dd className="group m-0 flex min-w-0 items-start gap-2">
         <span className="min-w-0">
-          {value ? <span className="mono whitespace-pre-wrap wrap-anywhere">{value}</span> : !hint && <span className="text-cinder">empty</span>}
+          {value ? <span className="mono whitespace-pre-wrap wrap-anywhere"><Redacted text={value} /></span> : !hint && <span className="text-cinder">empty</span>}
           {hint && <span className="text-cinder">{value ? " · " : ""}{hint}</span>}
         </span>
         {value && (

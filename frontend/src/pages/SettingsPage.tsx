@@ -11,7 +11,7 @@ import { plural, stamp } from "../shared/format";
 import { input, section, sectionTitle } from "../shared/ui";
 import { Button } from "../ui/components/Button";
 import { Tip } from "../components/Tip";
-import { ArrowLeft, Bell, ChevronRight, Code, KeyRound, Settings2, Shield, Trash2 } from "../ui/icons";
+import { ArrowLeft, Bell, ChevronRight, Code, KeyRound, LockKeyhole, Settings2, Shield, Trash2 } from "../ui/icons";
 
 /** Loads a project's settings for the settings pages. */
 export function useSettings() {
@@ -101,6 +101,7 @@ export function SettingsPage() {
               />
               <Row to={`${base}/notifications`} icon={<Bell aria-hidden="true" />} title="Notifications" detail="Routing: which alerts go to which people, addresses, and channels." />
               <Row to={`${base}/code`} icon={<Code aria-hidden="true" />} title="Code" detail="The repositories stack frames come from, for links to the lines in them." />
+              <Row to={`${base}/scrubbing`} icon={<LockKeyhole aria-hidden="true" />} title="Data scrubbing" detail="Passwords, tokens, card numbers, and your own fields, filtered before storage." />
             </ul>
             {project.role === "admin" && <General settings={data!} onChange={reload} />}
           </>

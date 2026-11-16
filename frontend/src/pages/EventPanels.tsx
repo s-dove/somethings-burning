@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Braces, ChevronRight } from "../ui/icons";
 import { JsonModal } from "../components/JsonModal";
 import { CodeBlock } from "../components/common/CodeBlock";
+import { Redacted } from "../components/Redacted";
 import { EventCard } from "./EventCard";
 import { StackTrace } from "./StackTrace";
 import type { EventView } from "../shared/api";
@@ -27,8 +28,8 @@ export function EventPanels({ event }: { event: EventView }) {
                 <div className="mono border-t border-rule-soft py-1.5 text-xs text-cinder">{clock(b.timestamp)}</div>
                 <div className="border-t border-rule-soft py-1.5">{b.category}</div>
                 <div className="border-t border-rule-soft py-1.5">
-                  {b.message}
-                  {b.data && <span className="mono mt-0.5 block text-xs text-cinder">{b.data}</span>}
+                  <Redacted text={b.message} />
+                  {b.data && <span className="mono mt-0.5 block text-xs text-cinder"><Redacted text={b.data} /></span>}
                 </div>
               </div>
             ))}

@@ -3,6 +3,7 @@ import { Link } from "../components/common/Link";
 import { PageHeader } from "../components/PageHeader";
 import type { IssueDetail } from "../shared/api";
 import { ago, muteSummary, sentence, splitTitle } from "../shared/format";
+import { Redacted } from "../components/Redacted";
 import { Tag } from "../components/Tag";
 import { pill, pillTone } from "../shared/ui";
 import { IssueTriage } from "./IssueTriage";
@@ -20,7 +21,7 @@ export function IssueHeader({ detail, onChange }: { detail: IssueDetail; onChang
   return (
     <PageHeader
       before={<Link className="inline-flex items-center gap-2 text-xs text-cinder no-underline hover:text-soot" to={`/p/${project.id}`}><ArrowLeft aria-hidden="true" /> Back to issues</Link>}
-      title={type || msg}
+      title={<Redacted text={type || msg} tip={false} />}
       titleText={type || msg}
       titleLines={type ? 1 : 2}
       actions={<IssueTriage detail={detail} onChange={onChange} />}
@@ -40,7 +41,7 @@ export function IssueSummary({ issue }: { issue: IssueDetail["issue"] }) {
   const statusLabel = { open: "Open", resolved: "Resolved", muted: "Muted" }[issue.status];
   return (
     <div className="mb-6">
-      {type && <p className="text-base leading-relaxed text-cinder wrap-anywhere">{msg}</p>}
+      {type && <p className="text-base leading-relaxed text-cinder wrap-anywhere"><Redacted text={msg} /></p>}
       <div className={`flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-cinder ${type ? "mt-3" : ""}`}>
         <Tip content="Issue status, changed by Resolve, Mute, and Reopen"><span className={`${pill} ${pillTone[issue.status]}`}>{statusLabel}</span></Tip>
         {issue.culprit && <Tag name="culprit" value={issue.culprit} mono title="Where it happened: the event's transaction, or else the innermost frame of your code" />}
