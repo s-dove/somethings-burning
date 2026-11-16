@@ -9,6 +9,8 @@ import { tagBreakdown, usersAffected } from "./issue-tags.js";
 import { configRoutes } from "./config-api.js";
 import { assignRoutes } from "./assign.js";
 import { mergedInto, mergeRoutes } from "./merge.js";
+import { releaseRoutes } from "./releases.js";
+import { tokenProject, tokenRoutes } from "./tokens.js";
 import { getSources } from "./sources.js";
 import { sourcesRoutes } from "./sources-api.js";
 import { listActivity } from "./activity.js";
@@ -27,7 +29,12 @@ import { MUTE_OPTIONS, muteOption } from "./triage.js";
 import { dsn } from "./url.js";
 import { people } from "./users.js";
 
-export type AppEnv = { Variables: { user?: User } };
+// user: who is signed in. token: the project an API token is for, when a
+// request comes with one instead of a session.
+export type AppEnv = { Variables: { user?: User; token?: number } };
+
+// What an API token may do: its own project's releases and deploys.
+const TOKEN_PATHS = /^\/api\/projects\/(\d+)\/(releases|deploys)\/?$/;
 
 export interface ApiDeps {
   auth: Authenticator;
@@ -59,8 +66,18 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
   // How to sign in, and who is signed in. Readable without a session.
   app.get("/session", async (c) => c.json({ methods: auth.methods, user: await auth.user(c) }));
 
-  // Everything below needs a session.
+  // Everything below needs a session, or an API token for the few routes CI uses.
   app.use("*", async (c, next) => {
+    const bearer = /^Bearer\s+(brn_\S+)$/i.exec(c.req.header("authorization") ?? "")?.[1];
+    if (bearer) {
+      const projectId = await tokenProject(db, bearer);
+      if (!projectId) return c.json({ detail: "invalid API token" }, 401);
+      const m = TOKEN_PATHS.exec(c.req.path);
+      if (!m || Number(m[1]) !== projectId) return c.json({ detail: "an API token only reaches its project's releases and deploys" }, 403);
+      // No person: the token stands for its project's admin, on these routes only.
+      c.set("token", projectId);
+      return next();
+    }
     const user = await auth.user(c);
     if (!user) return c.json({ detail: "sign in first" }, 401);
     c.set("user", user);
@@ -90,12 +107,13 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
     // assignee: "me", "none", or an email.
     const who = (c.req.query("assignee") ?? "").trim().toLowerCase();
     const assignee = who === "me" ? (c.get("user")?.email.toLowerCase() ?? "") : who === "none" ? "" : who || undefined;
+    const release = (c.req.query("release") ?? "").trim() || undefined;
     const all = (await db.all<{ id: number }>("SELECT id FROM projects")).map((r) => r.id);
     const roles = await access.roles(all, c.get("user"));
     const scope = [...roles.keys()];
     const projectId = Number(c.req.query("project")) || undefined;
     if (projectId && !roles.has(projectId)) return notFound(c);
-    const b = await board(db, { projectId, status, sort, q: (c.req.query("q") ?? "").trim().slice(0, 200), scope, assignee });
+    const b = await board(db, { projectId, status, sort, q: (c.req.query("q") ?? "").trim().slice(0, 200), scope, assignee, release });
     return c.json({
       ...b,
       project: b.project && { ...b.project, role: roles.get(b.project.id) },
@@ -230,6 +248,8 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
   app.route("/", configRoutes(db, access));
   app.route("/", assignRoutes(db, access));
   app.route("/", mergeRoutes(db, access));
+  app.route("/", releaseRoutes(db, access));
+  app.route("/", tokenRoutes(db, access));
   app.route("/", sourcesRoutes(db, access, deps.code));
   app.route("/", siteRoutes(deps.config, deps.senders, deps.code));
   app.route("/", settingsRoutes(db, access, deps.baseURL));

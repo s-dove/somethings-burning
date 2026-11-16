@@ -14,8 +14,8 @@ export const notFound = (c: Context) => c.json({ detail: "not found" }, 404);
 
 export const body = async <T>(c: Context) => ((await c.req.json().catch(() => ({}))) ?? {}) as T;
 
-/** Who did it, for the issue history. */
-export const actor = (c: Context<AppEnv>) => c.get("user")?.email ?? "";
+/** Who did it, for the issue history: the person, or "api token". */
+export const actor = (c: Context<AppEnv>) => c.get("user")?.email ?? (c.get("token") ? "api token" : "");
 
 export type Found = { project: Project; role: Role };
 

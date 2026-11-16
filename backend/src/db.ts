@@ -357,6 +357,29 @@ CREATE TABLE IF NOT EXISTS issue_redirects (
   to_id   BIGINT NOT NULL
 );
 
+-- Project API tokens, for CI: releases and deploys.
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id         ${ID},
+  project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  name       TEXT NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  prefix     TEXT NOT NULL,
+  created_by TEXT NOT NULL DEFAULT '',
+  created_at BIGINT NOT NULL,
+  last_used  BIGINT NOT NULL DEFAULT 0
+);
+
+-- Deploys of a release to an environment, marked by CI.
+CREATE TABLE IF NOT EXISTS deploys (
+  id          ${ID},
+  project_id  BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  release     TEXT NOT NULL,
+  environment TEXT NOT NULL DEFAULT '',
+  url         TEXT NOT NULL DEFAULT '',
+  at          BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS deploys_project ON deploys (project_id, at DESC);
+
 -- The users an issue reached, as hashes of their id, email, or address.
 CREATE TABLE IF NOT EXISTS issue_users (
   issue_id BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
@@ -381,6 +404,7 @@ const ADDED_COLUMNS: [string, string, string][] = [
   ["notifications", "locked_until", "BIGINT NOT NULL DEFAULT 0"],
   ["issues", "assignee", "TEXT NOT NULL DEFAULT ''"], // email of who handles it, '' for no one
   ["events", "fingerprint", "TEXT NOT NULL DEFAULT ''"], // the event's own, so a merge can be undone
+  ["releases", "commit_sha", "TEXT NOT NULL DEFAULT ''"], // set by CI with a release
 ];
 
 async function migrate(db: Db, exec: (sql: string) => Promise<void>): Promise<void> {
