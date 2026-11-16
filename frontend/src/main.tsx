@@ -6,7 +6,7 @@ import { Toaster } from "sonner";
 import { watchSystemTheme } from "./components/ThemeSwitch";
 import { BoardPage } from "./pages/BoardPage";
 import { DsnPage } from "./pages/DsnPage";
-import { IssuePage } from "./pages/IssuePage";
+import { IssueByNumber, OldIssueLink } from "./pages/IssuePage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -34,7 +34,8 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/p/:id/settings/rbac" element={<RbacPage />} />
           <Route path="/p/:id/settings/notifications" element={<RoutingPage />} />
           <Route path="/p/:id/settings/code" element={<SourcesPage />} />
-          <Route path="/p/:id/issues/:issueId" element={<IssuePage />} />
+          <Route path="/issues/:issueId" element={<IssueByNumber />} />
+          <Route path="/p/:id/issues/:issueId" element={<OldIssueLink />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </BrowserRouter>

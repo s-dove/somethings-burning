@@ -1,4 +1,4 @@
-import { useParams, useSearchParams } from "react-router";
+import { Navigate, useParams, useSearchParams } from "react-router";
 import { Link } from "../components/common/Link";
 import { HeatStrip } from "../components/HeatStrip";
 import { Layout } from "../components/Layout";
@@ -26,10 +26,41 @@ const historyDot: Record<string, string> = {
 // History lines Burning writes on its own, with no one behind them.
 const SYSTEM_KINDS = new Set(["created", "fired", "unmuted", "notified"]);
 
+// IssueByNumber opens /issues/<n>: issue numbers are unique across projects,
+// so the number finds the project. A merged issue leads to the one it went
+// into; an issue you cannot see reads as not found.
+export function IssueByNumber() {
+  const { issueId } = useParams();
+  const [params] = useSearchParams();
+  const { data, error } = useApi<{ project: number; issue: number; merged: boolean }>(`/issues/${issueId}`);
+  if (data?.merged) return <Navigate to={`/issues/${data.issue}${params.size ? `?${params}` : ""}`} replace />;
+  if (!data) {
+    return (
+      <Layout nav="issues">
+        {error ? (
+          <div className="px-6 py-14 text-center text-cinder">
+            <strong className="mb-1 block text-base text-soot">{error === "not found" ? `No issue #${issueId}, or it is in a project you cannot see` : error}</strong>
+            <Link to="/">Back to all projects</Link>
+          </div>
+        ) : (
+          <Loading />
+        )}
+      </Layout>
+    );
+  }
+  return <IssuePage id={data.project} issueId={data.issue} />;
+}
+
+/** The old /p/<project>/issues/<n> links: the number alone is enough. */
+export function OldIssueLink() {
+  const { issueId } = useParams();
+  const [params] = useSearchParams();
+  return <Navigate to={`/issues/${issueId}${params.size ? `?${params}` : ""}`} replace />;
+}
+
 // IssuePage is one issue: its summary and heat, one stored event in full
 // (the latest, or ?event=<id>), and on the side its releases and events.
-export function IssuePage() {
-  const { id, issueId } = useParams();
+export function IssuePage({ id, issueId }: { id: number; issueId: number }) {
   const [params] = useSearchParams();
   const eventId = params.get("event");
   const path = `/projects/${id}/issues/${issueId}${eventId ? `?event=${eventId}` : ""}`;
