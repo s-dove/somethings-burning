@@ -58,11 +58,31 @@ export interface ProjectPulse {
   releaseSeen: number;
 }
 
+export interface ReleaseSummary {
+  version: string;
+  firstSeen: number;
+  commit: string;
+  events: number;
+  issues: number;
+  newIssues: number;
+  regressions: number;
+  deploys: { environment: string; url: string; at: number }[];
+}
+
+export interface TokenView {
+  id: number;
+  name: string;
+  prefix: string;
+  createdBy: string;
+  createdAt: number;
+  lastUsed: number;
+}
+
 export interface Board {
   project: (ProjectRef & { pulse: ProjectPulse }) | null;
   projects: ProjectSummary[];
   issues: Issue[];
-  filter: { status: string; sort: string; query: string };
+  filter: { status: string; sort: string; query: string; release?: string };
   counts: Record<string, number>; // open, resolved, muted, all
   burning: number;
   events: { day: number; hour: number };

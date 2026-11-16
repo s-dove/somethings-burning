@@ -13,11 +13,13 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { OwnershipPage } from "./pages/OwnershipPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { RbacPage } from "./pages/RbacPage";
+import { ReleasesPage } from "./pages/ReleasesPage";
 import { RoutingPage } from "./pages/RoutingPage";
 import { ScrubbingPage } from "./pages/ScrubbingPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SourcesPage } from "./pages/SourcesPage";
 import { SiteSettingsPage } from "./pages/SiteSettingsPage";
+import { TokensPage } from "./pages/TokensPage";
 import "./styles.css";
 
 watchSystemTheme();
@@ -40,6 +42,8 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/p/:id/settings/scrubbing" element={<ScrubbingPage />} />
           <Route path="/p/:id/settings/ownership" element={<OwnershipPage />} />
           <Route path="/p/:id/settings/grouping" element={<GroupingPage />} />
+          <Route path="/p/:id/settings/tokens" element={<TokensPage />} />
+          <Route path="/p/:id/releases" element={<ReleasesPage />} />
           <Route path="/issues/:issueId" element={<IssueByNumber />} />
           <Route path="/p/:id/issues/:issueId" element={<OldIssueLink />} />
           <Route path="*" element={<NotFoundPage />} />

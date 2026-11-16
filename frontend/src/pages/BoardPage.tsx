@@ -27,15 +27,17 @@ export function BoardPage() {
   const status = params.get("status") || "open";
   const sort = params.get("sort") || "hot";
   const q = params.get("q") ?? "";
-  const query = new URLSearchParams({ status, sort, q, ...(id ? { project: id } : {}) });
+  const release = params.get("release") ?? "";
+  const query = new URLSearchParams({ status, sort, q, ...(id ? { project: id } : {}), ...(release ? { release } : {}) });
   const { data, error, reload } = useApi<Board>(`/board?${query}`, 30_000);
   const [search, setSearch] = useState(q);
   useEffect(() => {
     setSearch(q);
   }, [q]);
   const link = (changes: Record<string, string>) => {
-    const next = new URLSearchParams({ status, sort, q, ...changes });
+    const next = new URLSearchParams({ status, sort, q, ...(release ? { release } : {}), ...changes });
     if (!next.get("q")) next.delete("q");
+    if (!next.get("release")) next.delete("release");
     return `?${next}`;
   };
   const update = (changes: Record<string, string>) => setParams(new URLSearchParams(link(changes).slice(1)));
@@ -137,10 +139,15 @@ export function BoardPage() {
                 <span aria-hidden="true">Sort by</span>
                 <Select label="Sort by" hideLabel size="sm" className="w-40" value={sort} options={SORT_OPTIONS} onChange={(v) => update({ sort: v })} />
               </div>
+              {release && (
+                <Link to={link({ release: "" })} className="inline-flex items-center gap-1 rounded-control bg-smoke px-2 py-1 text-xs text-cinder no-underline hover:text-soot">
+                  Release <span className="mono text-soot">{release}</span> · clear
+                </Link>
+              )}
             </div>
           </PageHeader>
           <IssueList
-            key={`${status}|${q}|${sort}|${current?.id ?? 0}`}
+            key={`${status}|${q}|${sort}|${release}|${current?.id ?? 0}`}
             issues={data.issues}
             showProject={!current}
             status={status}
