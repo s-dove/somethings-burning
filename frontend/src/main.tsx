@@ -12,6 +12,7 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { RbacPage } from "./pages/RbacPage";
 import { RoutingPage } from "./pages/RoutingPage";
+import { ScrubbingPage } from "./pages/ScrubbingPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SourcesPage } from "./pages/SourcesPage";
 import { SiteSettingsPage } from "./pages/SiteSettingsPage";
@@ -34,6 +35,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/p/:id/settings/rbac" element={<RbacPage />} />
           <Route path="/p/:id/settings/notifications" element={<RoutingPage />} />
           <Route path="/p/:id/settings/code" element={<SourcesPage />} />
+          <Route path="/p/:id/settings/scrubbing" element={<ScrubbingPage />} />
           <Route path="/issues/:issueId" element={<IssueByNumber />} />
           <Route path="/p/:id/issues/:issueId" element={<OldIssueLink />} />
           <Route path="*" element={<NotFoundPage />} />

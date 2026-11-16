@@ -1,5 +1,6 @@
 import { Disclosure, DisclosureButton, DisclosurePanel } from "@headlessui/react";
 import { highlight, languageFor } from "../components/common/CodeBlock";
+import { Redacted } from "../components/Redacted";
 import { Link } from "../components/common/Link";
 import { Tip } from "../components/Tip";
 import type { EventView, FrameView } from "../shared/api";
@@ -64,7 +65,7 @@ export function StackTrace({ exception, platform, causedBy }: { exception: Excep
                         <div key={name} className="contents">
                           <dt className="text-cinder">{name}</dt>
                           <dd className="m-0">
-                            <pre className="mono">{value}</pre>
+                            <pre className="mono"><Redacted text={value} /></pre>
                           </dd>
                         </div>
                       ))}

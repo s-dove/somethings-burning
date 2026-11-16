@@ -11,6 +11,7 @@ import "prismjs/components/prism-typescript";
 import "prismjs/components/prism-csharp";
 import "prismjs/components/prism-rust";
 import "./prism.css";
+import { redactHtml } from "../Redacted";
 
 // escapeHTML is the fallback for a language Prism has no grammar for.
 const escapeHTML = (s: string) =>
@@ -20,7 +21,8 @@ const escapeHTML = (s: string) =>
 // language is unknown.
 export function highlight(code: string, language: string): string {
   const grammar = Prism.languages[language];
-  return grammar ? Prism.highlight(code, grammar, language) : escapeHTML(code);
+  const html = grammar ? Prism.highlight(code, grammar, language) : escapeHTML(code);
+  return redactHtml(html);
 }
 
 const BY_PLATFORM: Record<string, string> = {
