@@ -86,6 +86,7 @@ export interface EventView {
   release: string;
   environment: string;
   serverName: string;
+  level: string; // as the SDK sent it; "" when it did not
   platform: string;
   sdk: string;
   message: string;
@@ -118,6 +119,8 @@ export interface IssueDetail {
   comments: IssueComment[];
   muteOptions: MuteOptions;
   latestRelease: string;
+  tags: { key: string; total: number; values: { value: string; count: number }[] }[];
+  users: number;
   releases: { release: string; environment: string; eventCount: number; lastSeen: number }[];
   events: EventRow[];
   moreEvents: boolean;
