@@ -24,7 +24,7 @@ export function githubIssueRoutes(db: Db, access: Access, deps: { code: CodeSour
       if (issue.externalUrl && !again) return c.json({ detail: "a GitHub issue was made already", url: issue.externalUrl }, 409);
       const src = (await getSources(db, f.project.id)).find((s) => s.primary && s.kind === "github");
       if (!src) return c.json({ detail: "the project's primary code source is not a GitHub repository" }, 400);
-      const link = `${publicBase(c, deps.config.baseURL)}/p/${f.project.id}/issues/${issue.id}`;
+      const link = `${publicBase(c, deps.config.baseURL)}/issues/${issue.id}`;
       const text = [
         `**${issue.title}**`,
         "",

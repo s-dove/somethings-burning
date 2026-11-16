@@ -25,7 +25,7 @@ export const testAuth = (fallback: string | null = ADMIN): Authenticator => ({
     const raw = c.req.header("x-test-user") ?? fallback;
     if (!raw) return null;
     const [email, groups] = raw.split("|");
-    return { email: email!, name: "", groups: groups ? groups.split(",") : [], username: email!.split("@")[0]!, displayName: email! };
+    return { email: email!, name: "", groups: groups ? groups.split(",") : [], username: email!.split("@")[0]!, displayName: email!, lang: "" };
   },
   routes: () => new Hono(),
 });

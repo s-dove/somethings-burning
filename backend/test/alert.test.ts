@@ -27,7 +27,7 @@ describe("alerts", () => {
     expect(targets(s)).toEqual(["email:ana@example.com", "email:bo@example.com"]);
     const m = s.senders.sent[0]!.m;
     expect(m.subject).toBe("New issue: ZeroDivisionError: division by zero");
-    expect(m.text).toContain("http://burning.example.com/p/1/issues/1");
+    expect(m.text).toContain("http://burning.example.com/issues/1");
   });
 
   it("follows the project's routes and each person's own routing", async () => {

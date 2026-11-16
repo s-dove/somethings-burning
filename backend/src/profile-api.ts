@@ -4,7 +4,7 @@ import type { Db } from "./db.js";
 import type { Senders } from "./notify/deliver.js";
 import { checkRoutes, OPS, PERSONAL_FIELDS, PERSONAL_KINDS, receiverError, type Route } from "./notify/routing.js";
 import { getPersonalRoutes, savePersonalRoutes } from "./notify/store.js";
-import { getUser, MAX_DISPLAY_NAME, setDisplayName } from "./users.js";
+import { getUser, LANGS, MAX_DISPLAY_NAME, setDisplayName, setLang } from "./users.js";
 
 // Claims about the token itself, not the person. The profile lists the rest.
 const TOKEN_CLAIMS = new Set(["iss", "sub", "aud", "exp", "iat", "nbf", "auth_time", "nonce", "at_hash", "c_hash", "azp", "sid", "jti"]);
@@ -58,6 +58,17 @@ export function profileRoutes(db: Db, senders: Senders): Hono<AppEnv> {
     if (/[\u0000-\u001f\u007f]/.test(name)) return c.json({ detail: "no control characters" }, 400);
     await setDisplayName(db, user.email, name);
     return c.json(await view(user.email, user.groups));
+  });
+
+  // The interface language, kept with the person so it follows them.
+  app.put("/profile/lang", async (c) => {
+    const user = c.get("user");
+    if (!user) return c.json({ detail: NO_PROFILE }, 404);
+    if (!(await getUser(db, user.email))) return c.json({ detail: SIGN_IN_AGAIN }, 404);
+    const lang = String(((await c.req.json().catch(() => ({}))) as { lang?: unknown }).lang ?? "");
+    if (!(LANGS as readonly string[]).includes(lang)) return c.json({ detail: `the language is one of ${LANGS.join(", ")}` }, 400);
+    await setLang(db, user.email, lang);
+    return c.json({ lang });
   });
 
   // The person's own routing: how alerts that reach them as a person are

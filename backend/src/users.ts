@@ -8,6 +8,7 @@ export interface UserRecord {
   username: string; // preferred_username, or the part of the email before @
   name: string; // the name claim
   displayName: string; // set by the person; empty means the username
+  lang: string; // the interface language they chose; "" for not yet
   issuer: string;
   subject: string;
   claims: Record<string, unknown>;
@@ -17,6 +18,13 @@ export interface UserRecord {
 }
 
 export const MAX_DISPLAY_NAME = 80;
+
+/** The interface languages a person can choose. */
+export const LANGS = ["en", "zh", "zh-TW", "ja", "ko", "es", "fr", "de", "pt-BR"] as const;
+
+export async function setLang(db: Db, email: string, lang: string): Promise<void> {
+  await db.run("UPDATE users SET lang = ? WHERE email = ?", lang, email.toLowerCase());
+}
 
 export const displayOf = (u: { displayName: string; username: string; email: string }): string =>
   u.displayName || u.username || u.email;
@@ -33,6 +41,7 @@ type Row = {
   username: string;
   name: string;
   display_name: string;
+  lang: string;
   issuer: string;
   subject: string;
   claims: string;
@@ -46,6 +55,7 @@ const toRecord = (r: Row): UserRecord => ({
   username: r.username,
   name: r.name,
   displayName: r.display_name,
+  lang: r.lang ?? "",
   issuer: r.issuer,
   subject: r.subject,
   claims: JSON.parse(r.claims || "{}") as Record<string, unknown>,
