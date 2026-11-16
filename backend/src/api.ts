@@ -8,6 +8,7 @@ import { attachLinks } from "./source/links.js";
 import { tagBreakdown, usersAffected } from "./issue-tags.js";
 import { configRoutes } from "./config-api.js";
 import { assignRoutes } from "./assign.js";
+import { mergedInto, mergeRoutes } from "./merge.js";
 import { getSources } from "./sources.js";
 import { sourcesRoutes } from "./sources-api.js";
 import { listActivity } from "./activity.js";
@@ -188,6 +189,7 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
       event,
       tags: await tagBreakdown(db, issue.id),
       users: await usersAffected(db, issue.id),
+      merged: await mergedInto(db, issue.id),
     });
   });
 
@@ -227,6 +229,7 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
   app.route("/", commentRoutes(db, access));
   app.route("/", configRoutes(db, access));
   app.route("/", assignRoutes(db, access));
+  app.route("/", mergeRoutes(db, access));
   app.route("/", sourcesRoutes(db, access, deps.code));
   app.route("/", siteRoutes(deps.config, deps.senders, deps.code));
   app.route("/", settingsRoutes(db, access, deps.baseURL));

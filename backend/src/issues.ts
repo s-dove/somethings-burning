@@ -2,7 +2,7 @@ import { addActivity, type ActivityExtra } from "./activity.js";
 import type { Db } from "./db.js";
 import { summarize, type SentryEvent } from "./event.js";
 import { countEvent } from "./issue-tags.js";
-import { ownerFor } from "./rules.js";
+import { applyGrouping, ownerFor } from "./rules.js";
 import { scrubEvent } from "./scrub.js";
 import { getConfig, type ProjectConfig } from "./settings.js";
 import { muteBroken, MuteFor, MuteNextRelease, type Mute, type MuteOption } from "./triage.js";
@@ -108,8 +108,9 @@ export interface Recorded {
  */
 export async function recordEvent(db: Db, projectId: number, input: SentryEvent, now = Date.now(), config?: ProjectConfig): Promise<Recorded> {
   const cfg = config ?? (await getConfig(db, projectId));
-  // Secrets out first, so nothing below (or the stored payload) sees them.
-  const event = scrubEvent(input, cfg.scrub);
+  // Secrets out first, so nothing below (or the stored payload) sees them;
+  // then the project's grouping rules may set the fingerprint.
+  const event = applyGrouping(scrubEvent(input, cfg.scrub), cfg.grouping);
   const s = summarize(event);
   const release = str(event.release);
   const environment = str(event.environment);
@@ -117,7 +118,12 @@ export async function recordEvent(db: Db, projectId: number, input: SentryEvent,
   return db.tx(async (t) => {
     if (release) await t.run("INSERT INTO releases (project_id, version, first_seen) VALUES (?, ?, ?) ON CONFLICT DO NOTHING", projectId, release, now);
     const res: Recorded = { eventId: s.eventId, issueId: 0, title: s.title, alert: null, reason: "" };
-    const existing = () => t.get<IssueRow>(`SELECT * FROM issues WHERE project_id = ? AND fingerprint = ? ${t.forUpdate}`, projectId, s.fingerprint);
+    // A fingerprint merged into another issue belongs to that issue.
+    const alias = await t.get<{ issue_id: number }>("SELECT issue_id FROM issue_fingerprints WHERE project_id = ? AND fingerprint = ?", projectId, s.fingerprint);
+    const existing = () =>
+      alias
+        ? t.get<IssueRow>(`SELECT * FROM issues WHERE id = ? ${t.forUpdate}`, alias.issue_id)
+        : t.get<IssueRow>(`SELECT * FROM issues WHERE project_id = ? AND fingerprint = ? ${t.forUpdate}`, projectId, s.fingerprint);
     // Most events belong to a known issue: look first, and insert only when there is none.
     let found = await existing();
     const created = found
@@ -180,7 +186,7 @@ export async function recordEvent(db: Db, projectId: number, input: SentryEvent,
     );
     if (res.alert || stored.count < STORE.firstN || now - stored.last >= STORE.everyMs) {
       await t.run(
-        "INSERT INTO events (project_id, issue_id, event_id, received_at, release, environment, payload) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO events (project_id, issue_id, event_id, received_at, release, environment, payload, fingerprint) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         projectId,
         res.issueId,
         s.eventId,
@@ -188,6 +194,7 @@ export async function recordEvent(db: Db, projectId: number, input: SentryEvent,
         release,
         environment,
         JSON.stringify({ ...event, event_id: s.eventId }),
+        s.fingerprint,
       );
       // Past the cap, drop the oldest payloads. The counts keep the full number.
       await t.run(
