@@ -12,6 +12,7 @@ import { ago, stamp } from "../shared/format";
 import { input } from "../shared/ui";
 import { Tip } from "../components/Tip";
 import { LangGrid } from "../components/LangSwitch";
+import { ProfileGroups } from "./ProfileGroups";
 import { chooseLang, lang, t } from "../shared/i18n";
 
 const card = "mt-6 rounded-card border border-rule bg-smoke p-6";
@@ -100,11 +101,7 @@ function ProfileDetails({ profile: p, onSaved }: { profile: Profile; onSaved: ()
       <section className={card}>
         <h2 className="text-base">{t("Groups")}</h2>
         <p className="mt-1 mb-4 text-xs text-cinder">Taken from the groups claim at sign-in. Project roles can be granted to a group.</p>
-        {p.groups.length === 0
-          ? <p className="text-sm text-cinder">{t("No groups in the claim.")}</p>
-          : <ul className="m-0 grid list-none gap-2 p-0">
-            {p.groups.map((group) => <li key={group} className="rounded-control border border-rule bg-ash px-3 py-2 text-sm">{group}</li>)}
-          </ul>}
+        <ProfileGroups groups={p.groups} />
       </section>
     </>
   );

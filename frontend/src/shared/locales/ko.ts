@@ -379,5 +379,11 @@ const ko: Record<string, string> = {
   "Your notifications": "내 알림",
   "Back to profile": "프로필로",
   "How alerts reach you, and the daily summary.": "알림을 받는 방법과 일일 요약.",
+  "+{n} more": "+{n}",
+  "{n} from the groups claim at sign-in.": "로그인 시 groups 클레임의 {n}개.",
+  "Filter groups": "그룹 필터",
+  "No group matches.": "일치하는 그룹이 없습니다.",
+  "{n} of {total}": "{n} / {total}",
+  "{n} groups": "그룹 {n}개",
 };
 export default ko;

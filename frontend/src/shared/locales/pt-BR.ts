@@ -379,5 +379,11 @@ const pt_BR: Record<string, string> = {
   "Your notifications": "Suas notificações",
   "Back to profile": "Voltar ao perfil",
   "How alerts reach you, and the daily summary.": "Como os alertas chegam até você, e o resumo diário.",
+  "+{n} more": "+{n}",
+  "{n} from the groups claim at sign-in.": "{n} do claim groups ao entrar.",
+  "Filter groups": "Filtrar grupos",
+  "No group matches.": "Nenhum grupo corresponde.",
+  "{n} of {total}": "{n} de {total}",
+  "{n} groups": "{n} grupos",
 };
 export default pt_BR;

@@ -379,5 +379,11 @@ const ja: Record<string, string> = {
   "Your notifications": "あなたの通知",
   "Back to profile": "プロフィールに戻る",
   "How alerts reach you, and the daily summary.": "アラートの届き方とデイリーサマリー。",
+  "+{n} more": "+{n}",
+  "{n} from the groups claim at sign-in.": "サインイン時の groups クレームから {n} 件。",
+  "Filter groups": "グループを絞り込む",
+  "No group matches.": "一致するグループはありません。",
+  "{n} of {total}": "{n} / {total}",
+  "{n} groups": "グループ {n} 件",
 };
 export default ja;
