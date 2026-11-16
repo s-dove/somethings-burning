@@ -2,7 +2,7 @@ import { Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
 import { useState } from "react";
 import { chooseLang, lang, LANGS, t } from "../shared/i18n";
 import type { Session } from "../shared/api";
-import { ChevronRight, Languages, LogOut, UserRound } from "../ui/icons";
+import { Bell, ChevronRight, Languages, LogOut, UserRound } from "../ui/icons";
 import { Link } from "./common/Link";
 import { LangGrid } from "./LangSwitch";
 import { ThemeSwitch } from "./ThemeSwitch";
@@ -46,6 +46,10 @@ export function ProfileMenu({ session, current }: { session: Session | null | un
               <Link to="/profile" className={item} onClick={() => close()}>
                 <UserRound size={15} className="text-cinder" aria-hidden="true" />
                 {t("Profile")}
+              </Link>
+              <Link to="/profile/notifications" className={item} onClick={() => close()}>
+                <Bell size={15} className="text-cinder" aria-hidden="true" />
+                {t("Your notifications")}
               </Link>
               <button type="button" className={item} aria-expanded={langs} onClick={() => setLangs(!langs)}>
                 <Languages size={15} className="text-cinder" aria-hidden="true" />

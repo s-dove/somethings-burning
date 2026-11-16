@@ -2,7 +2,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { mutate } from "swr";
 import { Button } from "../ui/components/Button";
-import { ArrowRight, LogOut } from "../ui/icons";
+import { ArrowRight, Bell, ChevronRight, LogOut } from "../ui/icons";
+import { Link } from "../components/common/Link";
 import { Layout } from "../components/Layout";
 import { PageHeader } from "../components/PageHeader";
 import { Loading } from "../components/Loading";
@@ -12,8 +13,6 @@ import { input } from "../shared/ui";
 import { Tip } from "../components/Tip";
 import { LangGrid } from "../components/LangSwitch";
 import { chooseLang, lang, t } from "../shared/i18n";
-import { ProfileDigest } from "./ProfileDigest";
-import { ProfileNotifications } from "./ProfileNotifications";
 
 const card = "mt-6 rounded-card border border-rule bg-smoke p-6";
 const MAX_NAME = 80;
@@ -66,8 +65,14 @@ function ProfileDetails({ profile: p, onSaved }: { profile: Profile; onSaved: ()
         <p className="mt-1 mb-4 text-xs text-cinder">{t("Language follows your account.")}</p>
         <LangGrid cols={2} onPick={(l) => void chooseLang(l, true)} current={lang} />
       </section>
-      <ProfileDigest />
-      <ProfileNotifications />
+      <Link to="/profile/notifications" className={`${card} flex items-center gap-4 text-soot no-underline hover:bg-rule-soft`}>
+        <span className="grid size-9 shrink-0 place-items-center rounded-control border border-rule bg-ash text-cinder"><Bell aria-hidden="true" /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-base font-semibold">{t("Your notifications")}</span>
+          <span className="block text-xs text-cinder">{t("How alerts reach you, and the daily summary.")}</span>
+        </span>
+        <ChevronRight className="shrink-0 text-cinder" aria-hidden="true" />
+      </Link>
 
       <section className={card}>
         <h2 className="text-base">{t("Account")}</h2>

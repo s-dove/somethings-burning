@@ -376,5 +376,8 @@ const ko: Record<string, string> = {
   "Grouping": "그룹화",
   "Code": "코드",
   "API tokens": "API 토큰",
+  "Your notifications": "내 알림",
+  "Back to profile": "프로필로",
+  "How alerts reach you, and the daily summary.": "알림을 받는 방법과 일일 요약.",
 };
 export default ko;

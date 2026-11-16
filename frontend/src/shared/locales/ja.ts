@@ -376,5 +376,8 @@ const ja: Record<string, string> = {
   "Grouping": "グルーピング",
   "Code": "コード",
   "API tokens": "API トークン",
+  "Your notifications": "あなたの通知",
+  "Back to profile": "プロフィールに戻る",
+  "How alerts reach you, and the daily summary.": "アラートの届き方とデイリーサマリー。",
 };
 export default ja;
