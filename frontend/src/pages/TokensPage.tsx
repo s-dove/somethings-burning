@@ -53,7 +53,7 @@ curl -fsS -X POST "$BURNING/deploys" -H "Authorization: Bearer $BURNING_TOKEN" \
       error={settings.error || error}
       back={backToSettings(settings.data)}
       title={(n) => `${n} API tokens`}
-      hint="Let CI create releases and mark deploys."
+      hint="Let CI create releases, mark deploys, and upload source maps."
     >
       {(s) =>
         s.project.role !== "admin" ? (
@@ -95,7 +95,7 @@ curl -fsS -X POST "$BURNING/deploys" -H "Authorization: Bearer $BURNING_TOKEN" \
             </section>
             <section className={section}>
               <h2 className={sectionTitle}>What a token can do</h2>
-              <p className="text-[13px] leading-relaxed text-cinder">Only this project's releases and deploys. It cannot read issues or change settings. SDKs do not use it; they report with the DSN. The value is shown once and only a hash is kept.</p>
+              <p className="text-[13px] leading-relaxed text-cinder">Only this project's releases, deploys, and source maps. It cannot read issues or change settings. SDKs do not use it; they report with the DSN. The value is shown once and only a hash is kept.</p>
               <pre className="mono mt-4 overflow-x-auto rounded-control bg-smoke p-3 text-xs leading-relaxed">{example}</pre>
             </section>
           </div>

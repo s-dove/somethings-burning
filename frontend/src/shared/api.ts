@@ -79,6 +79,13 @@ export interface ReleaseSummary {
   deploys: { environment: string; url: string; at: number }[];
 }
 
+export interface Artifact {
+  release: string;
+  name: string;
+  size: number;
+  createdAt: number;
+}
+
 export interface TokenView {
   id: number;
   name: string;

@@ -51,6 +51,7 @@ export {
   LuTrash2 as Trash2,
   LuTriangleAlert as TriangleAlert,
   LuUserRound as UserRound,
+  LuUpload as Upload,
   LuUsers as Users,
   LuVolume2 as Volume2,
   LuVolumeX as VolumeX,
