@@ -26,7 +26,8 @@ export function badTarget(x: Receiver): string {
 
 export function routeProblems(r: Route): Problems {
   const out: Problems = new Map();
-  if (r.matchers.length === 0) out.set("m", "Add at least one condition.");
+  if (r.spike && !(r.spike.events >= 1)) out.set("spike", "A spike needs at least 1 event in an hour.");
+  else if (r.spike && !(r.spike.factor >= 1 && r.spike.factor <= 1000)) out.set("spike", "The factor is between 1 and 1000.");
   r.matchers.forEach((m, i) => {
     if (m.field === "tag." || m.field === "tag") out.set(`m${i}`, "Add the tag name.");
     else if (m.op === "=~" || m.op === "!~") {

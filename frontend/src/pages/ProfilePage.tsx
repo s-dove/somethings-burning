@@ -10,6 +10,7 @@ import { api, useApi, type Profile, type Session } from "../shared/api";
 import { ago, stamp } from "../shared/format";
 import { input } from "../shared/ui";
 import { Tip } from "../components/Tip";
+import { ProfileDigest } from "./ProfileDigest";
 import { ProfileNotifications } from "./ProfileNotifications";
 
 const card = "mt-6 rounded-card border border-rule bg-smoke p-6";
@@ -58,6 +59,7 @@ function ProfileDetails({ profile: p, onSaved }: { profile: Profile; onSaved: ()
   return (
     <>
       <Names profile={p} onSaved={onSaved} />
+      <ProfileDigest />
       <ProfileNotifications />
 
       <section className={card}>

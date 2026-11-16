@@ -242,7 +242,8 @@ export type MatchOp = "=" | "!=" | "=~" | "!~" | "value" | "empty" | "!value" | 
 export interface Matcher { field: string; op: MatchOp; value: string }
 export type ReceiverKind = "user" | "assignee" | "email" | "mattermost" | "slack" | "webhook" | "mattermost_dm";
 export interface Receiver { kind: ReceiverKind; target: string }
-export interface Route { name: string; matchers: Matcher[]; sink: boolean; receivers: Receiver[]; continue: boolean }
+export interface Spike { events: number; factor: number }
+export interface Route { name: string; matchers: Matcher[]; sink: boolean; receivers: Receiver[]; continue: boolean; spike?: Spike }
 
 export interface Routing {
   project: ProjectRef;
