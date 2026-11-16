@@ -4,10 +4,10 @@ import { Check, MonitorSmartphone, Palette, X } from "../ui/icons";
 import { Tip } from "./Tip";
 import { t } from "../shared/i18n";
 
-// The themes in styles.css (daisyUI). "" follows the system: Burning, or
-// Burning dark when the system is dark.
+// The themes in styles.css (daisyUI). "system" follows the OS: Burning, or
+// Burning dark when the system is dark. Nothing chosen yet is Burning.
 const THEMES: { id: string; label: string; dark?: boolean }[] = [
-  { id: "", label: "System" },
+  { id: "system", label: "System" },
   { id: "burning", label: "Burning" },
   { id: "burning-dark", label: "Burning dark", dark: true },
   { id: "corporate", label: "Corporate" },
@@ -48,10 +48,14 @@ const read = (key: string): string => {
   try { return localStorage.getItem(key) ?? ""; } catch { return ""; }
 };
 const write = (key: string, id: string) => {
-  try { if (id) localStorage.setItem(key, id); else localStorage.removeItem(key); } catch { /* private mode */ }
+  try { localStorage.setItem(key, id); } catch { /* private mode */ }
 };
 
-export const storedTheme = (): string => read(KEY);
+export const storedTheme = (): string => {
+  const id = read(KEY);
+  if (id === "") return "system"; // saved before "system" had its own value
+  return id || "burning";
+};
 export const storedCodeTheme = (): string => {
   const id = read(CODE_KEY);
   return CODE_THEMES.some(theme => theme.id === id) ? id : DEFAULT_CODE;
@@ -69,7 +73,7 @@ function applyCode() {
 // applyTheme sets data-theme on <html>, which every color in the app reads.
 // The code theme stays whatever was chosen for it.
 export function applyTheme(id: string) {
-  if (id) document.documentElement.dataset.theme = id;
+  if (id && id !== "system") document.documentElement.dataset.theme = id;
   else delete document.documentElement.dataset.theme;
   write(KEY, id);
   applyCode();
