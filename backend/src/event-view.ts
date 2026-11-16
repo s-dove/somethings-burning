@@ -12,6 +12,8 @@ export type FrameView = {
   lines: { no: number; text: string; current: boolean }[];
   vars: [string, string][];
   link: string; // the line in the repository, "" when no code source covers it
+  linesFrom: string; // "repo@sha" when the code lines were read from a code source, not sent by the SDK
+  changed: string; // added, modified, removed: how the file changed since the previous release
 };
 
 export type EventView = {
@@ -62,6 +64,8 @@ function frameView(f: Frame & { vars?: Record<string, unknown> }): FrameView {
     lines,
     vars: Object.entries(f.vars ?? {}).map(([k, v]) => [k, pretty(v)]),
     link: "",
+    linesFrom: "",
+    changed: "",
   };
 }
 

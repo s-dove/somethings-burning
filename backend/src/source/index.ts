@@ -55,6 +55,8 @@ export class CodeSources {
   readonly credentials: Credentials;
   readonly sshKey: boolean;
   private readers = new Map<string, Source>();
+  // Files read at a commit never change: keep the last few hundred.
+  private files = new Map<string, string | null>();
   private resolved = new Map<string, { at: number; value: Resolved }>();
 
   constructor(
@@ -79,6 +81,16 @@ export class CodeSources {
       this.readers.set(key, r);
     }
     return r;
+  }
+
+  /** A file at a commit, cached; null when it is not there. */
+  async read(s: SourceConfig, sha: string, path: string): Promise<string | null> {
+    const key = `${s.kind}|${s.repo}|${sha}|${path}`;
+    if (this.files.has(key)) return this.files.get(key)!;
+    const text = await this.open(s).read(sha, path).catch(() => null);
+    this.files.set(key, text);
+    if (this.files.size > 300) this.files.delete(this.files.keys().next().value!);
+    return text;
   }
 
   /** Turns an event's release into a commit in this source: each candidate from the release rule in turn, then the default branch. */

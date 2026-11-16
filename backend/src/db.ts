@@ -405,6 +405,7 @@ const ADDED_COLUMNS: [string, string, string][] = [
   ["issues", "assignee", "TEXT NOT NULL DEFAULT ''"], // email of who handles it, '' for no one
   ["events", "fingerprint", "TEXT NOT NULL DEFAULT ''"], // the event's own, so a merge can be undone
   ["releases", "commit_sha", "TEXT NOT NULL DEFAULT ''"], // set by CI with a release
+  ["issues", "external_url", "TEXT NOT NULL DEFAULT ''"], // a GitHub issue made from it
 ];
 
 async function migrate(db: Db, exec: (sql: string) => Promise<void>): Promise<void> {
