@@ -7,6 +7,7 @@ import { Loading } from "../components/Loading";
 import { PageHeader } from "../components/PageHeader";
 import { ProjectPulseLine } from "../components/ProjectPulse";
 import { useApi, type Board } from "../shared/api";
+import { t } from "../shared/i18n";
 import { dayColor, plural } from "../shared/format";
 import { input } from "../shared/ui";
 import { Activity, Search } from "../ui/icons";
@@ -56,13 +57,13 @@ export function BoardPage() {
       {data && (
         <>
           <PageHeader
-            title={current ? current.name : "All issues"}
-            titleText={current ? current.name : "All issues"}
+            title={current ? current.name : t("All issues")}
+            titleText={current ? current.name : t("All issues")}
             pinnedGap={[28, 12]}
             actions={
               <div className="flex items-center gap-2 py-2 text-xs text-cinder max-sm:hidden">
                 <Activity aria-hidden="true" />
-                Refreshes every 30 seconds
+                {t("Refreshes every 30 seconds")}
               </div>
             }
             after={
@@ -70,29 +71,29 @@ export function BoardPage() {
                 {data.project ? (
                   <ProjectPulseLine project={data.project} />
                 ) : (
-                  <p className="mt-2 text-[13px] text-cinder">Your error inbox across {plural(data.projects.length, "project")}.</p>
+                  <p className="mt-2 text-[13px] text-cinder">{t("Your error inbox across {n} projects.", { n: data.projects.length })}</p>
                 )}
                 <div className="mt-8 grid border-y border-rule max-sm:divide-y max-sm:divide-rule sm:grid-cols-2 sm:divide-x sm:divide-rule">
                   <Stat
                     value={data.counts.open ?? 0}
-                    label="open issues"
+                    label={t("open issues")}
                     detail={
                       <>
                         <span className={`size-2 rounded-full ${data.burning ? "bg-heat-4" : "bg-rule"}`} />
-                        {plural(data.burning, "issue")} with events in the last hour
+                        {t("{n} issues with events in the last hour", { n: data.burning })}
                       </>
                     }
                   />
                   <Stat
                     value={data.events.day}
-                    label="unresolved events in the last 24 hours"
+                    label={t("unresolved events in the last 24 hours")}
                     detail={
                       <>
                         <span
                           className={`size-2 rounded-full ${data.events.hour ? "" : "bg-rule"}`}
                           style={data.events.hour ? { backgroundColor: dayColor(data.events.hour) } : undefined}
                         />
-                        {plural(data.events.hour, "event")} this hour
+                        {t("{n} events this hour", { n: data.events.hour })}
                       </>
                     }
                   />
@@ -108,7 +109,7 @@ export function BoardPage() {
                   aria-current={value === status ? "page" : undefined}
                   className="flex shrink-0 items-center gap-2 border-b-2 border-transparent pb-3 text-[13px] text-cinder no-underline hover:text-soot aria-[current=page]:border-soot aria-[current=page]:font-semibold aria-[current=page]:text-soot"
                 >
-                  {label}
+                  {t(label)}
                   <span className="rounded-full bg-rule-soft px-2 py-0.5 text-[11px] tabular-nums">{data.counts[value] ?? 0}</span>
                 </Link>
               ))}
@@ -123,7 +124,7 @@ export function BoardPage() {
                 }}
               >
                 <label className="sr-only" htmlFor="q">
-                  Search issues
+                  {t("Search issues")}
                 </label>
                 <Search aria-hidden="true" className="pointer-events-none absolute top-3 left-3 text-cinder" />
                 <input
@@ -132,16 +133,16 @@ export function BoardPage() {
                   type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search errors or culprits…"
+                  placeholder={t("Search errors or culprits…")}
                 />
               </form>
               <div className="flex items-center gap-2 text-xs text-cinder">
-                <span aria-hidden="true">Sort by</span>
-                <Select label="Sort by" hideLabel size="sm" className="w-40" value={sort} options={SORT_OPTIONS} onChange={(v) => update({ sort: v })} />
+                <span aria-hidden="true">{t("Sort by")}</span>
+                <Select label={t("Sort by")} hideLabel size="sm" className="w-40" value={sort} options={SORT_OPTIONS.map(o => ({ ...o, label: t(o.label), hint: o.hint ? t(o.hint) : undefined }))} onChange={(v) => update({ sort: v })} />
               </div>
               {release && (
                 <Link to={link({ release: "" })} className="inline-flex items-center gap-1 rounded-control bg-smoke px-2 py-1 text-xs text-cinder no-underline hover:text-soot">
-                  Release <span className="mono text-soot">{release}</span> · clear
+                  {t("Release")} <span className="mono text-soot">{release}</span> · {t("clear")}
                 </Link>
               )}
             </div>

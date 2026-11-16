@@ -1,4 +1,5 @@
 import type { Mute } from "./api";
+import { t } from "./i18n";
 
 const HOUR = 3_600_000;
 
@@ -61,8 +62,8 @@ function mix(a: readonly number[], b: readonly number[], f: number): string {
 }
 
 export function eventsTip(n: number): string {
-  if (!n) return "No unresolved events in the last 24 hours";
-  return `${plural(n, "unresolved event")} in the last 24 hours`;
+  if (!n) return t("No unresolved events in the last 24 hours");
+  return t("{n} unresolved events in the last 24 hours", { n });
 }
 
 type EdgeIssue = { hours: number[]; status: "open" | "resolved" | "muted" };

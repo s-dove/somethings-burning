@@ -8,6 +8,7 @@ import { Link } from "./common/Link";
 import { Logo } from "./Logo";
 import { ThemeSwitch } from "./ThemeSwitch";
 import { Tip } from "./Tip";
+import { t } from "../shared/i18n";
 
 // ProjectSidebar switches between projects. Each project's square is colored
 // by its events in the last 24 hours; the number is its issues.
@@ -29,12 +30,12 @@ export function ProjectSidebar({ board, project, session, profile, create }: {
       {/* On wide screens the brand row is as tall as the page header (h-16), so
           their bottom borders meet in one line. */}
       <div className="flex shrink-0 items-center justify-between gap-3 px-2 lg:-mx-4 lg:-mt-4 lg:mb-5 lg:h-16 lg:border-b lg:border-rule lg:px-5">
-        <Link to="/" aria-label="Burning home" className="min-w-0 rounded-control no-underline">
+        <Link to="/" aria-label={t("Burning home")} className="min-w-0 rounded-control no-underline">
           <Logo />
         </Link>
         <button
           className="shrink-0 cursor-pointer rounded-control p-3 hover:bg-rule-soft lg:hidden"
-          aria-label={expanded ? "Close navigation" : "Open navigation"}
+          aria-label={expanded ? t("Close navigation") : t("Open navigation")}
           aria-expanded={expanded}
           aria-controls="project-navigation"
           onClick={() => setExpanded(!expanded)}
@@ -44,15 +45,15 @@ export function ProjectSidebar({ board, project, session, profile, create }: {
       </div>
       <nav
         id="project-navigation"
-        aria-label="Projects"
+        aria-label={t("Projects")}
         className={`flex min-h-0 min-w-0 flex-1 flex-col max-lg:pt-4 ${expanded ? "" : "max-lg:hidden"}`}
       >
         <Link to="/" className={`${item} shrink-0`} aria-current={!project && !profile ? "page" : undefined}>
           <LayoutGrid aria-hidden="true" />
-          <span className="flex-1">All issues</span>
+          <span className="flex-1">{t("All issues")}</span>
           {board && <span className="text-xs tabular-nums">{board.openTotal}</span>}
         </Link>
-        <div className="mt-7 mb-2 shrink-0 px-3 text-xs text-cinder">Projects</div>
+        <div className="mt-7 mb-2 shrink-0 px-3 text-xs text-cinder">{t("Projects")}</div>
         <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto max-lg:flex-row max-lg:overflow-x-auto max-lg:overflow-y-visible">
           {board?.projects.map((p) => (
             <Link
@@ -74,7 +75,7 @@ export function ProjectSidebar({ board, project, session, profile, create }: {
                 </Trigger>
                 <Portal>
                   <Content side="right" sideOffset={8} className="z-50 rounded-control bg-soot px-2 py-1 text-[11px] leading-snug text-ash">
-                    {unseen.has(p.id) ? "New alert. " : ""}
+                    {unseen.has(p.id) ? `${t("New alert.")} ` : ""}
                     {eventsTip(p.unresolvedDay)}
                   </Content>
                 </Portal>

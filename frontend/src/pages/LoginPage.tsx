@@ -5,6 +5,7 @@ import { LangSwitch } from "../components/LangSwitch";
 import { Layout } from "../components/Layout";
 import { Logo } from "../components/Logo";
 import { useApi, type Session } from "../shared/api";
+import { t } from "../shared/i18n";
 import { input } from "../shared/ui";
 import { Button } from "../ui/components/Button";
 import { ArrowRight, Shield, TriangleAlert } from "../ui/icons";
@@ -29,20 +30,20 @@ export function LoginPage() {
         <section className="flex flex-col justify-between border-b border-rule bg-smoke p-8 lg:border-r lg:border-b-0 lg:p-16">
           <Logo size="lg" tagline={false} />
           <div className="max-w-[480px] py-12 lg:py-20">
-            <h1 className="text-4xl leading-[1.15] font-semibold tracking-tight sm:text-5xl">Something's burning.</h1>
-            <p className="mt-6 max-w-[34ch] text-lg leading-relaxed text-cinder">Find the error. Follow the trace. Get back to building.</p>
+            <h1 className="text-4xl leading-[1.15] font-semibold tracking-tight sm:text-5xl">{t("Something's burning.")}</h1>
+            <p className="mt-6 max-w-[34ch] text-lg leading-relaxed text-cinder">{t("Find the error. Follow the trace. Get back to building.")}</p>
             <div className="mt-12 grid h-12 grid-cols-24 gap-1.5" aria-hidden="true">
               {Array.from({ length: 24 }, (_, i) => (
                 <span key={i} className={`rounded-[3px] ${i > 15 && i < 20 ? "bg-heat-4" : i > 12 && i < 22 ? "bg-heat-2" : "bg-rule"}`} />
               ))}
             </div>
           </div>
-          <p className="text-xs text-cinder">Error tracking for your services. Powered by Sentry SDKs.</p>
+          <p className="text-xs text-cinder">{t("Error tracking for your services. Powered by Sentry SDKs.")}</p>
         </section>
         <section className="flex items-center justify-center px-8 py-16 lg:p-16">
           <div className="w-full max-w-[360px]">
             <div className="mb-6 flex justify-end"><LangSwitch /></div>
-            <h2 className="text-2xl">Sign in to Burning</h2>
+            <h2 className="text-2xl">{t("Sign in to Burning")}</h2>
             {error && (
               <p role="alert" className="mt-4 text-sm text-ember-ink">
                 {error}
@@ -51,12 +52,12 @@ export function LoginPage() {
             {none && <NotConfigured />}
             {methods && !none && (
               <>
-                <p className="mt-3 mb-8 text-sm leading-relaxed text-cinder">Review errors across your projects and pick up where you left off.</p>
+                <p className="mt-3 mb-8 text-sm leading-relaxed text-cinder">{t("Review errors across your projects and pick up where you left off.")}</p>
                 {methods.password && <PasswordForm next={next} />}
                 {methods.password && methods.oidc && (
                   <div className="my-6 flex items-center gap-3 text-xs text-cinder" aria-hidden="true">
                     <span className="h-px flex-1 bg-rule" />
-                    or
+                    {t("or")}
                     <span className="h-px flex-1 bg-rule" />
                   </div>
                 )}
@@ -65,13 +66,13 @@ export function LoginPage() {
                     <form method="post" action="/auth/oidc">
                       <input type="hidden" name="next" value={next} />
                       <Button variant={methods.password ? "secondary" : "primary"} type="submit" className="w-full">
-                        Sign in with {methods.oidcName}
+                        {t("Sign in with {name}", { name: methods.oidcName })}
                         <ArrowRight aria-hidden="true" />
                       </Button>
                     </form>
                     <p className="mt-5 flex items-center justify-center gap-2 text-xs text-cinder">
                       <Shield aria-hidden="true" />
-                      Single sign-on with OpenID Connect
+                      {t("Single sign-on with OpenID Connect")}
                     </p>
                   </>
                 )}
@@ -119,11 +120,11 @@ function PasswordForm({ next }: { next: string }) {
   return (
     <form className="grid gap-3" onSubmit={submit}>
       <label className="grid gap-1.5 text-xs font-medium">
-        Email
+        {t("Email")}
         <input className={`${input} h-10`} type="email" autoComplete="username" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
       </label>
       <label className="grid gap-1.5 text-xs font-medium">
-        Password
+        {t("Password")}
         <input className={`${input} h-10`} type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
       </label>
       {problem && (
@@ -132,7 +133,7 @@ function PasswordForm({ next }: { next: string }) {
         </p>
       )}
       <Button variant="primary" type="submit" className="mt-2 w-full" disabled={busy}>
-        {busy ? "Signing in…" : "Sign in"}
+        {busy ? t("Signing in…") : t("Sign in")}
       </Button>
     </form>
   );
@@ -146,7 +147,7 @@ function NotConfigured() {
     <div role="alert" className="mt-6 rounded-card border border-rule bg-smoke p-5">
       <p className="flex items-center gap-2 text-sm font-semibold">
         <TriangleAlert className="text-ember-ink" aria-hidden="true" />
-        Please configure auth in the backend
+        {t("Please configure auth in the backend")}
       </p>
       <p className="mt-3 text-xs leading-relaxed text-cinder">
         Set <span className="mono text-soot">BURNING_PASSWORD_FILE</span> for email and password sign-in, or{" "}
