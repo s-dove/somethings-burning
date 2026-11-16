@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { confirmDialog } from "../components/Confirm";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
@@ -157,7 +158,7 @@ function General({ settings: { project }, onChange }: { settings: ProjectSetting
   };
 
   const remove = async () => {
-    if (!confirm(`Delete ${project.name} with all its issues and events?`)) return;
+    if (!(await confirmDialog({ title: t("Delete {name}?", { name: project.name }), body: t("The project goes, with all its issues and events."), confirm: t("Delete"), danger: true }))) return;
     try {
       await api(`/projects/${project.id}`, { method: "DELETE" });
       toast(`Deleted ${project.name}`);

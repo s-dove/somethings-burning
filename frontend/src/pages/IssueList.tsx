@@ -1,4 +1,5 @@
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
+import { confirmDialog } from "../components/Confirm";
 import { Content, Portal, Root, Trigger } from "@radix-ui/react-tooltip";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -101,7 +102,7 @@ function BulkBar({ issues, muteOptions, onDone }: { issues: Issue[]; muteOptions
   async function mergeAll() {
     const keep = [...issues].sort((a, b) => b.eventCount - a.eventCount || a.id - b.id)[0]!;
     const n = issues.length - 1;
-    if (!confirm(`Merge ${n === 1 ? "1 issue" : `${n} issues`} into "${keep.title}"?\n\nTheir events, comments, and history move there, and later events of theirs join it. Each can be split back out.`)) return;
+    if (!(await confirmDialog({ title: t("Merge {n} into {title}?", { n: n === 1 ? t("1 issue") : t("{n} issues", { n }), title: keep.title }), body: t("Their events, comments, and history move there, and later events of theirs join it. Each can be split back out."), confirm: t("Merge") }))) return;
     setBusy(true);
     try {
       await api(`/projects/${keep.projectId}/issues/merge`, { method: "POST", body: { into: keep.id, issues: issues.map(i => i.id) } });

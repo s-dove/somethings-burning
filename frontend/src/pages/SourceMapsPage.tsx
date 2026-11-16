@@ -8,6 +8,7 @@ import { input, section, sectionTitle } from "../shared/ui";
 import { Button } from "../ui/components/Button";
 import { Trash2, Upload } from "../ui/icons";
 import { backToSettings, SettingsFrame, useSettings } from "./SettingsPage";
+import { confirmDialog } from "../components/Confirm";
 import { t } from "../shared/i18n";
 
 export function SourceMapsPage() {
@@ -40,7 +41,7 @@ export function SourceMapsPage() {
     }
   };
   const remove = async (a: Artifact) => {
-    if (!confirm(`Delete ${a.name}? Frames of ${a.release} it mapped show minified again.`)) return;
+    if (!(await confirmDialog({ title: t("Delete {name}?", { name: a.name }), body: t("Frames of {release} it mapped show minified again.", { release: a.release }), confirm: t("Delete"), danger: true }))) return;
     try {
       await api(`/projects/${id}/sourcemaps`, { method: "DELETE", body: { release: a.release, name: a.name } });
       reload();

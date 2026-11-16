@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { confirmDialog } from "../components/Confirm";
 import { toast } from "sonner";
 import { Button } from "../ui/components/Button";
 import { Pencil, Quote, Trash2 } from "../ui/icons";
@@ -68,7 +69,7 @@ export function Comments({ projectId, issueId, comments: fromPage }: { projectId
           {comments.map(c => (
             <CommentItem key={c.id} comment={c} busy={busy} names={names} onQuote={() => quote(c)} onMention={() => c.authorUsername && mention(c.authorUsername)}
               onSave={body => send(`${base}/${c.id}`, "PATCH", { body })}
-              onDelete={() => { if (window.confirm("Delete this comment?")) void send(`${base}/${c.id}`, "DELETE").then(ok => ok && toast("Comment deleted")); }} />
+              onDelete={() => { void confirmDialog({ title: t("Delete this comment?"), confirm: t("Delete"), danger: true }).then((ok) => { if (ok) void send(`${base}/${c.id}`, "DELETE").then(ok2 => ok2 && toast(t("Comment deleted"))); }); }} />
           ))}
         </ol>
       )}

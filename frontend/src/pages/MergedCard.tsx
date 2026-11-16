@@ -6,6 +6,7 @@ import { api, canTriage, type IssueDetail } from "../shared/api";
 import { ago } from "../shared/format";
 import { section, sectionTitle } from "../shared/ui";
 import { Split } from "../ui/icons";
+import { confirmDialog } from "../components/Confirm";
 import { t } from "../shared/i18n";
 
 /** Issues merged into this one. A member can split one back out. */
@@ -15,7 +16,7 @@ export function MergedCard({ detail, onChange }: { detail: IssueDetail; onChange
   const [busy, setBusy] = useState("");
   if (!merged?.length) return null;
   const split = async (fingerprint: string, title: string) => {
-    if (!confirm(t("Split {title} back out? It becomes its own issue again, and its stored events go with it.", { title }))) return;
+    if (!(await confirmDialog({ title: t("Split {title} back out?", { title }), body: t("It becomes its own issue again, and its stored events go with it."), confirm: t("Split out") }))) return;
     setBusy(fingerprint);
     try {
       const { issue: id } = await api<{ issue: number }>(`/projects/${project.id}/issues/${issue.id}/unmerge`, { method: "POST", body: { fingerprint } });
