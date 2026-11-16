@@ -20,6 +20,7 @@ export interface Issue {
   mute: Mute;
   reopenReason: string;
   assignee: string; // email, "" for no one
+  externalUrl: string; // a GitHub issue made from it, "" for none
   firstSeen: number;
   lastSeen: number;
   eventCount: number;
@@ -56,6 +57,15 @@ export interface ProjectPulse {
   lastEvent: number; // 0 when it never had one
   release: string; // newest release, "" when none
   releaseSeen: number;
+}
+
+export interface Suspects {
+  from: { release: string; sha: string };
+  to: { release: string; sha: string };
+  repo: string;
+  compareUrl: string;
+  files: { path: string; status: string }[];
+  commits: { sha: string; message: string; author: string; url: string }[];
 }
 
 export interface ReleaseSummary {
@@ -98,6 +108,9 @@ export interface FrameView {
   lines: { no: number; text: string; current: boolean }[];
   vars: [string, string][];
   link: string; // the line in the repository, "" when no code source covers it
+  linesFrom: string; // "repo@sha" when the lines were read from a code source
+  mapped: string; // the minified location a source map turned into this one
+  changed: string; // added, modified, removed since the previous release
 }
 
 export interface EventView {
@@ -143,6 +156,9 @@ export interface IssueDetail {
   tags: { key: string; total: number; values: { value: string; count: number }[] }[];
   users: number;
   merged: { fingerprint: string; title: string; mergedAt: number; events: number }[];
+  suspects: Suspects | null;
+  github: boolean;
+  githubIssues: { url: string; at: number; by: string }[];
   releases: { release: string; environment: string; eventCount: number; lastSeen: number }[];
   events: EventRow[];
   moreEvents: boolean;
