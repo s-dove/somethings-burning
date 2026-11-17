@@ -8,12 +8,13 @@ import { useApi, type Session } from "../shared/api";
 import { t } from "../shared/i18n";
 import { input } from "../shared/ui";
 import { Button } from "../ui/components/Button";
-import { ArrowRight, Shield, TriangleAlert } from "../ui/icons";
+import { ArrowRight, Github, Shield, TriangleAlert } from "../ui/icons";
 
 const safe = (next: string) => (next.startsWith("/") && !next.startsWith("//") ? next : "/");
 
 // LoginPage offers the ways to sign in the backend has configured: a
-// password form, a single sign-on button, or both. With neither, it says so.
+// password form, a single sign-on button, a GitHub button, or any of them.
+// With none, it says so.
 export function LoginPage() {
   const [params] = useSearchParams();
   const next = safe(params.get("next") || "/");
@@ -23,7 +24,7 @@ export function LoginPage() {
     if (session?.user) navigate(next);
   }, [session, next, navigate]);
   const methods = session?.methods;
-  const none = methods && !methods.oidc && !methods.password;
+  const none = methods && !methods.oidc && !methods.password && !methods.github;
   return (
     <Layout nav="login">
       <div className="grid min-h-dvh lg:grid-cols-2">
@@ -54,7 +55,7 @@ export function LoginPage() {
               <>
                 <p className="mt-3 mb-8 text-sm leading-relaxed text-cinder">{t("Review errors across your projects and pick up where you left off.")}</p>
                 {methods.password && <PasswordForm next={next} />}
-                {methods.password && methods.oidc && (
+                {methods.password && (methods.oidc || methods.github) && (
                   <div className="my-6 flex items-center gap-3 text-xs text-cinder" aria-hidden="true">
                     <span className="h-px flex-1 bg-rule" />
                     {t("or")}
@@ -75,6 +76,15 @@ export function LoginPage() {
                       {t("Single sign-on with OpenID Connect")}
                     </p>
                   </>
+                )}
+                {methods.github && (
+                  <form method="post" action="/auth/github" className={methods.oidc ? "mt-6" : ""}>
+                    <input type="hidden" name="next" value={next} />
+                    <Button variant={methods.password || methods.oidc ? "secondary" : "primary"} type="submit" className="w-full">
+                      <Github aria-hidden="true" />
+                      {t("Sign in with {name}", { name: "GitHub" })}
+                    </Button>
+                  </form>
                 )}
               </>
             )}
@@ -152,7 +162,7 @@ function NotConfigured() {
       <p className="mt-3 text-xs leading-relaxed text-cinder">
         Set <span className="mono text-soot">BURNING_PASSWORD_FILE</span> for email and password sign-in, or{" "}
         <span className="mono text-soot">BURNING_OIDC_ISSUER</span> and the other <span className="mono text-soot">BURNING_OIDC_*</span> settings for
-        single sign-on. Both can be on. See <span className="mono text-soot">backend/.env.example</span>, then restart the backend.
+        single sign-on, or the <span className="mono text-soot">BURNING_GITHUB_*</span> settings for GitHub. Any of them can be on. See <span className="mono text-soot">backend/.env.example</span>, then restart the backend.
       </p>
     </div>
   );

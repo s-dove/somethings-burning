@@ -3,6 +3,8 @@ import { Hono, type Context } from "hono";
 import { deleteCookie, getSignedCookie, setSignedCookie } from "hono/cookie";
 import * as oidc from "openid-client";
 import type { Db } from "./db.js";
+import type { GitHubLogin } from "./github.js";
+import { linkIdentity } from "./identities.js";
 import { PasswordLogin } from "./passwords.js";
 import { displayOf, getUser, recordLogin, usernameFrom } from "./users.js";
 
@@ -25,6 +27,7 @@ export interface Methods {
   oidc: boolean;
   oidcName: string; // what the sign-in button calls the provider
   password: boolean;
+  github: boolean;
 }
 
 /** What the app needs from sign-in. Auth is the real one; tests use a stand-in. */
@@ -104,9 +107,20 @@ export class Sessions {
     };
   }
 
-  /** Records the person and starts their session. */
-  async start(c: Context, who: { email: string; issuer: string; claims: Record<string, unknown>; groups: string[] }): Promise<void> {
-    const email = who.email.toLowerCase();
+  /**
+   * Finds or links the person's account (identities.ts), records the sign-in,
+   * and starts their session. `email` must be one the provider verified.
+   */
+  async start(
+    c: Context,
+    who: { provider: string; subject: string; email: string; issuer: string; claims: Record<string, unknown>; groups: string[] },
+  ): Promise<void> {
+    const email = await linkIdentity(this.db, {
+      provider: who.provider,
+      subject: who.subject,
+      email: who.email,
+      username: usernameFrom(who.claims, who.email.toLowerCase()),
+    });
     await recordLogin(this.db, { email, issuer: who.issuer, claims: who.claims });
     const id = randomUUID();
     const now = Math.floor(Date.now() / 1000);
@@ -206,21 +220,23 @@ export class OidcLogin {
     }
     const email = typeof claims.email === "string" ? claims.email : String(claims.sub ?? "");
     if (!email) throw new Error("The provider sent no email or subject.");
-    await sessions.start(c, { email, issuer: this.settings.issuer, claims: { ...claims }, groups });
+    const subject = typeof claims.sub === "string" && claims.sub ? claims.sub : email;
+    await sessions.start(c, { provider: `oidc:${this.settings.issuer}`, subject, email, issuer: this.settings.issuer, claims: { ...claims }, groups });
     return safeNext(flow.next) ? flow.next : "/";
   }
 }
 
-/** Auth is sign-in as configured: OIDC, passwords, both, or neither. */
+/** Auth is sign-in as configured: any of OIDC, passwords, and GitHub, or none. */
 export class Auth implements Authenticator {
   constructor(
     private sessions: Sessions,
     private oidc: OidcLogin | null,
     private password: PasswordLogin | null,
+    private github: GitHubLogin | null = null,
   ) {}
 
   get methods(): Methods {
-    return { oidc: !!this.oidc, oidcName: this.oidc?.settings.name || "SSO", password: !!this.password };
+    return { oidc: !!this.oidc, oidcName: this.oidc?.settings.name || "SSO", password: !!this.password, github: !!this.github };
   }
 
   user(c: Context): Promise<User | null> {
@@ -229,7 +245,7 @@ export class Auth implements Authenticator {
 
   routes(): Hono {
     const app = new Hono();
-    const { sessions, oidc: sso, password } = this;
+    const { sessions, oidc: sso, password, github } = this;
 
     // OIDC: start (a form post), then the provider calls back.
     app.post("/auth/oidc", async (c) => {
@@ -247,6 +263,22 @@ export class Auth implements Authenticator {
       }
     });
 
+    // GitHub: start (a form post), then GitHub calls back.
+    app.post("/auth/github", async (c) => {
+      if (!github) return c.text("GitHub sign-in is not configured", 404);
+      const form = await c.req.parseBody();
+      return github.begin(c, sessions, safeNext(form.next) ? form.next : "/");
+    });
+    app.get("/auth/github/callback", async (c) => {
+      if (!github) return c.notFound();
+      try {
+        return c.redirect(await github.finish(c, sessions), 303);
+      } catch (err) {
+        console.warn("GitHub sign-in failed:", err);
+        return c.text((err as Error).message, 400);
+      }
+    });
+
     // Password: JSON { email, password }, answered with JSON.
     app.post("/auth/password", async (c) => {
       if (!password) return c.json({ detail: "password sign-in is not configured" }, 404);
@@ -258,6 +290,8 @@ export class Auth implements Authenticator {
       const account = password.verify(email, secret);
       if (!account) return c.json({ detail: "wrong email or password" }, 401);
       await sessions.start(c, {
+        provider: "password",
+        subject: account.email,
         email: account.email,
         issuer: "password",
         claims: { email: account.email, preferred_username: usernameFrom({}, account.email), groups: account.groups },
@@ -276,7 +310,7 @@ export class Auth implements Authenticator {
 
 /** No way to sign in: every API call answers 401, and the login page says to configure one. */
 export const noAuth: Authenticator = {
-  methods: { oidc: false, oidcName: "SSO", password: false },
+  methods: { oidc: false, oidcName: "SSO", password: false, github: false },
   user: async () => null,
   routes: () => new Hono(),
 };

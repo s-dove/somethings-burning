@@ -20,7 +20,7 @@ export const ADMIN = "admin@example.com";
  * "email|group,group"), or else `fallback` (a site admin by default).
  */
 export const testAuth = (fallback: string | null = ADMIN): Authenticator => ({
-  methods: { oidc: false, oidcName: "SSO", password: true },
+  methods: { oidc: false, oidcName: "SSO", password: true, github: false },
   async user(c: Context): Promise<User | null> {
     const raw = c.req.header("x-test-user") ?? fallback;
     if (!raw) return null;

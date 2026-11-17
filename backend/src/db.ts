@@ -275,6 +275,22 @@ CREATE TABLE IF NOT EXISTS users (
   notify_routes TEXT
 );
 
+-- The ways each person signs in, by the provider's stable id: provider is
+-- "github", "password", or "oidc:<issuer>". email is the account (users.email)
+-- it belongs to; login_email is what the provider gave at the last sign-in.
+-- See identities.ts.
+CREATE TABLE IF NOT EXISTS identities (
+  provider    TEXT NOT NULL,
+  subject     TEXT NOT NULL,
+  email       TEXT NOT NULL,
+  login_email TEXT NOT NULL DEFAULT '',
+  username    TEXT NOT NULL DEFAULT '',
+  first_login BIGINT NOT NULL,
+  last_login  BIGINT NOT NULL,
+  PRIMARY KEY (provider, subject)
+);
+CREATE INDEX IF NOT EXISTS identities_email ON identities (email);
+
 CREATE TABLE IF NOT EXISTS sessions (
   id      TEXT PRIMARY KEY,
   email   TEXT NOT NULL,
@@ -450,6 +466,7 @@ async function migrate(db: Db, exec: (sql: string) => Promise<void>): Promise<vo
   if (dup) console.warn("two projects share a name; rename one to get the unique name index");
   else await exec("CREATE UNIQUE INDEX IF NOT EXISTS projects_name ON projects (lower(name))");
   await backfillCounts(db);
+  await backfillIdentities(db, exec);
 }
 
 /**
@@ -467,6 +484,22 @@ async function backfillCounts(db: Db): Promise<void> {
     await t.run(`UPDATE issues SET stored_count = (SELECT COUNT(*) FROM events e WHERE e.issue_id = issues.id),
                                    last_stored = COALESCE((SELECT MAX(received_at) FROM events e WHERE e.issue_id = issues.id), 0)`);
   });
+}
+
+/**
+ * A database from before identities gets one for each person, once, from the
+ * way they last signed in (users.issuer and subject). Password accounts and
+ * an OIDC sign-in with no subject use the email as the id.
+ */
+async function backfillIdentities(db: Db, exec: (sql: string) => Promise<void>): Promise<void> {
+  if (await db.get("SELECT 1 AS d FROM meta WHERE key = 'identities_backfilled'")) return;
+  await exec(`INSERT INTO identities (provider, subject, email, login_email, username, first_login, last_login)
+              SELECT CASE WHEN issuer = 'password' THEN 'password' ELSE 'oidc:' || issuer END,
+                     CASE WHEN issuer = 'password' OR subject = '' THEN email ELSE subject END,
+                     email, email, username, first_login, last_login
+              FROM users WHERE issuer <> ''
+              ON CONFLICT (provider, subject) DO NOTHING`);
+  await exec("INSERT INTO meta (key, value) VALUES ('identities_backfilled', '1') ON CONFLICT (key) DO NOTHING");
 }
 
 /**

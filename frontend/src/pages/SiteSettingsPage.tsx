@@ -10,6 +10,7 @@ import { t } from "../shared/i18n";
 interface SiteSettings {
   signIn: {
     password: { enabled: boolean; file: string };
+    github: { enabled: boolean; clientId: string; secretSet: boolean; redirectURL: string; allowedEmails: number; orgs: string[]; webURL: string };
     oidc: {
       enabled: boolean;
       issuer: string;
@@ -80,9 +81,10 @@ export function SiteSettingsPage() {
 }
 
 function SignInSection({ s }: { s: SiteSettings["signIn"] }) {
-  const methods = [s.password.enabled && "passwords", s.oidc.enabled && "OIDC"].filter(Boolean).join(" and ");
+  const on = [s.password.enabled && "passwords", s.oidc.enabled && "OIDC", s.github.enabled && "GitHub"].filter(Boolean) as string[];
+  const methods = on.length > 1 ? `${on.slice(0, -1).join(", ")} and ${on[on.length - 1]}` : (on[0] ?? "");
   return (
-    <Section id="signin" icon={<KeyRound aria-hidden="true" />} title="Sign-in" hint="How people sign in. Either way can be on, or both." status={methods ? `On: ${methods}` : "Off"} on={!!methods}>
+    <Section id="signin" icon={<KeyRound aria-hidden="true" />} title="Sign-in" hint="How people sign in. Any of these ways can be on." status={methods ? `On: ${methods}` : "Off"} on={!!methods}>
       <dl className="m-0 divide-y divide-rule overflow-hidden rounded-card border border-rule bg-ash">
         <Row label="Passwords" env="BURNING_PASSWORD_FILE">
           {s.password.enabled ? <>{mono(s.password.file)}<span className="text-cinder">{t(", one email:hash[:groups] per line")}</span></> : <span className="text-cinder">{t("Off")}</span>}
@@ -106,6 +108,34 @@ function SignInSection({ s }: { s: SiteSettings["signIn"] }) {
               <span className="text-cinder"> claim</span>
             </Row>
             <Row label="Button" env="BURNING_OIDC_NAME">Sign in with {s.oidc.name}</Row>
+          </>
+        )}
+        <Row label="GitHub" env="BURNING_GITHUB_CLIENT_ID, BURNING_GITHUB_CLIENT_SECRET">
+          {s.github.enabled ? (
+            <>
+              {mono(s.github.clientId)}
+              <span className="text-cinder">{s.github.secretSet ? " · secret set" : " · no secret"}</span>
+            </>
+          ) : (
+            <span className="text-cinder">{t("Off")}</span>
+          )}
+        </Row>
+        {s.github.enabled && (
+          <>
+            <Row label="GitHub redirect URL" env="BURNING_GITHUB_REDIRECT_URL, BURNING_GITHUB_URL">
+              {s.github.redirectURL ? mono(s.github.redirectURL) : unset}
+              {s.github.webURL !== "https://github.com" && <span className="text-cinder"> · {mono(s.github.webURL)}</span>}
+            </Row>
+            <Row label="Who may sign in with GitHub" env="BURNING_GITHUB_ALLOWED_EMAILS, BURNING_GITHUB_ORGS">
+              {s.github.allowedEmails === -1
+                ? "Anyone with a verified email"
+                : [
+                    s.github.allowedEmails > 0 && `${s.github.allowedEmails} ${s.github.allowedEmails === 1 ? "email" : "emails"}`,
+                    s.github.orgs.length > 0 && `members of ${s.github.orgs.join(", ")}`,
+                  ]
+                    .filter(Boolean)
+                    .join(", and ")}
+            </Row>
           </>
         )}
         <Row label="Site admins" env="BURNING_SITE_ADMINS">

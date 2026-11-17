@@ -8,6 +8,7 @@ import { isPostgresURL, openDb } from "./db.js";
 import { loadEnvFile, readConfig } from "./env.js";
 import { sendDueDigests } from "./digest.js";
 import { expireMutes, prune } from "./issues.js";
+import { GitHubLogin, githubProblem } from "./github.js";
 import { PasswordLogin } from "./passwords.js";
 
 loadEnvFile(process.env.BURNING_ENV_FILE ?? ".env");
@@ -15,7 +16,7 @@ const config = readConfig();
 const db = await openDb(config.db);
 console.log(`database: ${isPostgresURL(config.db) ? "postgres" : `sqlite ${config.db}`}`);
 
-// Sign-in: OIDC, passwords, both, or neither (then no one can use the app).
+// Sign-in: any of OIDC, passwords, and GitHub, or none (then no one can use the app).
 let sso: OidcLogin | null = null;
 if (config.oidc.issuer) {
   const missing = (["clientId", "redirectURL"] as const).filter((k) => !config.oidc[k]);
@@ -25,9 +26,18 @@ if (config.oidc.issuer) {
 }
 const password = config.passwordFile ? new PasswordLogin(config.passwordFile) : null;
 if (password) console.log(`sign-in with passwords: ${config.passwordFile}`);
-if (!sso && !password) console.warn("no sign-in configured (BURNING_OIDC_ISSUER or BURNING_PASSWORD_FILE): no one can use the app");
-const secure = (config.baseURL || config.oidc.redirectURL).startsWith("https:");
-const auth = new Auth(new Sessions(db, await sessionSecret(db, config.sessionSecret), secure), sso, password);
+let github: GitHubLogin | null = null;
+if (config.github.clientId) {
+  const problem = githubProblem(config.github);
+  if (problem) throw new Error(problem);
+  github = new GitHubLogin(config.github);
+  console.log(`sign-in with GitHub: ${config.github.webURL}`);
+}
+if (!sso && !password && !github) {
+  console.warn("no sign-in configured (BURNING_OIDC_ISSUER, BURNING_PASSWORD_FILE, or BURNING_GITHUB_CLIENT_ID): no one can use the app");
+}
+const secure = (config.baseURL || config.oidc.redirectURL || config.github.redirectURL).startsWith("https:");
+const auth = new Auth(new Sessions(db, await sessionSecret(db, config.sessionSecret), secure), sso, password, github);
 
 const { app, outbox, live, access, senders } = createApp(db, { auth, config });
 // With Postgres, alerts reach the browsers connected to every server.
