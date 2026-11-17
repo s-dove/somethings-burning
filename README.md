@@ -34,6 +34,8 @@ docker run -p 8195:8195 -v burning-data:/data --env-file backend/.env burning
 
 The image keeps SQLite in `/data`, and has git for code sources on git servers.
 
+Every push to `main` publishes the image to `ghcr.io/s-dove/somethings-burning`, tagged `main` and `sha-<commit>`. A `v1.2.3` tag also publishes `1.2.3` and `latest`.
+
 ## Storage
 
 - **SQLite** (default): `BURNING_DB` is the file, `data/burning.db` by default. One server only.
