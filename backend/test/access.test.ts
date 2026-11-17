@@ -8,7 +8,7 @@ import { as, json, setup } from "./helpers.js";
 describe("sign-in and access", () => {
   it("says how to sign in, and refuses the API without a session", async () => {
     const { app } = await setup({ auth: true });
-    expect(await (await app.request("/api/session")).json()).toEqual({ methods: { oidc: false, oidcName: "SSO", password: true }, user: null });
+    expect(await (await app.request("/api/session")).json()).toEqual({ methods: { oidc: false, oidcName: "SSO", password: true, github: false }, user: null });
     expect((await app.request("/api/board")).status).toBe(401);
     expect((await app.request("/api/board", { headers: as("ana@example.com") })).status).toBe(200);
     expect((await app.request("/api/health")).status).toBe(200);
@@ -76,7 +76,7 @@ describe("sign-in and access", () => {
     const db = await openDb(":memory:");
     const { app } = createApp(db);
     const project = await createProject(db, "web");
-    expect(await (await app.request("/api/session")).json()).toEqual({ methods: { oidc: false, oidcName: "SSO", password: false }, user: null });
+    expect(await (await app.request("/api/session")).json()).toEqual({ methods: { oidc: false, oidcName: "SSO", password: false, github: false }, user: null });
     expect((await app.request("/api/board")).status).toBe(401);
     expect((await app.request("/auth/password", { method: "POST", ...json({ email: "a@example.com", password: "x" }) })).status).toBe(404);
     const ingest = await app.request(`/api/${project.id}/store/?sentry_key=${project.publicKey}`, { method: "POST", body: JSON.stringify({ message: "hi" }) });

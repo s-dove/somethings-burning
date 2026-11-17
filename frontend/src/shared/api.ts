@@ -201,7 +201,7 @@ export interface ConfigView {
 }
 
 export interface Session {
-  methods: { oidc: boolean; oidcName: string; password: boolean }; // how to sign in, as configured on the backend
+  methods: { oidc: boolean; oidcName: string; password: boolean; github: boolean }; // how to sign in, as configured on the backend
   user: { email: string; name: string; groups: string[]; username: string; displayName: string; lang: string } | null;
 }
 

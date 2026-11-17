@@ -84,6 +84,19 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
       // Empty means "SSO".
       name: env.BURNING_OIDC_NAME ?? "",
     },
+    // A GitHub OAuth app (GitHub is OAuth 2.0, not OIDC). On when the client
+    // ID is set. Who may sign in: these emails (* for anyone), or members of
+    // these organizations; at least one is required.
+    github: {
+      clientId: env.BURNING_GITHUB_CLIENT_ID ?? "",
+      clientSecret: env.BURNING_GITHUB_CLIENT_SECRET ?? "",
+      redirectURL: env.BURNING_GITHUB_REDIRECT_URL ?? "",
+      allowedEmails: list(env.BURNING_GITHUB_ALLOWED_EMAILS).map((e) => e.toLowerCase()),
+      orgs: list(env.BURNING_GITHUB_ORGS).map((o) => o.toLowerCase()),
+      // GitHub Enterprise Server: its own address, and <address>/api/v3.
+      webURL: env.BURNING_GITHUB_URL || "https://github.com",
+      apiURL: env.BURNING_GITHUB_API_URL || "https://api.github.com",
+    },
     // Email goes out when a host and a From address are set. Port 587 with
     // STARTTLS (tls) is the usual submission port; ssl is TLS from the first byte.
     smtp: {

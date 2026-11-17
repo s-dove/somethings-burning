@@ -14,12 +14,21 @@ import type { CodeSources } from "./source/index.js";
 export function siteRoutes(config: Config, senders: Senders, code: CodeSources): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
   app.get("/site/settings", (c) => {
-    const { smtp, oidc, mattermost } = config;
+    const { smtp, oidc, github, mattermost } = config;
     const missing = [!smtp.host && "BURNING_SMTP_HOST", !smtp.from && "BURNING_SMTP_FROM"].filter((m): m is string => !!m);
     const clientAuth = oidc.clientAuth || (oidc.clientSecret ? "client_secret_basic" : "none");
     return c.json({
       signIn: {
         password: { enabled: !!config.passwordFile, file: config.passwordFile },
+        github: {
+          enabled: !!github.clientId,
+          clientId: github.clientId,
+          secretSet: github.clientSecret !== "",
+          redirectURL: github.redirectURL,
+          allowedEmails: github.allowedEmails.includes("*") ? -1 : github.allowedEmails.length,
+          orgs: github.orgs,
+          webURL: github.webURL,
+        },
         oidc: {
           enabled: !!oidc.issuer,
           issuer: oidc.issuer,

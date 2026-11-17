@@ -99,10 +99,11 @@ DSNs and alert links use `BURNING_BASE_URL`, or the host the request came in on.
 
 ## Sign-in
 
-There are two ways to sign in, each turned on in the backend. Both can be on. With neither, the API refuses everything but SDK events, and the sign-in page asks to configure one.
+There are three ways to sign in, each turned on in the backend. Any of them can be on. With none, the API refuses everything but SDK events, and the sign-in page asks to configure one.
 
 - **Passwords**: `BURNING_PASSWORD_FILE` names a file with one account per line, `email:scrypt-hash[:group,group]`. `pnpm --filter backend hash-password` makes a hash from standard input. The file is read at every sign-in, so changes apply without a restart. After five wrong passwords an email is locked out for 15 minutes.
 - **OpenID Connect**: any standard provider. It is on when `BURNING_OIDC_ISSUER` is set, with the client ID and redirect URL (`<web app URL>/auth/callback`). See [Single sign-on](#single-sign-on).
+- **GitHub**: a GitHub OAuth app. It is on when `BURNING_GITHUB_CLIENT_ID` is set. See [GitHub](#github).
 
 ### Single sign-on
 
@@ -133,6 +134,25 @@ Issuers of some common providers:
 | Dex | `https://<host>/dex` | |
 
 At every OIDC sign-in Burning saves the ID token's claims in the `users` table: email, `preferred_username` as the username (or the part of the email before `@`), `name`, issuer, subject, and the token's expiry. It does not keep the tokens. The groups come from the `groups` claim (`BURNING_OIDC_GROUPS_CLAIM`), or from userinfo when the ID token has none. A password sign-in saves the email, the username from it, and the groups from the file, with `password` as the issuer.
+
+### GitHub
+
+GitHub is OAuth 2.0, not OpenID Connect, so it has settings of its own. Create an OAuth app (GitHub settings, Developer settings, OAuth Apps) with `<web app URL>/auth/github/callback` as its callback URL, then set:
+
+| Setting | |
+|---|---|
+| `BURNING_GITHUB_CLIENT_ID` | The app's client ID |
+| `BURNING_GITHUB_CLIENT_SECRET` | The app's client secret |
+| `BURNING_GITHUB_REDIRECT_URL` | `<web app URL>/auth/github/callback` |
+| `BURNING_GITHUB_ALLOWED_EMAILS` | Emails that may sign in, comma-separated; `*` for anyone with a verified email |
+| `BURNING_GITHUB_ORGS` | Organizations whose members may sign in, comma-separated |
+| `BURNING_GITHUB_URL`, `BURNING_GITHUB_API_URL` | For GitHub Enterprise Server: its address, and `<address>/api/v3` |
+
+At least one of `BURNING_GITHUB_ALLOWED_EMAILS` and `BURNING_GITHUB_ORGS` must be set, or the server does not start: otherwise anyone with a GitHub account could sign in. The person's account is their verified primary email on GitHub; without one, sign-in is refused. With organizations set, Burning also asks for `read:org`, and each organization they belong to is a group named `github:<org>` (lowercase), which project access can grant roles to. An organization that restricts OAuth app access shows up only after its owners approve the app.
+
+### Accounts and identities
+
+An account is an email. Each way a person signs in is an identity of that account, kept in the `identities` table with the provider's own stable id: the OIDC subject (per issuer), the GitHub user id, or the email for a password. A sign-in through an identity used before finds its account by that id, so an email changed at the provider (or a renamed GitHub login) keeps the same account, permissions, and history. A new identity joins the account with the email it brings, or starts one. That is why each way hands over only an email it has verified.
 
 Sessions last 12 hours. The cookie holds only a session id and is signed with `BURNING_SESSION_SECRET`, or a random secret kept in the database.
 
