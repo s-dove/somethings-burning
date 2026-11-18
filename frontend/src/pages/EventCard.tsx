@@ -19,15 +19,15 @@ export function EventCard({ event }: { event: EventView }) {
     ["release", event.release, "release"],
     ["env", event.environment, "environment"],
     ["server", event.serverName, "server_name"],
-    ["level", event.level, "level: how bad the SDK says it is"],
-    ["sdk", event.sdk, "sdk.name and sdk.version"],
+    ["level", event.level, t("level: how bad the SDK says it is")],
+    ["sdk", event.sdk, t("sdk.name and sdk.version")],
     ...event.tags.map(([k, v]): [string, string, string] => [k, v, `tags.${k}`]),
   ];
   const [main, ...causes] = event.exceptions;
   return (
     <section className={section}>
       <h2 className="mb-4 text-sm font-semibold">
-        Event <span className="text-xs font-normal text-cinder">this one single event, received <TimeTip at={event.receivedAt}><span>{ago(event.receivedAt)}</span></TimeTip></span>
+        {t("Event")} <span className="text-xs font-normal text-cinder">{t("this one single event, received")} <TimeTip at={event.receivedAt}><span>{ago(event.receivedAt)}</span></TimeTip></span>
       </h2>
 
       <div className="flex flex-wrap gap-1.5">
@@ -37,11 +37,11 @@ export function EventCard({ event }: { event: EventView }) {
       <div className="pt-4">
         <dl className={facts}>
           <Fact label="id" field="event_id" value={event.eventId} />
-          {main ? <ExceptionFacts exception={main} /> : <Fact label="message" field="message, or logentry.formatted" value={event.message} />}
+          {main ? <ExceptionFacts exception={main} /> : <Fact label="message" field={t("message, or logentry.formatted")} value={event.message} />}
         </dl>
         {causes.map((e, n) => (
           <div key={n} className="mt-4">
-            <h3 className="mb-2 flex items-baseline gap-2 text-xs font-semibold">{t("Caused by")}<span className="font-normal text-cinder">{n + 2} of {event.exceptions.length}, raised before the one above</span></h3>
+            <h3 className="mb-2 flex items-baseline gap-2 text-xs font-semibold">{t("Caused by")}<span className="font-normal text-cinder">{t("{n} of {total}, raised before the one above", { n: n + 2, total: event.exceptions.length })}</span></h3>
             <dl className={`${facts} rounded-control border border-rule bg-smoke/60 px-3.5 py-3`}><ExceptionFacts exception={e} /></dl>
           </div>
         ))}
@@ -56,7 +56,7 @@ const facts = "m-0 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-5 gap-y-1.5 
 // after the event JSON it comes from.
 function ExceptionFacts({ exception: e }: { exception: Exception }) {
   const handled = e.handled === "handled" ? "true" : e.handled === "unhandled" ? "false" : "";
-  const hint = { true: "your code caught it and reported it", false: "nothing in your code caught it", "": "not reported by the SDK" }[handled];
+  const hint = { true: t("your code caught it and reported it"), false: t("nothing in your code caught it"), "": t("not reported by the SDK") }[handled];
   return (
     <>
       <Fact label="type" field="exception.values[].type" value={e.type} />
@@ -79,10 +79,10 @@ function Fact({ label, field, value, hint }: { label: string; field: string; val
           {hint && <span className="text-cinder">{value ? " · " : ""}{hint}</span>}
         </span>
         {value && (
-          <Tip content={copied ? "Copied" : `Copy ${label}`}><button
+          <Tip content={copied ? t("Copied") : t("Copy {what}", { what: label })}><button
             type="button"
             className="mt-px shrink-0 cursor-pointer rounded-control p-0.5 text-cinder opacity-0 group-hover:opacity-100 hover:bg-rule-soft hover:text-soot focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
-            aria-label={`Copy ${label}`}
+            aria-label={t("Copy {what}", { what: label })}
             onClick={async () => { if (await copyText(value)) { setCopied(true); setTimeout(() => setCopied(false), 2000); } }}
           >
             {copied ? <Check size={14} /> : <Copy size={14} />}

@@ -1,4 +1,5 @@
 import type { Matcher, Route } from "../shared/api";
+import { t } from "../shared/i18n";
 
 // What fires an alert. The route editor picks these at the top instead of
 // as conditions; they are stored as one "trigger" condition. A project route
@@ -7,12 +8,12 @@ import type { Matcher, Route } from "../shared/api";
 export const TRIGGERS = ["new", "fired_again", "unmuted", "spike"] as const;
 export type Trigger = (typeof TRIGGERS)[number];
 const PLAIN: Trigger[] = ["new", "fired_again", "unmuted"];
-export const TRIGGER_LABEL: Record<Trigger, string> = { new: "New issue", fired_again: "Fired again", unmuted: "After a mute", spike: "Spike" };
+export const TRIGGER_LABEL: Record<Trigger, string> = { new: t("New issue"), fired_again: t("Fired again"), unmuted: t("After a mute"), spike: t("Spike") };
 export const TRIGGER_HINT: Record<Trigger, string> = {
-  new: "The first event of an issue",
-  fired_again: "An event after the issue was resolved",
-  unmuted: "The first event after a mute ended",
-  spike: "An issue's events in an hour jump well above its usual rate",
+  new: t("The first event of an issue"),
+  fired_again: t("An event after the issue was resolved"),
+  unmuted: t("The first event after a mute ended"),
+  spike: t("An issue's events in an hour jump well above its usual rate"),
 };
 export const DEFAULT_SPIKE = { events: 50, factor: 5 };
 

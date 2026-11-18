@@ -1,4 +1,5 @@
 import useSWR from "swr";
+import { t } from "./i18n";
 
 export interface Mute {
   kind: string; // "for" (until), "release" (next release), "forever"
@@ -335,11 +336,11 @@ export async function api<T>(path: string, init?: { method?: string; body?: unkn
   });
   if (res.status === 401) {
     signIn();
-    throw new ApiError(401, "Sign in first.");
+    throw new ApiError(401, t("Sign in first."));
   }
   if (res.status === 204) return undefined as T;
   const data = (await res.json().catch(() => ({}))) as T & { detail?: string };
-  if (!res.ok) throw new ApiError(res.status, data.detail ?? `Request failed (${res.status}).`);
+  if (!res.ok) throw new ApiError(res.status, data.detail ?? t("Request failed ({status}).", { status: res.status }));
   return data;
 }
 

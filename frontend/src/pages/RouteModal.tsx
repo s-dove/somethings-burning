@@ -5,6 +5,7 @@ import { Button } from "../ui/components/Button";
 import { Trash2 } from "../ui/icons";
 import type { MatchOp, Receiver, ReceiverKind, Route } from "../shared/api";
 import { RouteEditor } from "./RouteEditor";
+import { routeName } from "./RouteList";
 import { routeProblems } from "./routeProblems";
 import { t } from "../shared/i18n";
 
@@ -32,7 +33,7 @@ export function RouteModal({ route, index, fields, ops, kinds, readOnly, onDone,
   useEffect(() => { setDraft(route); setProblem(""); setChecked(false); }, [route]);
   const problems = checked && draft ? routeProblems(draft) : new Map<string, string>();
   const isNew = index < 0;
-  const title = isNew ? "New route" : `Route ${index + 1}${route?.name ? `: ${route.name}` : ""}`;
+  const title = isNew ? t("New route") : `${t("Route {n}", { n: index + 1 })}${route?.name ? `: ${routeName(route.name)}` : ""}`;
   const run = async (fn: () => Promise<string | null>) => {
     setBusy(true);
     setProblem("");
@@ -42,7 +43,7 @@ export function RouteModal({ route, index, fields, ops, kinds, readOnly, onDone,
     if (err) setProblem(err.replace(/^route \d+: /, ""));
   };
   return (
-    <Sheet open={!!route} onClose={onClose} title={title} back="Back to routes"
+    <Sheet open={!!route} onClose={onClose} title={title} back={t("Back to routes")}
       actions={readOnly ? <Button size="sm" onClick={onClose}>{t("Close")}</Button> : <>
         {!isNew && <Button size="sm" variant="ghost" className="hover:text-ember-ink" icon={<Trash2 aria-hidden="true" />} disabled={busy}
           onClick={() => { void confirmDialog({ title: t("Delete this route?"), confirm: t("Delete"), danger: true }).then((ok) => { if (ok) void run(onDelete); }); }}>{t("Delete")}</Button>}
@@ -53,9 +54,9 @@ export function RouteModal({ route, index, fields, ops, kinds, readOnly, onDone,
           const found = routeProblems(draft);
           if (found.size) return;
           void run(() => onDone(draft));
-        }}>{busy ? "Saving…" : isNew ? "Add route" : "Done"}</Button>
+        }}>{busy ? t("Saving…") : isNew ? t("Add route") : t("Done")}</Button>
       </>}>
-      {(problems.size > 0 || problem) && <p role="alert" className="mb-5 rounded-card border border-ember-ink/30 bg-ember-soft px-4 py-3 text-[13px] text-ember-ink">{problems.size === 1 ? "Fix the item marked below." : problems.size > 1 ? `Fix the ${problems.size} items marked below.` : problem}</p>}
+      {(problems.size > 0 || problem) && <p role="alert" className="mb-5 rounded-card border border-ember-ink/30 bg-ember-soft px-4 py-3 text-[13px] text-ember-ink">{problems.size === 1 ? t("Fix the item marked below.") : problems.size > 1 ? t("Fix the {n} items marked below.", { n: problems.size }) : problem}</p>}
       {draft && <RouteEditor route={draft} fields={fields} ops={ops} kinds={kinds} readOnly={readOnly} problems={problems} project={project} unavailable={unavailable}
         onChange={d => { setDraft(d); setProblem(""); }} onTest={onTest} />}
     </Sheet>

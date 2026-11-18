@@ -9,9 +9,9 @@ export function SuspectsBlock({ suspects: s }: { suspects: Suspects }) {
   return (
     <div className="border-t border-rule-soft bg-ember-soft/40 px-5 py-4">
       <h3 className="mb-2 flex flex-wrap items-baseline gap-2 text-xs font-semibold">
-        Suspect changes
+        {t("Suspect changes")}
         <span className="font-normal text-cinder">
-          files of this stack that changed from <span className="mono">{s.from.release}</span> to <span className="mono">{s.to.release}</span>
+          {t("files of this stack that changed from {from} to {to}", { from: s.from.release, to: s.to.release })}
         </span>
       </h3>
       {s.files.length === 0 ? (

@@ -10,47 +10,47 @@ import { input } from "../shared/ui";
 import { t } from "../shared/i18n";
 
 const FIELD_HINT: Record<string, string> = {
-  project: "the project's name",
-  trigger: "new, fired_again, unmuted, or spike",
-  env: "the event's environment",
-  release: "the full release, e.g. api@2.1.0",
-  level: "error, warning, fatal, …",
-  type: "the exception type",
-  message: "the exception value or log message",
-  culprit: "the transaction, or the innermost in-app frame",
-  path: "true if any in-app frame's file matches",
-  tag: "an SDK tag, by name",
+  project: t("the project's name"),
+  trigger: t("new, fired_again, unmuted, or spike"),
+  env: t("the event's environment"),
+  release: t("the full release, e.g. api@2.1.0"),
+  level: t("error, warning, fatal, …"),
+  type: t("the exception type"),
+  message: t("the exception value or log message"),
+  culprit: t("the transaction, or the innermost in-app frame"),
+  path: t("true if any in-app frame's file matches"),
+  tag: t("an SDK tag, by name"),
 };
 const PLACEHOLDER: Record<string, string> = {
   project: "payments-api", trigger: "new|fired_again", env: "production", release: "api@2\\..*", level: "error|fatal", type: "KeyError",
   message: ".*timeout.*", culprit: "POST /v2/.*", path: "payments/gateway/.*", tag: "us-east-.*",
 };
 export const OP_LABEL: Record<MatchOp, string> = {
-  "=": "equals", "!=": "does not equal", "=~": "matches", "!~": "does not match",
-  empty: "has an empty value", absent: "is absent", "!value": "is empty or absent",
-  value: "has a non-empty value", "!absent": "is present",
+  "=": t("equals"), "!=": t("does not equal"), "=~": t("matches"), "!~": t("does not match"),
+  empty: t("has an empty value"), absent: t("is absent"), "!value": t("is empty or absent"),
+  value: t("has a non-empty value"), "!absent": t("is present"),
 };
 // What a no-value condition means, in the space where a value would go.
 const NO_VALUE_SAYS: Partial<Record<MatchOp, string>> = {
-  value: "Sent with something in it",
-  empty: "Sent, but blank",
-  absent: "Not sent at all",
-  "!value": "Blank, or not sent at all",
-  "!absent": "Sent, blank or not",
+  value: t("Sent with something in it"),
+  empty: t("Sent, but blank"),
+  absent: t("Not sent at all"),
+  "!value": t("Blank, or not sent at all"),
+  "!absent": t("Sent, blank or not"),
 };
 // Operators that take no value. A field is sent with a value, sent blank
 // (""), or absent (not sent at all); these pick among the three.
 export const NO_VALUE: MatchOp[] = ["value", "empty", "!absent", "absent", "!value"];
 const OP_HINT: Record<MatchOp, string> = {
-  "=": "The value is exactly this text.",
-  "!=": "The value is anything but this text.",
-  "=~": "The whole value matches this regex: prod.* matches production, prod does not.",
-  "!~": "The whole value does not match this regex.",
-  empty: "Sent, but blank (\"\"). Not the same as absent.",
-  "!value": "Empty or absent: either way there is nothing in it.",
-  value: "Sent with something in it.",
-  absent: "The event does not have this field at all. Not the same as empty.",
-  "!absent": "Sent, empty or not.",
+  "=": t("The value is exactly this text."),
+  "!=": t("The value is anything but this text."),
+  "=~": t("The whole value matches this regex: prod.* matches production, prod does not."),
+  "!~": t("The whole value does not match this regex."),
+  empty: t("Sent, but blank (\"\"). Not the same as absent."),
+  "!value": t("Empty or absent: either way there is nothing in it."),
+  value: t("Sent with something in it."),
+  absent: t("The event does not have this field at all. Not the same as empty."),
+  "!absent": t("Sent, empty or not."),
 };
 
 // "sink" is not stored as a receiver: a sink route has sink set and no
@@ -58,14 +58,14 @@ const OP_HINT: Record<MatchOp, string> = {
 // its route.
 type Kind = ReceiverKind | "sink";
 const RECEIVER: Record<Kind, { label: string; hint: string; placeholder: string; icon: React.ReactNode }> = {
-  user: { label: "Person", hint: "Chosen by name; delivered the way they set up in their own routing", placeholder: "", icon: <UserRound size={14} /> },
-  assignee: { label: "Assignee", hint: "Whoever the issue is assigned to, through their own routing", placeholder: "", icon: <UserRound size={14} /> },
-  email: { label: "Email", hint: "Mailed to this address as is: a person or a list", placeholder: "team@example.com", icon: <Mail size={14} /> },
-  slack: { label: "Slack", hint: "An incoming webhook", placeholder: "https://hooks.slack.com/services/...", icon: <Link2 size={14} /> },
-  mattermost_dm: { label: "Mattermost message", hint: "A direct message to this username", placeholder: "Mattermost username", icon: <MessageCircle size={14} /> },
-  mattermost: { label: "Mattermost channel", hint: "team-name/channel-name; add the bot first", placeholder: "team-name/alerts", icon: <MessageCircle size={14} /> },
-  webhook: { label: "Webhook", hint: "Gets a JSON post", placeholder: "https://example.com/hook", icon: <Link2 size={14} /> },
-  sink: { label: "Sink", hint: "Drop what matches, silently; matching stops here", placeholder: "", icon: <Ban size={14} /> },
+  user: { label: t("Person"), hint: t("Chosen by name; delivered the way they set up in their own routing"), placeholder: "", icon: <UserRound size={14} /> },
+  assignee: { label: t("Assignee"), hint: t("Whoever the issue is assigned to, through their own routing"), placeholder: "", icon: <UserRound size={14} /> },
+  email: { label: t("Email"), hint: t("Mailed to this address as is: a person or a list"), placeholder: "team@example.com", icon: <Mail size={14} /> },
+  slack: { label: "Slack", hint: t("An incoming webhook"), placeholder: "https://hooks.slack.com/services/...", icon: <Link2 size={14} /> },
+  mattermost_dm: { label: t("Mattermost message"), hint: t("A direct message to this username"), placeholder: t("Mattermost username"), icon: <MessageCircle size={14} /> },
+  mattermost: { label: t("Mattermost channel"), hint: t("team-name/channel-name; add the bot first"), placeholder: "team-name/alerts", icon: <MessageCircle size={14} /> },
+  webhook: { label: "Webhook", hint: t("Gets a JSON post"), placeholder: "https://example.com/hook", icon: <Link2 size={14} /> },
+  sink: { label: t("Sink"), hint: t("Drop what matches, silently; matching stops here"), placeholder: "", icon: <Ban size={14} /> },
 };
 
 export const RECEIVER_LABEL = Object.fromEntries(Object.entries(RECEIVER).map(([k, v]) => [k, v.label])) as Record<Kind, string>;
@@ -100,7 +100,7 @@ export function RouteEditor({ route: r, fields, ops, kinds, readOnly, onChange, 
   const offered = kinds.filter(k => !unavailable.includes(k) || inUse.has(k));
   const kindOptions: PickOption<Kind>[] = [...offered, "sink" as const].map(k => ({
     value: k, label: RECEIVER[k].label, icon: RECEIVER[k].icon,
-    hint: k !== "sink" && unavailable.includes(k) ? "Not set up on this server: messages are skipped" : RECEIVER[k].hint,
+    hint: k !== "sink" && unavailable.includes(k) ? t("Not set up on this server: messages are skipped") : RECEIVER[k].hint,
   }));
   const setMatcher = (i: number, m: Matcher) => onChange({ ...r, matchers: r.matchers.map((x, j) => (j === i ? m : x)) });
   // Receivers are edited one line per kind, each with any number of
@@ -123,15 +123,15 @@ export function RouteEditor({ route: r, fields, ops, kinds, readOnly, onChange, 
   return (
     <div>
       <label className="mb-1.5 block text-xs font-semibold" htmlFor="route-name">{t("Name")}</label>
-      <input id="route-name" className={`${input} mb-6 h-8 w-full py-1`} placeholder="Optional, shown in the list" value={r.name} disabled={readOnly} maxLength={80} onChange={e => onChange({ ...r, name: e.target.value })} />
+      <input id="route-name" className={`${input} mb-6 h-8 w-full py-1`} placeholder={t("Optional, shown in the list")} value={r.name} disabled={readOnly} maxLength={80} onChange={e => onChange({ ...r, name: e.target.value })} />
 
-      <h3 className="mb-2 text-xs font-semibold">Alerts <span className="font-normal text-cinder">{t("which kinds of alert this route takes")}</span></h3>
+      <h3 className="mb-2 text-xs font-semibold">{t("Alerts")} <span className="font-normal text-cinder">{t("which kinds of alert this route takes")}</span></h3>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("Alerts")}>
         {TRIGGERS.map(trig => {
           const picked = on.has(trig);
           const last = picked && on.size === 1;
           return (
-            <Tip key={trig} content={last ? "Take at least one kind of alert" : TRIGGER_HINT[trig]}>
+            <Tip key={trig} content={last ? t("Take at least one kind of alert") : TRIGGER_HINT[trig]}>
               <button type="button" aria-pressed={picked} disabled={readOnly || last}
                 className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors disabled:cursor-default disabled:opacity-100 ${picked
                   ? trig === "spike" ? "border-ember-ink bg-ember-ink font-medium text-white" : "border-soot bg-soot font-medium text-ash"
@@ -146,7 +146,7 @@ export function RouteEditor({ route: r, fields, ops, kinds, readOnly, onChange, 
       </div>
       {spikes && r.spike && <SpikeRow spike={r.spike} readOnly={readOnly} problem={problems.get("spike")} onChange={spike => onChange({ ...r, spike })} />}
 
-      <h3 className="mt-6 mb-2 text-xs font-semibold">When all of these match <span className="font-normal text-cinder">{t("none means every alert of the kinds above")}</span></h3>
+      <h3 className="mt-6 mb-2 text-xs font-semibold">{t("When all of these match")} <span className="font-normal text-cinder">{t("none means every alert of the kinds above")}</span></h3>
       <ul className="m-0 grid list-none gap-1.5 p-0">
         {r.matchers.map((m, i) => {
           if (m.field === "trigger") return null;
@@ -157,12 +157,12 @@ export function RouteEditor({ route: r, fields, ops, kinds, readOnly, onChange, 
           const valueBad = problems.has(`m${i}`) && !noName;
           return (
             <li key={i} className="flex flex-wrap items-center gap-1.5">
-              <Picker label="Field" mono className="w-44" value={base} options={fieldOptions} disabled={readOnly}
+              <Picker label={t("Field")} mono className="w-44" value={base} options={fieldOptions} disabled={readOnly}
                 onChange={f => setMatcher(i, { ...m, field: f === "tag" ? "tag." : f })} />
-              {isTag && <input aria-label="Tag name" aria-invalid={(noName && problems.has(`m${i}`)) || undefined} className={`${input} mono h-8 w-32 py-1 text-xs ${noName && problems.has(`m${i}`) ? "border-ember-ink!" : ""}`} placeholder="tag name" value={m.field.slice(4)} disabled={readOnly}
+              {isTag && <input aria-label={t("Tag name")} aria-invalid={(noName && problems.has(`m${i}`)) || undefined} className={`${input} mono h-8 w-32 py-1 text-xs ${noName && problems.has(`m${i}`) ? "border-ember-ink!" : ""}`} placeholder={t("tag name")} value={m.field.slice(4)} disabled={readOnly}
                 onChange={e => setMatcher(i, { ...m, field: `tag.${e.target.value.trim()}` })} />}
-              <Picker label="Operator" className="w-44" value={m.op} options={opOptions} disabled={readOnly} onChange={op => setMatcher(i, { ...m, op, value: NO_VALUE.includes(op) ? "" : m.value })} />
-              {NO_VALUE.includes(m.op) ? <span className="flex h-8 min-w-40 flex-1 items-center rounded-control border border-dashed border-rule px-3 text-xs text-cinder">{NO_VALUE_SAYS[m.op]}</span> : <input aria-label="Value" aria-invalid={valueBad || undefined} className={`${input} mono h-8 min-w-40 flex-1 py-1 text-xs ${valueBad ? "border-ember-ink!" : ""}`} placeholder={PLACEHOLDER[base] ?? ""} value={m.value} disabled={readOnly}
+              <Picker label={t("Operator")} className="w-44" value={m.op} options={opOptions} disabled={readOnly} onChange={op => setMatcher(i, { ...m, op, value: NO_VALUE.includes(op) ? "" : m.value })} />
+              {NO_VALUE.includes(m.op) ? <span className="flex h-8 min-w-40 flex-1 items-center rounded-control border border-dashed border-rule px-3 text-xs text-cinder">{NO_VALUE_SAYS[m.op]}</span> : <input aria-label={t("Value")} aria-invalid={valueBad || undefined} className={`${input} mono h-8 min-w-40 flex-1 py-1 text-xs ${valueBad ? "border-ember-ink!" : ""}`} placeholder={PLACEHOLDER[base] ?? ""} value={m.value} disabled={readOnly}
                 onChange={e => setMatcher(i, { ...m, value: e.target.value })} />}
               {!readOnly && <Tip content={t("Remove condition")}><button type="button" className={iconBtn} aria-label={t("Remove condition")} onClick={() => onChange({ ...r, matchers: r.matchers.filter((_, j) => j !== i) })}><X size={14} /></button></Tip>}
               {problems.has(`m${i}`) && <Problem text={problems.get(`m${i}`)!} />}
@@ -171,37 +171,37 @@ export function RouteEditor({ route: r, fields, ops, kinds, readOnly, onChange, 
         })}
       </ul>
       {problems.has("m") && <Problem text={problems.get("m")!} />}
-      {!readOnly && <button type="button" className={`${addBtn} mt-1.5`} onClick={() => onChange({ ...r, matchers: [...r.matchers, { field: "env", op: "=~", value: "" }] })}><Plus size={12} aria-hidden="true" />Add condition</button>}
+      {!readOnly && <button type="button" className={`${addBtn} mt-1.5`} onClick={() => onChange({ ...r, matchers: [...r.matchers, { field: "env", op: "=~", value: "" }] })}><Plus size={12} aria-hidden="true" />{t("Add condition")}</button>}
 
       <h3 className="mt-6 mb-2 text-xs font-semibold">{t("Send to")}</h3>
       <ul className="m-0 grid list-none gap-1.5 p-0">
         {rows.map((g, i) => (
           <li key={i} className="flex flex-wrap items-start gap-1.5">
-            <Picker label="Send by" className="w-44" value={g.kind} options={kindOptions} disabled={readOnly} onChange={kind => setKind(i, kind)} />
+            <Picker label={t("Send by")} className="w-44" value={g.kind} options={kindOptions} disabled={readOnly} onChange={kind => setKind(i, kind)} />
             {g.kind === "sink"
               ? <span className="flex h-8 min-w-40 flex-1 items-center text-xs text-cinder">{t("Alerts that match are dropped silently. Matching stops here.")}</span>
               : g.kind === "assignee"
-              ? <span className="flex h-8 min-w-40 flex-1 items-center text-xs text-cinder">Whoever the issue is assigned to, through their own routing.</span>
+              ? <span className="flex h-8 min-w-40 flex-1 items-center text-xs text-cinder">{t("Whoever the issue is assigned to, through their own routing.")}</span>
               : g.kind === "user"
               ? <PeopleInput values={g.targets} project={project} disabled={readOnly} invalid={problems.has("r:user")}
                   onChange={targets => setGroups(groups.map((x, j) => (j === i ? { ...x, targets } : x)))} />
-              : <TargetsInput label={`${RECEIVER[g.kind].label} addresses`} values={g.targets} placeholder={RECEIVER[g.kind].placeholder} disabled={readOnly}
+              : <TargetsInput label={t("{kind} addresses", { kind: RECEIVER[g.kind].label })} values={g.targets} placeholder={RECEIVER[g.kind].placeholder} disabled={readOnly}
                   check={t => badTarget({ kind: g.kind as ReceiverKind, target: t })}
                   invalid={problems.has(`r:${g.kind}`)} bad={problems.has(`r:${g.kind}`) ? t => !!badTarget({ kind: g.kind as ReceiverKind, target: t }) : undefined}
                   onChange={targets => setGroups(groups.map((x, j) => (j === i ? { ...x, targets } : x)))} />}
-            {onTest && g.kind !== "sink" && g.kind !== "assignee" && <Tip content={g.targets.length > 1 ? "Send a test message to each" : "Send a test message"}><span className="inline-flex"><button type="button" className={iconBtn} aria-label={`Test ${RECEIVER[g.kind].label}`} disabled={g.targets.length === 0} onClick={() => g.targets.forEach(target => onTest({ kind: g.kind as ReceiverKind, target }))}><SendHorizontal size={14} /></button></span></Tip>}
-            {!readOnly && !r.sink && <Tip content="Remove"><button type="button" className={iconBtn} aria-label={`Remove ${RECEIVER[g.kind].label}`} onClick={() => setGroups(groups.filter((_, j) => j !== i))}><X size={14} /></button></Tip>}
+            {onTest && g.kind !== "sink" && g.kind !== "assignee" && <Tip content={g.targets.length > 1 ? t("Send a test message to each") : t("Send a test message")}><span className="inline-flex"><button type="button" className={iconBtn} aria-label={t("Test {kind}", { kind: RECEIVER[g.kind].label })} disabled={g.targets.length === 0} onClick={() => g.targets.forEach(target => onTest({ kind: g.kind as ReceiverKind, target }))}><SendHorizontal size={14} /></button></span></Tip>}
+            {!readOnly && !r.sink && <Tip content={t("Remove")}><button type="button" className={iconBtn} aria-label={t("Remove {kind}", { kind: RECEIVER[g.kind].label })} onClick={() => setGroups(groups.filter((_, j) => j !== i))}><X size={14} /></button></Tip>}
             {problems.has(`r:${g.kind}`) && <Problem text={problems.get(`r:${g.kind}`)!} />}
           </li>
         ))}
       </ul>
       {problems.has("r") && <Problem text={problems.get("r")!} />}
-      {!readOnly && !r.sink && groups.length < offered.length && <button type="button" className={`${addBtn} mt-1.5`} onClick={() => setGroups([...groups, { kind: unused, targets: [] }])}><Plus size={12} aria-hidden="true" />Add receiver</button>}
+      {!readOnly && !r.sink && groups.length < offered.length && <button type="button" className={`${addBtn} mt-1.5`} onClick={() => setGroups([...groups, { kind: unused, targets: [] }])}><Plus size={12} aria-hidden="true" />{t("Add receiver")}</button>}
 
       {!r.sink && (
         <label className="mt-6 flex w-fit cursor-pointer items-center gap-2 text-[13px]">
           <input type="checkbox" checked={r.continue} disabled={readOnly} onChange={e => onChange({ ...r, continue: e.target.checked })} />
-          Continue
+          {t("Continue")}
           <span className="text-xs text-cinder">{t("keep matching the routes below after this one")}</span>
         </label>
       )}
@@ -239,11 +239,11 @@ function SpikeRow({ spike, readOnly, problem, onChange }: { spike: { events: num
     <div className="mt-3">
       <div className="flex flex-wrap items-center gap-2 text-[13px]">
         <span className="font-semibold text-ember-ink">{t("A spike is")}</span>
-        at least
+        {t("at least")}
         <input type="number" min={1} aria-label={t("Events in an hour")} className={num} value={spike.events || ""} disabled={readOnly} onChange={e => onChange({ ...spike, events: Math.floor(Number(e.target.value)) })} />
-        events in an hour, and
+        {t("events in an hour, and")}
         <input type="number" min={1} step={0.5} aria-label={t("Times the usual rate")} className={num} value={spike.factor || ""} disabled={readOnly} onChange={e => onChange({ ...spike, factor: Number(e.target.value) })} />
-        times the usual hourly rate.
+        {t("times the usual hourly rate.")}
       </div>
       {problem && <p className="m-0 mt-1 text-xs text-ember-ink">{problem}</p>}
       <p className="m-0 mt-1.5 text-xs text-cinder">{t("For this route. It alerts an issue at most every six hours. The default route takes no spikes.")}</p>

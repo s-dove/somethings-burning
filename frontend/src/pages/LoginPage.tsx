@@ -160,9 +160,7 @@ function NotConfigured() {
         {t("Please configure auth in the backend")}
       </p>
       <p className="mt-3 text-xs leading-relaxed text-cinder">
-        Set <span className="mono text-soot">BURNING_PASSWORD_FILE</span> for email and password sign-in, or{" "}
-        <span className="mono text-soot">BURNING_OIDC_ISSUER</span> and the other <span className="mono text-soot">BURNING_OIDC_*</span> settings for
-        single sign-on, or the <span className="mono text-soot">BURNING_GITHUB_*</span> settings for GitHub. Any of them can be on. See <span className="mono text-soot">backend/.env.example</span>, then restart the backend.
+        {t("Set BURNING_PASSWORD_FILE for email and password sign-in, or BURNING_OIDC_ISSUER and the other BURNING_OIDC_* settings for single sign-on, or the BURNING_GITHUB_* settings for GitHub. Any of them can be on. See backend/.env.example, then restart the backend.")}
       </p>
     </div>
   );

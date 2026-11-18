@@ -7,7 +7,7 @@ import { api, canTriage, type IssueDetail } from "../shared/api";
 import { Tip } from "../components/Tip";
 import { t } from "../shared/i18n";
 
-const DONE = { resolve: "Issue resolved", reopen: "Issue reopened", unmute: "Issue unmuted", mute: "Issue muted" } as const;
+const DONE = { resolve: t("Issue resolved"), reopen: t("Issue reopened"), unmute: t("Issue unmuted"), mute: t("Issue muted") } as const;
 type Action = keyof typeof DONE;
 
 // IssueTriage is the action bar at the top right of the issue header:

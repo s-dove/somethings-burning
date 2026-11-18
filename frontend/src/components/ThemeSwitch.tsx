@@ -190,7 +190,7 @@ function ThemeChoice({ theme, picked, onPick, current }: {
       <Preview id={theme.id} />
       <span className={ROW_LABEL}>
         {theme.id === "" && <MonitorSmartphone size={14} className="shrink-0 text-cinder" aria-hidden="true" />}
-        <span className="min-w-0 flex-1 truncate">{current ? `Current: ${theme.label}` : theme.label}</span>
+        <span className="min-w-0 flex-1 truncate">{current ? t("Current: {name}", { name: t(theme.label) }) : t(theme.label)}</span>
         {on && <Check size={14} className="shrink-0" aria-hidden="true" />}
       </span>
     </button>
@@ -210,7 +210,7 @@ function CodeChoice({ theme, picked, onPick, current }: {
       <CodePreview id={theme.id} />
       <span className={ROW_LABEL}>
         {theme.id === "system" && <MonitorSmartphone size={14} className="shrink-0 text-cinder" aria-hidden="true" />}
-        <span className="min-w-0 flex-1 truncate">{current ? `Current: ${theme.label}` : theme.label}</span>
+        <span className="min-w-0 flex-1 truncate">{current ? t("Current: {name}", { name: t(theme.label) }) : t(theme.label)}</span>
         {on && <Check size={14} className="shrink-0" aria-hidden="true" />}
       </span>
     </button>
@@ -262,7 +262,7 @@ function CodePreview({ id, fill }: { id: string; fill?: boolean }) {
     <span data-code-theme={id} className={`block overflow-hidden rounded-[7px] ${frame}`}>
       <pre className="mono language-python block h-full px-3 py-2.5 text-sm leading-relaxed">
         <code>
-          <span className="token keyword">def</span> <span className="token function">load</span><span className="token punctuation">(</span>{t("name")}<span className="token punctuation">):</span>{"\n"}
+          <span className="token keyword">def</span> <span className="token function">load</span><span className="token punctuation">(</span>{"name"}<span className="token punctuation">):</span>{"\n"}
           {"  "}<span className="token comment"># cached</span>{"\n"}
           {"  "}<span className="token keyword">return</span> cache<span className="token punctuation">[</span><span className="token string">"k"</span><span className="token punctuation">]</span> <span className="token operator">+</span> <span className="token number">1</span>{"\n"}
           {"\n"}

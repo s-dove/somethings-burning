@@ -26,8 +26,8 @@ export function IssueList({ issues, showProject, status, query, noProjects, mute
 }) {
   const [picked, setPicked] = useState<Set<number>>(new Set());
   if (!issues.length) {
-    const title = noProjects ? "Connect your first service" : query ? `No errors match “${query}”` : status === "open" ? "Nothing is burning" : `No ${status === "all" ? "reported" : status} issues`;
-    const hint = noProjects ? "Choose New project in the sidebar to get a DSN for your Sentry SDK." : query ? "Try a different error message or culprit." : status === "open" ? "New errors will appear here when your services report them." : status === "muted" ? "Muted issues keep counting events without sending alerts." : "Issues appear here as you report and triage errors.";
+    const title = noProjects ? t("Connect your first service") : query ? t("No errors match “{query}”", { query }) : status === "open" ? t("Nothing is burning") : status === "all" ? t("No reported issues") : status === "resolved" ? t("No resolved issues") : t("No muted issues");
+    const hint = noProjects ? t("Choose New project in the sidebar to get a DSN for your Sentry SDK.") : query ? t("Try a different error message or culprit.") : status === "open" ? t("New errors will appear here when your services report them.") : status === "muted" ? t("Muted issues keep counting events without sending alerts.") : t("Issues appear here as you report and triage errors.");
     return <div className="flex flex-col items-center rounded-card border border-dashed border-rule px-6 py-20 text-center"><Inbox className="mb-5 text-cinder" size={28} aria-hidden="true" /><h2>{title}</h2><p className="mt-2 max-w-[46ch] text-[13px] text-cinder">{hint}</p></div>;
   }
   const triageable = issues.filter(i => canTriage(i.role));
@@ -42,7 +42,7 @@ export function IssueList({ issues, showProject, status, query, noProjects, mute
       <div className="isolate overflow-hidden rounded-card border border-rule bg-ash">
         <div className={`${grid} border-b border-rule bg-smoke/60 px-5 py-3 text-xs text-cinder max-md:hidden`}>
           {triageable.length
-            ? <input type="checkbox" className={box} aria-label={all ? "Unselect all" : "Select all"} checked={all}
+            ? <input type="checkbox" className={box} aria-label={all ? t("Unselect all") : t("Select all")} checked={all}
                 ref={el => { if (el) el.indeterminate = chosen.length > 0 && !all; }}
                 onChange={e => setPicked(e.target.checked ? new Set(triageable.map(i => i.id)) : new Set())} />
             : <span />}
@@ -77,7 +77,7 @@ export function IssueList({ issues, showProject, status, query, noProjects, mute
                 {i.culprit && <span className="mono min-w-0 truncate text-[11px]">{i.culprit}</span>}
                 {i.status === "muted" && <span className="min-w-0 truncate">{sentence(muteSummary(i.mute))}</span>}
               </div>
-              <p className="mt-1.5 text-[11px] text-cinder md:hidden">{plural(i.eventCount, "event")}, last seen {ago(i.lastSeen)}</p>
+              <p className="mt-1.5 text-[11px] text-cinder md:hidden">{t("{events}, last seen {when}", { events: plural(i.eventCount, "event"), when: ago(i.lastSeen) })}</p>
             </div>
             <div className="relative z-10 max-md:hidden"><HeatStrip hours={i.hours} size="sm" muted={i.status === "muted"} /></div>
             <div className="text-right max-md:hidden"><span className="mono font-semibold tabular-nums">{i.eventCount.toLocaleString()}</span></div>
@@ -106,7 +106,7 @@ function BulkBar({ issues, muteOptions, onDone }: { issues: Issue[]; muteOptions
     setBusy(true);
     try {
       await api(`/projects/${keep.projectId}/issues/merge`, { method: "POST", body: { into: keep.id, issues: issues.map(i => i.id) } });
-      toast(`Merged into "${keep.title}"`);
+      toast(t("Merged into \"{title}\"", { title: keep.title }));
       void mutate((key) => typeof key === "string" && key.startsWith("/board"));
       onDone();
     } catch (err) {
@@ -122,29 +122,29 @@ function BulkBar({ issues, muteOptions, onDone }: { issues: Issue[]; muteOptions
     const results = await Promise.allSettled(list.map(i => api(`/projects/${i.projectId}/issues/${i.id}/${path}`, { method: "POST", body })));
     const failed = results.filter(r => r.status === "rejected").length;
     setBusy(false);
-    if (failed) toast.error(`${failed} of ${list.length} could not be changed`);
-    else toast(`${done} ${plural(list.length, "issue")}`);
+    if (failed) toast.error(t("{failed} of {n} could not be changed", { failed, n: list.length }));
+    else toast(t(done, { what: plural(list.length, "issue") }));
     void mutate((key) => typeof key === "string" && key.startsWith("/board"));
     onDone();
   }
 
   return (
     <div className="sticky bottom-4 z-30 mt-4 flex flex-wrap items-center gap-3 rounded-card border border-rule bg-ash/95 px-4 py-3 shadow-lg backdrop-blur" role="region" aria-label={t("Selected issues")}>
-      <span className="mr-auto text-[13px] font-medium">{plural(issues.length, "issue")} selected</span>
+      <span className="mr-auto text-[13px] font-medium">{t("{what} selected", { what: plural(issues.length, "issue") })}</span>
       <Button size="sm" variant="primary" disabled={busy || open.length === 0} icon={<Check aria-hidden="true" />}
-        onClick={() => void run(open, "resolve", {}, "Resolved")}>Resolve{open.length < issues.length ? ` ${open.length}` : ""}</Button>
+        onClick={() => void run(open, "resolve", {}, "Resolved {what}")}>{t("Resolve")}{open.length < issues.length ? ` ${open.length}` : ""}</Button>
       <Menu>
         <MenuButton className="ui-button ui-button-secondary ui-button-sm" disabled={busy || mutable.length === 0}>
-          <VolumeX aria-hidden="true" />Mute{mutable.length < issues.length ? ` ${mutable.length}` : ""}
+          <VolumeX aria-hidden="true" />{t("Mute")}{mutable.length < issues.length ? ` ${mutable.length}` : ""}
         </MenuButton>
         <MenuItems anchor="top end" className="z-40 min-w-36 rounded-card border border-rule bg-ash p-1 text-[13px] shadow-lg [--anchor-gap:6px] focus:outline-none">
           <div className="px-2.5 pt-1.5 pb-1 text-[11px] text-cinder">{t("Mute for")}</div>
           {muteOptions.map(o => <MenuItem key={o.value}>
-            <button className="block w-full cursor-pointer rounded-control px-2.5 py-1.5 text-left data-focus:bg-rule-soft" onClick={() => void run(mutable, "mute", { for: o.value }, "Muted")}>{t(o.label)}</button>
+            <button className="block w-full cursor-pointer rounded-control px-2.5 py-1.5 text-left data-focus:bg-rule-soft" onClick={() => void run(mutable, "mute", { for: o.value }, "Muted {what}")}>{t(o.label)}</button>
           </MenuItem>)}
         </MenuItems>
       </Menu>
-      <Tip content={mergeable ? "Fold them into one issue, the one with the most events" : "Choose two or more issues of one project to merge"}>
+      <Tip content={mergeable ? t("Fold them into one issue, the one with the most events") : t("Choose two or more issues of one project to merge")}>
         <span className="inline-flex"><Button size="sm" variant="secondary" disabled={busy || !mergeable} icon={<GitMerge aria-hidden="true" />} onClick={() => void mergeAll()}>{t("Merge")}</Button></span>
       </Tip>
       <Button size="sm" variant="ghost" disabled={busy} icon={<X aria-hidden="true" />} onClick={onDone}>{t("Clear")}</Button>

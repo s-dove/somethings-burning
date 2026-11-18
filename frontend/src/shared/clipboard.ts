@@ -22,7 +22,7 @@ export async function copyText(text: string, within?: HTMLElement | null): Promi
     toast(t("Copied"));
     return true;
   } catch {
-    toast.error("Could not copy. Select and copy the text manually.");
+    toast.error(t("Could not copy. Select and copy the text manually."));
     return false;
   }
 }

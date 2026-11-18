@@ -54,8 +54,8 @@ curl -fsS -X POST "$BURNING/deploys" -H "Authorization: Bearer $BURNING_TOKEN" \
       settings={settings.data}
       error={settings.error || error}
       back={backToSettings(settings.data)}
-      title={(n) => `${n} API tokens`}
-      hint="Let CI create releases, mark deploys, and upload source maps."
+      title={(n) => t("{name} API tokens", { name: n })}
+      hint={t("Let CI create releases, mark deploys, and upload source maps.")}
     >
       {(s) =>
         s.project.role !== "admin" ? (
@@ -64,7 +64,7 @@ curl -fsS -X POST "$BURNING/deploys" -H "Authorization: Bearer $BURNING_TOKEN" \
           <div className="grid gap-6">
             <form className={`${section} flex flex-wrap items-end gap-2`} onSubmit={(e) => void create(e)}>
               <label className="grid min-w-56 flex-1 gap-1.5 text-xs font-medium">
-                New token
+                {t("New token")}
                 <input className={`${input} h-9`} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} required />
               </label>
               <Button variant="primary" type="submit" icon={<Plus aria-hidden="true" />}>{t("Create")}</Button>
@@ -88,7 +88,7 @@ curl -fsS -X POST "$BURNING/deploys" -H "Authorization: Bearer $BURNING_TOKEN" \
                     <li key={tok.id} className="flex flex-wrap items-center gap-3 py-2 text-[13px]">
                       <span className="font-medium">{tok.name}</span>
                       <span className="mono text-xs text-cinder">{tok.prefix}…</span>
-                      <span className="text-xs text-cinder">by {tok.createdBy || "?"} {ago(tok.createdAt)} · {tok.lastUsed ? `used ${ago(tok.lastUsed)}` : "never used"}</span>
+                      <span className="text-xs text-cinder">{t("by {who} {when}", { who: tok.createdBy || "?", when: ago(tok.createdAt) })} · {tok.lastUsed ? t("used {when}", { when: ago(tok.lastUsed) }) : t("never used")}</span>
                       <button type="button" className="ml-auto cursor-pointer text-xs text-cinder hover:text-ember-ink" onClick={() => void revoke(tok)}>{t("Revoke")}</button>
                     </li>
                   ))}
@@ -97,7 +97,7 @@ curl -fsS -X POST "$BURNING/deploys" -H "Authorization: Bearer $BURNING_TOKEN" \
             </section>
             <section className={section}>
               <h2 className={sectionTitle}>{t("What a token can do")}</h2>
-              <p className="text-[13px] leading-relaxed text-cinder">Only this project's releases, deploys, and source maps. It cannot read issues or change settings. SDKs do not use it; they report with the DSN. The value is shown once and only a hash is kept.</p>
+              <p className="text-[13px] leading-relaxed text-cinder">{t("Only this project's releases, deploys, and source maps. It cannot read issues or change settings. SDKs do not use it; they report with the DSN. The value is shown once and only a hash is kept.")}</p>
               <pre className="mono mt-4 overflow-x-auto rounded-control bg-smoke p-3 text-xs leading-relaxed">{example}</pre>
             </section>
           </div>

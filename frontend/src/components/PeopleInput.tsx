@@ -50,7 +50,7 @@ export function PeopleInput({ values, onChange, project, disabled, invalid }: {
         <input
           aria-label={t("Find people")}
           className="h-6 min-w-40 flex-1 border-0 bg-transparent px-1 py-0 text-xs text-soot outline-none placeholder:text-cinder focus:ring-0"
-          placeholder={values.length ? "Add someone" : "Type a name or @username"}
+          placeholder={values.length ? t("Add someone") : t("Type a name or @username")}
           value=""
           onChange={e => e.target.value && start(e.target.value)}
           onKeyDown={e => { if (e.key === "Backspace" && values.length) onChange(values.slice(0, -1)); if (e.key === "Enter") { e.preventDefault(); start(""); } }}
@@ -155,12 +155,12 @@ function PeopleModal({ open, people, chosen, query, onQuery, onClose, onDone }: 
             </ul>
           </div>
           <div className="flex shrink-0 items-center gap-2 border-t border-rule px-4 py-3">
-            <span className="text-xs text-cinder">{picked.length ? `${picked.length} chosen` : "No one chosen"}</span>
+            <span className="text-xs text-cinder">{picked.length ? t("{n} chosen", { n: picked.length }) : t("No one chosen")}</span>
             <span className="flex flex-1 flex-wrap items-center justify-end gap-x-3 gap-y-1 text-[11px] text-cinder max-sm:hidden" aria-hidden="true">
-              <span><Key>←</Key><Key>↑</Key><Key>↓</Key><Key>→</Key> move</span>
-              <span><Key>{t("Space")}</Key> check</span>
-              <span><Key>{t("Enter")}</Key> done</span>
-              <span><Key>{t("Esc")}</Key> close</span>
+              <span><Key>←</Key><Key>↑</Key><Key>↓</Key><Key>→</Key> {t("move")}</span>
+              <span><Key>{t("Space")}</Key> {t("check")}</span>
+              <span><Key>{t("Enter")}</Key> {t("done")}</span>
+              <span><Key>{t("Esc")}</Key> {t("close")}</span>
             </span>
             <Button size="sm" onClick={onClose}>{t("Cancel")}</Button>
             <Button size="sm" variant="primary" onClick={() => onDone(picked)}>{t("Done")}</Button>

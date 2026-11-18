@@ -8,6 +8,11 @@ import { NO_VALUE, OP_LABEL, RECEIVER_ICON, RECEIVER_LABEL } from "./RouteEditor
 import { t } from "../shared/i18n";
 
 
+// The server names the personal route it starts everyone with; that name is
+// shown translated. Names people give their routes stay as they are.
+const SERVER_NAMES = new Set(["Everything by email"]);
+export const routeName = (name: string) => (SERVER_NAMES.has(name) ? t(name) : name);
+
 // Each condition gets an icon for its field, as each receiver has one for its kind.
 const FIELD_ICON: Record<string, React.ReactNode> = {
   trigger: <Activity size={14} />, env: <Layers size={14} />, release: <Package size={14} />, level: <TriangleAlert size={14} />,
@@ -88,9 +93,9 @@ export function RouteList({ routes, fallback, empty, readOnly, onReorder, onOpen
               <span className="truncate">{t("Default route")}</span>
               <span className="shrink-0 rounded-control bg-rule-soft px-1.5 text-[11px] font-normal text-cinder">{t("always last")}</span>
             </span>
-            <Section title={t("Alerts")} items={[{ key: "kinds", icon: <Activity size={14} />, label: "Alerts", text: "New issue, Fired again, After a mute; no spikes" }]} />
-            <Section title={t("Matches")} items={[{ key: "none", icon: <Filter size={14} />, label: "Fallback", text: "when no route above matches" }]} />
-            <Section title={t("Send to")} items={[{ key: "members", icon: RECEIVER_ICON.user, label: "Person", text: "All members and admins" }]} />
+            <Section title={t("Alerts")} items={[{ key: "kinds", icon: <Activity size={14} />, label: t("Alerts"), text: t("New issue, Fired again, After a mute; no spikes") }]} />
+            <Section title={t("Matches")} items={[{ key: "none", icon: <Filter size={14} />, label: t("Fallback"), text: t("when no route above matches") }]} />
+            <Section title={t("Send to")} items={[{ key: "members", icon: RECEIVER_ICON.user, label: t("Person"), text: t("All members and admins") }]} />
           </span>
         </div>
       </li>}
@@ -103,36 +108,36 @@ function RouteSummary({ route: r, index, names, unavailable, project, onOpen }: 
   const chosen = triggersOf(r, project);
   const labels = TRIGGERS.filter(t => t !== "spike" && chosen.has(t)).map(t => TRIGGER_LABEL[t]);
   const alerts: Item[] = [
-    ...(labels.length ? [{ key: "kinds", icon: <Activity size={14} />, label: "Alerts", text: labels.length === 3 ? "New issue, Fired again, After a mute" : labels.join(", ") }] : []),
-    ...(chosen.has("spike") ? [{ key: "spike", icon: <TrendingUp size={14} />, label: "Spike", text: r.spike ? `≥ ${r.spike.events} events in an hour, ≥ ${r.spike.factor}× the usual rate` : "Spike" }] : []),
+    ...(labels.length ? [{ key: "kinds", icon: <Activity size={14} />, label: t("Alerts"), text: labels.length === 3 ? t("New issue, Fired again, After a mute") : labels.join(", ") }] : []),
+    ...(chosen.has("spike") ? [{ key: "spike", icon: <TrendingUp size={14} />, label: t("Spike"), text: r.spike ? t("≥ {events} events in an hour, ≥ {factor}× the usual rate", { events: r.spike.events, factor: r.spike.factor }) : t("Spike") }] : []),
   ];
   const rest = r.matchers.filter(m => m.field !== "trigger");
   const matches: Item[] = rest.length
     ? rest.map((m, i) => ({ key: `${i}`, icon: fieldIcon(m.field), label: m.field, text: NO_VALUE.includes(m.op) ? `${m.field} ${OP_LABEL[m.op]}` : `${m.field} ${OP_LABEL[m.op]} ${m.value || '""'}`, mono: true }))
-    : [{ key: "any", icon: <Filter size={14} />, label: "Any", text: "every alert of these kinds" }];
+    : [{ key: "any", icon: <Filter size={14} />, label: t("Any"), text: t("every alert of these kinds") }];
   // One line per kind of receiver, with its icon and all its targets; a sink
   // is one line too.
   const kinds = [...new Set(r.receivers.map(x => x.kind))];
   const sendTo: Item[] = r.sink
-    ? [{ key: "sink", icon: RECEIVER_ICON.sink, label: "Sink", text: "Dropped silently" }]
+    ? [{ key: "sink", icon: RECEIVER_ICON.sink, label: t("Sink"), text: t("Dropped silently") }]
     : kinds.map(kind => ({
         key: kind,
         icon: RECEIVER_ICON[kind],
         label: RECEIVER_LABEL[kind],
-        text: kind === "assignee" ? "Whoever the issue is assigned to" : r.receivers.filter(x => x.kind === kind).map(x => (kind === "user" ? names[x.target] : "") || x.target || "(empty)").join(", "),
-        warning: unavailable.includes(kind) ? `${RECEIVER_LABEL[kind]} is not set up on this server, so these messages are skipped.` : undefined,
+        text: kind === "assignee" ? t("Whoever the issue is assigned to") : r.receivers.filter(x => x.kind === kind).map(x => (kind === "user" ? names[x.target] : "") || x.target || t("(empty)")).join(", "),
+        warning: unavailable.includes(kind) ? t("{kind} is not set up on this server, so these messages are skipped.", { kind: RECEIVER_LABEL[kind] }) : undefined,
       }));
   return (
     <button type="button" className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 py-3 text-left" onClick={onOpen}>
       <span className="-mt-0.5 grid size-6 shrink-0 place-items-center rounded-control bg-smoke text-xs font-semibold tabular-nums">{index + 1}</span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2 text-[13px] font-medium">
-          <span className="truncate">{r.name || `Route ${index + 1}`}</span>
+          <span className="truncate">{routeName(r.name) || t("Route {n}", { n: index + 1 })}</span>
           {r.continue && <span className="shrink-0 rounded-control bg-rule-soft px-1.5 text-[11px] font-normal text-cinder">{t("continue")}</span>}
         </span>
         {alerts.length > 0 && <Section title={t("Alerts")} items={alerts} />}
         <Section title={t("Matches")} items={matches} />
-        <Section title={r.sink ? "Then" : "Send to"} items={sendTo} />
+        <Section title={r.sink ? t("Then") : t("Send to")} items={sendTo} />
       </span>
       <ChevronRight className="shrink-0 self-center text-cinder" aria-hidden="true" />
     </button>

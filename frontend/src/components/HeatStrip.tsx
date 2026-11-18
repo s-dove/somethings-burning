@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "../shared/i18n";
 import { Content, Portal, Root, Trigger } from "@radix-ui/react-tooltip";
 import { heatBg, plural } from "../shared/format";
 
@@ -12,7 +13,7 @@ export function HeatStrip({ hours, size, muted }: { hours: number[]; size: "sm" 
   return (
     <span
       className={`inline-grid grid-cols-[repeat(24,minmax(0,1fr))] align-middle ${box} ${muted ? "opacity-45 grayscale" : ""}`}
-      aria-label={`${plural(total, "event")} in the last 24 hours`}
+      aria-label={t("{events} in the last 24 hours", { events: plural(total, "event") })}
       onMouseLeave={() => setHot(null)}
     >
       {hours.map((n, i) => {

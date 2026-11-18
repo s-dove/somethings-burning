@@ -7,6 +7,7 @@ import type { EventView, FrameView, Suspects } from "../shared/api";
 import { ExternalLink } from "../ui/icons";
 import { SuspectsBlock } from "./SuspectsBlock";
 import { t } from "../shared/i18n";
+import { plural } from "../shared/format";
 
 type Exception = EventView["exceptions"][number];
 
@@ -18,14 +19,14 @@ export function StackTrace({ exception, platform, causedBy, suspects }: { except
     // One card: the heading, then the frames edge to edge with dividers.
     <section className="mb-6 min-w-0 overflow-hidden rounded-card border border-rule bg-ash">
       <h2 className="flex flex-wrap items-baseline gap-2 px-5 py-4 text-sm font-semibold">
-        Stack trace
+        {t("Stack trace")}
         <span className="text-xs font-normal text-cinder">
           {causedBy && (
             <>
-              for <span className="mono">{exception.type}</span>, which caused the one above.{" "}
+              {t("for {type}, which caused the one above.", { type: exception.type })}{" "}
             </>
           )}
-          {frames.length} {frames.length === 1 ? "frame" : "frames"}, newest call first
+          {t("{frames}, newest call first", { frames: plural(frames.length, "frame") })}
         </span>
       </h2>
       {suspects && <SuspectsBlock suspects={suspects} />}
@@ -42,13 +43,13 @@ export function StackTrace({ exception, platform, causedBy, suspects }: { except
                     <span className="wrap-anywhere">{f.location}</span>
                     {f.function && (
                       <>
-                        <span className="text-cinder">in</span> <span className={f.inApp ? "font-semibold" : ""}>{f.function}</span>
+                        <span className="text-cinder">{t("in")}</span> <span className={f.inApp ? "font-semibold" : ""}>{f.function}</span>
                       </>
                     )}
-                    {f.lineno > 0 && <span className="text-cinder">line {f.lineno}</span>}
+                    {f.lineno > 0 && <span className="text-cinder">{t("line {n}", { n: f.lineno })}</span>}
                     {f.changed && (
                       <Tip content={t("This file changed since the previous release: see Suspect changes")}>
-                        <span className="rounded-control bg-ember-soft px-1.5 text-[11px] font-medium text-ember-ink">{f.changed} in this release</span>
+                        <span className="rounded-control bg-ember-soft px-1.5 text-[11px] font-medium text-ember-ink">{t("{change} in this release", { change: t(f.changed) })}</span>
                       </Tip>
                     )}
                     {!f.inApp && <span className="ml-auto text-[11px] text-cinder">{t("library")}</span>}
@@ -57,7 +58,7 @@ export function StackTrace({ exception, platform, causedBy, suspects }: { except
                     <Tip content={t("Open this line in the repository")}>
                       <Link
                         to={f.link}
-                        aria-label={`Open ${f.location} line ${f.lineno} in the repository`}
+                        aria-label={t("Open {file} line {n} in the repository", { file: f.location, n: f.lineno })}
                         className="grid shrink-0 place-items-center px-4 text-cinder hover:text-soot"
                       >
                         <ExternalLink size={13} aria-hidden="true" />

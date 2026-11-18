@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "../shared/i18n";
 import { X } from "../ui/icons";
 
 // TargetsInput holds several values (email addresses, usernames, URLs) as
@@ -24,7 +25,7 @@ export function TargetsInput({ values, onChange, placeholder, disabled, label, i
     const rejected = more.filter(v => check?.(v));
     if (good.length) onChange([...values, ...good.filter(v => !values.includes(v))]);
     setText(rejected.join(" "));
-    setError(rejected.length ? check!(rejected[0]!) + (rejected.length > 1 ? ` (and ${rejected.length - 1} more)` : "") : "");
+    setError(rejected.length ? check!(rejected[0]!) + (rejected.length > 1 ? ` ${t("(and {n} more)", { n: rejected.length - 1 })}` : "") : "");
   };
   return (
     <div className="min-w-48 flex-1">
@@ -32,14 +33,14 @@ export function TargetsInput({ values, onChange, placeholder, disabled, label, i
         {values.map(v => (
           <span key={v} className={`inline-flex max-w-full items-center gap-1 rounded-[4px] py-0.5 pr-1 pl-2 text-xs ${bad?.(v) ? "bg-ember-soft text-ember-ink line-through decoration-ember-ink/40" : "bg-smoke"}`}>
             <span className="truncate">{v}</span>
-            {!disabled && <button type="button" className="cursor-pointer rounded-[3px] p-0.5 text-cinder hover:bg-rule-soft hover:text-soot" aria-label={`Remove ${v}`} onClick={() => onChange(values.filter(x => x !== v))}><X size={11} /></button>}
+            {!disabled && <button type="button" className="cursor-pointer rounded-[3px] p-0.5 text-cinder hover:bg-rule-soft hover:text-soot" aria-label={t("Remove {who}", { who: v })} onClick={() => onChange(values.filter(x => x !== v))}><X size={11} /></button>}
           </span>
         ))}
         {!disabled && (
           <input
             aria-label={label}
             className="h-6 min-w-32 flex-1 border-0 bg-transparent px-1 py-0 text-xs text-soot outline-none placeholder:text-cinder focus:ring-0"
-            placeholder={values.length ? "Add another" : placeholder}
+            placeholder={values.length ? t("Add another") : placeholder}
             value={text}
             onChange={e => { if (error) setError(""); if (/[\s,;]$/.test(e.target.value)) add(e.target.value); else setText(e.target.value); }}
             onKeyDown={e => {

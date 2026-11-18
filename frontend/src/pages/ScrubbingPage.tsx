@@ -40,32 +40,32 @@ export function ScrubbingPage() {
       settings={settings.data}
       error={settings.error || error}
       back={backToSettings(settings.data)}
-      title={(name) => `${name} data scrubbing`}
-      hint="What is filtered out of events before they are stored."
+      title={(name) => t("{name} data scrubbing", { name })}
+      hint={t("What is filtered out of events before they are stored.")}
       action={admin ? <Button variant="primary" disabled={!dirty} onClick={() => void save()}>{t("Save")}</Button> : undefined}
     >
       {() =>
         !view ? null : (
           <div className="grid gap-6">
             <section className={section}>
-              <Toggle checked={defaults} disabled={!admin} onChange={setDefaults} label="Built-in rules" className="items-start [&>button]:mt-0.5">
+              <Toggle checked={defaults} disabled={!admin} onChange={setDefaults} label={t("Built-in rules")} className="items-start [&>button]:mt-0.5">
                 <span>
                   <span className="block text-sm font-semibold">{t("Filter the usual secrets")}</span>
                   <span className="block text-xs text-cinder">
-                    Values are replaced with <span className="mono">[Filtered]</span> wherever they are: request headers, cookies, body, and query, extra, contexts, breadcrumb data, and local variables.
+                    {t("Values are replaced with [Filtered] wherever they are: request headers, cookies, body, and query, extra, contexts, breadcrumb data, and local variables.")}
                   </span>
                 </span>
               </Toggle>
               <ul className="mt-4 ml-12 grid list-disc gap-1 pl-4 text-xs text-cinder">
-                <li>Fields named like: {DEFAULTS.join("; ")}</li>
-                <li>In any text: card numbers (that pass the Luhn check), &quot;Bearer …&quot; tokens, and JWTs</li>
+                <li>{t("Fields named like: {fields}", { fields: DEFAULTS.join("; ") })}</li>
+                <li>{t("In any text: card numbers (that pass the Luhn check), \"Bearer …\" tokens, and JWTs")}</li>
               </ul>
             </section>
             <section className={section}>
               <h2 className={sectionTitle}>
-                More fields <span className="text-xs font-normal text-cinder">{t("a field whose name contains one of these is filtered too")}</span>
+                {t("More fields")} <span className="text-xs font-normal text-cinder">{t("a field whose name contains one of these is filtered too")}</span>
               </h2>
-              <input className={`${input} mono w-full`} placeholder="email, phone, address" value={fields} disabled={!admin} onChange={(e) => setFields(e.target.value)} />
+              <input className={`${input} mono w-full`} placeholder={t("email, phone, address")} value={fields} disabled={!admin} onChange={(e) => setFields(e.target.value)} />
               <p className="mt-2 text-xs text-cinder">{t("Separate with commas. It applies to events from now on; stored events stay as they are.")}</p>
             </section>
           </div>

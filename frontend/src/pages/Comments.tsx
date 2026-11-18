@@ -14,7 +14,7 @@ const MAX = 10_000;
 
 // quoteOf turns a comment into a Markdown quote for a reply.
 function quoteOf(author: string, body: string): string {
-  const lines = [`**${author || "Someone"}** wrote:`, ...body.split("\n")];
+  const lines = [t("**{author}** wrote:", { author: author || t("Someone") }), ...body.split("\n")];
   return lines.map((l) => (l ? `> ${l}` : ">")).join("\n") + "\n\n";
 }
 const initial = (name: string) => (name || "?").slice(0, 1).toUpperCase();
@@ -78,7 +78,7 @@ export function Comments({ projectId, issueId, comments: fromPage }: { projectId
         <Editor id="comment-draft" ref={box} value={draft} onChange={setDraft} onSubmit={() => void post()} placeholder={t("Add a comment. What you found, what you tried, who is on it.")} />
         <div className="mt-2 flex items-center justify-between gap-3">
           <Hint length={draft.length} />
-          <Button variant="primary" size="sm" type="submit" disabled={busy || !draft.trim()}>{busy ? "Posting…" : "Comment"}</Button>
+          <Button variant="primary" size="sm" type="submit" disabled={busy || !draft.trim()}>{busy ? t("Posting…") : t("Comment")}</Button>
         </div>
       </form>
     </section>
@@ -109,7 +109,7 @@ function CommentItem({ comment: c, busy, names, onQuote, onMention, onSave, onDe
             <span className="ml-auto flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
               <button type="button" className={action} onClick={onQuote}><Quote size={12} aria-hidden="true" />{t("Quote")}</button>
               {c.canEdit && <button type="button" className={action} onClick={() => setEditing(c.body)}><Pencil size={12} aria-hidden="true" />{t("Edit")}</button>}
-              {c.canDelete && <Tip content="Delete"><button type="button" className={`${action} hover:text-ember-ink`} aria-label="Delete comment" onClick={onDelete}><Trash2 size={12} /></button></Tip>}
+              {c.canDelete && <Tip content={t("Delete")}><button type="button" className={`${action} hover:text-ember-ink`} aria-label={t("Delete comment")} onClick={onDelete}><Trash2 size={12} /></button></Tip>}
             </span>
           )}
         </div>
@@ -117,7 +117,7 @@ function CommentItem({ comment: c, busy, names, onQuote, onMention, onSave, onDe
           <div className="mt-1"><Markdown text={c.body} names={names} /></div>
         ) : (
           <div className="mt-1.5">
-            <label htmlFor={`edit-${c.id}`} className="sr-only">Edit comment</label>
+            <label htmlFor={`edit-${c.id}`} className="sr-only">{t("Edit comment")}</label>
             <Editor id={`edit-${c.id}`} value={editing} onChange={setEditing} onSubmit={() => void save()} onCancel={() => setEditing(null)} autoFocus />
             <div className="mt-2 flex items-center justify-between gap-3">
               <Hint length={editing.length} editing />
@@ -166,7 +166,7 @@ function Editor({ id, value, onChange, onSubmit, onCancel, placeholder, autoFocu
 function Hint({ length, editing }: { length: number; editing?: boolean }) {
   return (
     <span className="text-xs text-cinder">
-      {length > MAX * 0.9 ? `${(MAX - length).toLocaleString()} characters left` : `Markdown supported. Cmd or Ctrl + Enter to ${editing ? "save" : "post"}${editing ? ", Esc to cancel" : ""}`}
+      {length > MAX * 0.9 ? t("{n} characters left", { n: (MAX - length).toLocaleString() }) : editing ? t("Markdown supported. Cmd or Ctrl + Enter to save, Esc to cancel") : t("Markdown supported. Cmd or Ctrl + Enter to post")}
     </span>
   );
 }

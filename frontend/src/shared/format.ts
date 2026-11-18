@@ -3,8 +3,10 @@ import { t } from "./i18n";
 
 const HOUR = 3_600_000;
 
+// plural says "1 issue" or "3 issues", translated. Each word used has both
+// forms in the dictionaries: "{n} issue" and "{n} issues".
 export function plural(n: number, word: string): string {
-  return n === 1 ? `1 ${word}` : `${n} ${word}s`;
+  return n === 1 ? t(`{n} ${word}`, { n }) : t(`{n} ${word}s`, { n });
 }
 
 export function ago(ms: number): string {
@@ -77,11 +79,11 @@ export function edgeBg(issue: EdgeIssue): string {
 }
 
 export function edgeTip(issue: EdgeIssue): string {
-  if (issue.status === "resolved") return "Resolved. The edge stays blue until a new event fires it again.";
-  if (issue.status === "muted") return "Muted. The edge stays gray while events keep counting.";
+  if (issue.status === "resolved") return t("Resolved. The edge stays blue until a new event fires it again.");
+  if (issue.status === "muted") return t("Muted. The edge stays gray while events keep counting.");
   const n = Math.max(0, ...issue.hours.slice(-3));
-  if (n <= 0) return "No events in the last 3 hours.";
-  return `Busiest hour of the last 3: ${plural(n, "event")}.`;
+  if (n <= 0) return t("No events in the last 3 hours.");
+  return t("Busiest hour of the last 3: {events}.", { events: plural(n, "event") });
 }
 
 // splitTitle separates an exception title into its type and message, so the

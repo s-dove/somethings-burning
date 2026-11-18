@@ -16,9 +16,9 @@ import { IssueList } from "./IssueList";
 const TABS = [["open", "Open"], ["resolved", "Resolved"], ["muted", "Muted"], ["all", "All"]] as const;
 
 const SORT_OPTIONS: SelectOption<string>[] = [
-  { value: "hot", label: "Hottest (24h)", hint: "Most events lately, recent hours count more." },
-  { value: "latest", label: "Latest", hint: "Most recently seen first." },
-  { value: "count", label: "Most events", hint: "All-time event count." },
+  { value: "hot", label: t("Hottest (24h)"), hint: t("Most events lately, recent hours count more.") },
+  { value: "latest", label: t("Latest"), hint: t("Most recently seen first.") },
+  { value: "count", label: t("Most events"), hint: t("All-time event count.") },
 ];
 
 // BoardPage is the issue inbox: every project's issues, or one project's.
@@ -49,7 +49,7 @@ export function BoardPage() {
         <div role="alert" className="mb-5 rounded-control bg-ember-soft p-4 text-ember-ink">
           {error}{" "}
           <button className="ml-2 cursor-pointer underline" onClick={reload}>
-            Try again
+            {t("Try again")}
           </button>
         </div>
       )}
@@ -158,7 +158,7 @@ export function BoardPage() {
           />
           {data.issues.length > 0 && (
             <div className="mt-4 flex justify-between gap-3 text-xs text-cinder">
-              <span>{plural(data.issues.length, "issue")} shown</span>
+              <span>{t("{what} shown", { what: plural(data.issues.length, "issue") })}</span>
               <span>{t("Activity shows the last 24 hours")}</span>
             </div>
           )}

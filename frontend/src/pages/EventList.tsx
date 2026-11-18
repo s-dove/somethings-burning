@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "../shared/i18n";
 import { Link } from "../components/common/Link";
 import { Tag } from "../components/Tag";
 import { Button } from "../ui/components/Button";
@@ -40,10 +41,10 @@ export function EventList({ detail }: { detail: IssueDetail }) {
   return (
     <section className={section}>
       <h2 className={sectionTitle}>
-        Events of this issue <span className="text-xs font-normal text-cinder">{events.length} of {detail.storedEvents}</span>
+        {t("Events of this issue")} <span className="text-xs font-normal text-cinder">{t("{n} of {total}", { n: events.length, total: detail.storedEvents })}</span>
       </h2>
       <p className="-mt-1.5 mb-2 text-xs text-cinder">
-        {detail.storedEvents} of {issue.eventCount} events kept. Payloads are sampled during bursts and expire with retention.
+        {t("{kept} of {total} events kept. Payloads are sampled during bursts and expire with retention.", { kept: detail.storedEvents, total: issue.eventCount })}
       </p>
       <div className="-mx-2 flex flex-col gap-1">
         {events.map(e => (
@@ -65,7 +66,7 @@ export function EventList({ detail }: { detail: IssueDetail }) {
       </div>
       {hasMore && (
         <Button size="sm" className="mt-3 w-full justify-center" disabled={loading} onClick={loadMore}>
-          {loading ? "Loading…" : "Load more"}
+          {loading ? t("Loading…") : t("Load more")}
         </Button>
       )}
       {error && <p className="mt-2 text-xs text-ember-ink">{error}</p>}
