@@ -86,6 +86,16 @@ export interface Artifact {
   createdAt: number;
 }
 
+export interface PersonalTokenView {
+  id: number;
+  name: string;
+  prefix: string;
+  scope: "read" | "write";
+  createdAt: number;
+  expiresAt: number; // 0 for never
+  lastUsed: number;
+}
+
 export interface TokenView {
   id: number;
   name: string;

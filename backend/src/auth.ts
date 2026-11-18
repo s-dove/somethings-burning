@@ -121,7 +121,7 @@ export class Sessions {
       email: who.email,
       username: usernameFrom(who.claims, who.email.toLowerCase()),
     });
-    await recordLogin(this.db, { email, issuer: who.issuer, claims: who.claims });
+    await recordLogin(this.db, { email, issuer: who.issuer, claims: who.claims, groups: who.groups });
     const id = randomUUID();
     const now = Math.floor(Date.now() / 1000);
     const name = typeof who.claims.name === "string" ? who.claims.name : "";

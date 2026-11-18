@@ -13,6 +13,8 @@ import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { OwnershipPage } from "./pages/OwnershipPage";
 import { ProfileNotificationsPage } from "./pages/ProfileNotificationsPage";
+import { ProfileTokensPage } from "./pages/ProfileTokensPage";
+import { ProfileMcpPage } from "./pages/ProfileMcpPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { RbacPage } from "./pages/RbacPage";
 import { ReleasesPage } from "./pages/ReleasesPage";
@@ -40,6 +42,8 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/login" element={<LoginPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/profile/notifications" element={<ProfileNotificationsPage />} />
+          <Route path="/profile/tokens" element={<ProfileTokensPage />} />
+          <Route path="/profile/mcp" element={<ProfileMcpPage />} />
           <Route path="/settings" element={<SiteSettingsPage />} />
           <Route path="/p/:id" element={<BoardPage />} />
           <Route path="/p/:id/settings" element={<SettingsPage />} />

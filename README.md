@@ -226,6 +226,28 @@ The issue page then shows minified frames as their original file, line, function
 
 A project admin creates API tokens (Settings, API tokens). A token is shown once, kept only as a hash, and reaches only its project's releases, deploys, and source maps, as `Authorization: Bearer brn_...`.
 
+## Personal access tokens
+
+Anyone signed in can make personal access tokens (Profile, Access tokens), for scripts and AI agents. A token acts as the person who made it, with their roles on each project, as `Authorization: Bearer brp_...`:
+
+- **Read only**: only `GET` requests, and the read tools over MCP.
+- **Read and write**: whatever the person may do. Triage is recorded as them.
+
+A token lasts 30, 90, 180, or 365 days, or never expires. It is shown once and kept only as a hash. No token can list or make tokens. Group grants use the groups from the person's last sign-in.
+
+## MCP
+
+Burning is an [MCP](https://modelcontextprotocol.io) server at `/mcp` (Streamable HTTP, JSON responses, no sessions), so AI agents can look up and triage issues. Sign in with a personal access token as a bearer token. Any MCP client that speaks Streamable HTTP works; tell it:
+
+```
+Add an MCP server named "burning" to your configuration:
+- Transport: Streamable HTTP
+- URL: https://burning.example.com/mcp
+- Header: Authorization: Bearer brp_...
+```
+
+Tools: `list_projects`, `search_issues`, `get_issue` (stack frames with code, tags, users affected, history, comments, suspect changes), and `list_events`. A write token also gets `resolve_issue`, `reopen_issue`, `mute_issue`, `assign_issue`, and `comment_on_issue`. Each tool calls the API with the token, so it sees and may do only what the person can. Profile, Connect an AI agent, has this text ready to copy; make the token on the Access tokens page.
+
 ## Languages
 
 The web app is in English, Simplified Chinese, Traditional Chinese, Japanese, Korean, Spanish, French, German, and Brazilian Portuguese. Each person picks theirs at their first sign-in; it is kept with them, so it follows them to any browser, and they change it on their profile. Before signing in, the page follows the browser's language, and the sign-in page has a switch. Alert messages stay English. Known history lines are translated on the issue page; anything unrecognized stays as the server wrote it.
@@ -295,7 +317,7 @@ The backend reports failed requests (500s) and failures in background work: writ
 
 ## API
 
-The API needs a session, except `/api/session`, `/api/health`, and the ingest paths.
+The API needs a session or a personal access token (`Authorization: Bearer brp_...`), except `/api/session`, `/api/health`, and the ingest paths.
 
 - `POST /auth/password` with `{ "email", "password" }`: signs in and sets the session cookie
 - `POST /auth/oidc` (a form with `next`): starts single sign-on; the provider returns to `/auth/callback`
@@ -311,6 +333,8 @@ The API needs a session, except `/api/session`, `/api/health`, and the ingest pa
 - `GET /api/projects/<id>/sourcemaps?release=`, `POST` (multipart, or JSON `{ "release", "name", "content" }`; admin or API token), `DELETE` with `{ "release", "name"? }` (admin)
 - `GET /api/projects/<id>/tokens`, `POST` with `{ "name" }`, `DELETE /api/projects/<id>/tokens/<id>` (admin)
 - `GET /api/profile/digest`, `PUT` with `{ "enabled" }`, `POST /api/profile/digest/test`
+- `GET /api/profile/tokens`, `POST` with `{ "name", "scope": "read"|"write", "days": 30|90|180|365|0 }`, `DELETE /api/profile/tokens/<id>` (your own, with a session only)
+- `POST /mcp`: the MCP server (personal access token)
 - `GET /api/alerts`: server-sent events, `{ "projectId": <id> }` when one of its issues alerts (projects you can see)
 - `GET /api/board?project=<id>&status=open|resolved|muted|all&sort=hot|latest|count&q=<text>&assignee=me|none|<email>&release=<version>`
 - `GET /api/projects`: the projects you can see

@@ -20,6 +20,6 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5190,
     allowedHosts: true,
-    proxy: { "/api": backend, "/auth": backend },
+    proxy: { "/api": backend, "/auth": backend, "/mcp": backend },
   },
 });

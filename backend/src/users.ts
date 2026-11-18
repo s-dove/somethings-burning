@@ -9,6 +9,7 @@ export interface UserRecord {
   name: string; // the name claim
   displayName: string; // set by the person; empty means the username
   lang: string; // the interface language they chose; "" for not yet
+  groups: string[]; // from the last sign-in
   issuer: string;
   subject: string;
   claims: Record<string, unknown>;
@@ -42,6 +43,7 @@ type Row = {
   name: string;
   display_name: string;
   lang: string;
+  groups: string;
   issuer: string;
   subject: string;
   claims: string;
@@ -56,6 +58,7 @@ const toRecord = (r: Row): UserRecord => ({
   name: r.name,
   displayName: r.display_name,
   lang: r.lang ?? "",
+  groups: JSON.parse(r.groups || "[]") as string[],
   issuer: r.issuer,
   subject: r.subject,
   claims: JSON.parse(r.claims || "{}") as Record<string, unknown>,
@@ -64,19 +67,20 @@ const toRecord = (r: Row): UserRecord => ({
   lastLogin: r.last_login,
 });
 
-/** Saves what the ID token said. A display name the person chose stays. */
-export async function recordLogin(db: Db, u: { email: string; issuer: string; claims: Record<string, unknown> }, now = Date.now()): Promise<void> {
+/** Saves what the ID token said, and the groups. A display name the person chose stays. */
+export async function recordLogin(db: Db, u: { email: string; issuer: string; claims: Record<string, unknown>; groups?: string[] }, now = Date.now()): Promise<void> {
   const email = u.email.toLowerCase();
   const c = u.claims;
   await db.run(
-    `INSERT INTO users (email, username, name, issuer, subject, claims, token_expires, first_login, last_login)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO users (email, username, name, groups, issuer, subject, claims, token_expires, first_login, last_login)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (email) DO UPDATE SET
-       username = excluded.username, name = excluded.name, issuer = excluded.issuer, subject = excluded.subject,
+       username = excluded.username, name = excluded.name, groups = excluded.groups, issuer = excluded.issuer, subject = excluded.subject,
        claims = excluded.claims, token_expires = excluded.token_expires, last_login = excluded.last_login`,
     email,
     usernameFrom(c, email),
     typeof c.name === "string" ? c.name : "",
+    JSON.stringify(u.groups ?? []),
     u.issuer,
     typeof c.sub === "string" ? c.sub : "",
     JSON.stringify(c),
