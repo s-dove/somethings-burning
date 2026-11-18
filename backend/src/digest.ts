@@ -7,6 +7,7 @@ import { getUser } from "./users.js";
 import { groupsFromClaims } from "./auth.js";
 import type { Db } from "./db.js";
 import type { Senders } from "./notify/deliver.js";
+import { selfReport } from "./self-report.js";
 
 const DAY = 86_400_000;
 
@@ -77,6 +78,7 @@ export async function sendDueDigests(db: Db, access: Access, senders: Senders, b
       if (await sendDigest(db, access, senders, u.email, groups, baseURL, now)) sent++;
     } catch (err) {
       console.error(`digest to ${u.email}:`, err);
+      selfReport(err);
     }
   }
   return sent;

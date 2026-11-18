@@ -283,6 +283,12 @@ Credentials come from the environment, matched by host:
 - `BURNING_GIT_CREDENTIALS`: git-credentials lines, `https://user:token@host`, one per host (newlines or commas). Used for the GitHub API and for https clones.
 - `BURNING_GIT_SSH_KEY`: path to a private key for ssh clone URLs.
 
+## Burning's own errors
+
+Burning can report its own errors with the Sentry SDK, like any app: to a project on the same server, or on another Burning. Set `BURNING_SENTRY_DSN` for the backend and `BURNING_SENTRY_WEB_DSN` for the web app (two projects, or the same one), and `BURNING_SENTRY_ENVIRONMENT` (`production` by default). The image carries the release, `burning@<version>` for a version tag and `burning@<short commit>` otherwise, in `BURNING_RELEASE`.
+
+The backend reports failed requests (500s) and failures in background work: writing events, the outbox, digests. When the DSN points at a project on this server, a failure handling that project's own events is only logged, so one bad event does not report itself without end. If the server is down, its errors cannot reach itself: point it at another Burning to see those.
+
 ## Global settings
 
 `/settings` (the Settings tab on All issues, or Global settings on a project's settings) shows how this server is set up: sign-in, email, Mattermost, and code access. The values come from the environment and are read-only there. Passwords, secrets, and tokens are never shown, only whether they are set.

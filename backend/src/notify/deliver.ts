@@ -1,5 +1,6 @@
 import type { Db } from "../db.js";
 import { sendMail, type SmtpSettings } from "../mail.js";
+import { selfReport } from "../self-report.js";
 import type { Mattermost } from "./mattermost.js";
 import { claim, type Delivery, MAX_ATTEMPTS, type Message, settle } from "./store.js";
 
@@ -68,7 +69,10 @@ export class Outbox {
       return;
     }
     this.running = this.send()
-      .catch((err) => console.error("outbox:", err))
+      .catch((err) => {
+        console.error("outbox:", err);
+        selfReport(err);
+      })
       .finally(() => {
         this.running = null;
         if (this.again) {

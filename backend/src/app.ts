@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { Access } from "./access.js";
 import { Alerter } from "./alert.js";
 import { apiRoutes } from "./api.js";
@@ -10,6 +11,7 @@ import { Outbox, Senders } from "./notify/deliver.js";
 import { Mattermost } from "./notify/mattermost.js";
 import { LiveAlerts } from "./live.js";
 import { IngestQueue, TokenBucket } from "./queue.js";
+import { selfReport } from "./self-report.js";
 import { CodeSources } from "./source/index.js";
 
 export interface AppDeps {
@@ -28,6 +30,13 @@ export function createApp(db: Db, deps: AppDeps = {}): { app: Hono; outbox: Outb
   const senders = deps.senders ?? new Senders(config.smtp, new Mattermost(config.mattermost));
   const outbox = new Outbox(db, senders);
   const app = new Hono();
+  // A failure is logged, reported (self-report.ts), and answered with a plain 500.
+  app.onError((err, c) => {
+    if (err instanceof HTTPException) return err.getResponse();
+    console.error(`${c.req.method} ${c.req.path}:`, err);
+    selfReport(err, { projectId: /^\/api\/(\d+)\/(envelope|store)\b/.exec(c.req.path)?.[1] });
+    return c.text("Internal Server Error", 500);
+  });
 
   // Sentry's ingest paths (/api/<project id>/envelope/ and /store/) and the
   // web app's own JSON API share the /api prefix, as they do in Sentry.

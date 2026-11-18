@@ -60,6 +60,15 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
     retentionDays: num(env, "BURNING_RETENTION_DAYS", 30),
     // The hour (UTC) daily digests go out, to people who turned them on.
     digestHour: Math.min(23, Math.max(0, num(env, "BURNING_DIGEST_HOUR", 8))),
+    // Burning's own errors, sent with the Sentry SDK: the backend's to the
+    // first DSN, the web app's to the second (a project here or on another
+    // Burning). Off when empty. The release is set in the image.
+    sentry: {
+      dsn: env.BURNING_SENTRY_DSN ?? "",
+      webDSN: env.BURNING_SENTRY_WEB_DSN ?? "",
+      environment: env.BURNING_SENTRY_ENVIRONMENT || "production",
+      release: env.BURNING_RELEASE ?? "",
+    },
     // Emails or group names that are admin on every project.
     siteAdmins: list(env.BURNING_SITE_ADMINS),
     // The secret that signs session cookies. Empty means a random one kept in the database.

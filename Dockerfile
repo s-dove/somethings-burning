@@ -29,7 +29,10 @@ RUN pnpm install --frozen-lockfile --prod --filter backend
 COPY --from=build /app/backend/dist backend/dist
 COPY --from=build /app/frontend/dist frontend/dist
 WORKDIR /app/backend
+# The release Burning's own errors carry (BURNING_SENTRY_DSN), e.g. burning@0.1.0.
+ARG BURNING_RELEASE=""
 ENV NODE_ENV=production \
+    BURNING_RELEASE=$BURNING_RELEASE \
     BURNING_DB=/data/burning.db \
     BURNING_STATIC_DIR=/app/frontend/dist \
     BURNING_PORT=8195
