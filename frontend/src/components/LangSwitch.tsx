@@ -2,7 +2,7 @@ import { Dialog, DialogBackdrop, DialogPanel, DialogTitle, Menu, MenuButton, Men
 import { useEffect, useState } from "react";
 import { chooseLang, followSaved, lang, LANGS, t, type Lang } from "../shared/i18n";
 import { useApi, type Session } from "../shared/api";
-import { Check, Languages } from "../ui/icons";
+import { Check, Languages, X } from "../ui/icons";
 import { Tip } from "./Tip";
 
 export function LangSwitch() {
@@ -46,6 +46,26 @@ export function LangGrid({ onPick, current = lang, cols = 3 }: { onPick: (l: Lan
         </button>
       ))}
     </div>
+  );
+}
+
+/** The languages in a dialog, opened from the profile menu. Picking one saves it and reloads. */
+export function LangDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return (
+    <Dialog open={open} onClose={onClose} className="relative z-[60]">
+      <DialogBackdrop transition className="fixed inset-0 bg-soot/30 data-closed:opacity-0 motion-safe:transition motion-safe:duration-100" />
+      <div className="fixed inset-0 flex items-center justify-center p-4">
+        <DialogPanel transition className="w-full max-w-[760px] rounded-card border border-rule bg-ash p-5 shadow-2xl data-closed:scale-[0.98] data-closed:opacity-0 motion-safe:transition motion-safe:duration-100">
+          <div className="mb-4 flex items-center">
+            <DialogTitle className="min-w-0 flex-1 text-sm font-semibold">{t("Language")}</DialogTitle>
+            <button type="button" className="-mr-1 cursor-pointer rounded-control p-1 text-cinder hover:bg-rule-soft hover:text-soot" aria-label={t("Close")} onClick={onClose}>
+              <X size={16} />
+            </button>
+          </div>
+          <LangGrid onPick={(l) => (l === lang ? onClose() : void chooseLang(l, true))} />
+        </DialogPanel>
+      </div>
+    </Dialog>
   );
 }
 

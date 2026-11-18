@@ -1,7 +1,6 @@
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from "@headlessui/react";
-import { useLayoutEffect, useRef, useState } from "react";
-import { Check, MonitorSmartphone, Palette, X } from "../ui/icons";
-import { Tip } from "./Tip";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Check, MonitorSmartphone, X } from "../ui/icons";
 import { t } from "../shared/i18n";
 
 // The themes in styles.css (daisyUI). "system" follows the OS: Burning, or
@@ -91,11 +90,14 @@ export function watchSystemTheme() {
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyCode);
 }
 
-// ThemeSwitch is a small button that opens the themes as a grid of
-// previews, each painted in its own theme. Picking one applies it at once
-// and remembers it in this browser.
-export function ThemeSwitch() {
-  const [open, setOpen] = useState(false);
+/** The name of the saved theme, for the menu row that opens the dialog. */
+export const themeLabel = (): string => t(THEMES.find((x) => x.id === storedTheme())?.label ?? "System");
+
+// ThemeDialog shows the themes as a grid of previews, each painted in its
+// own theme. Picking one applies it at once and remembers it in this browser.
+// The profile menu opens it.
+export function ThemeDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const setOpen = (v: boolean) => { if (!v) onClose(); };
   const [theme, setTheme] = useState(storedTheme);
   const [code, setCode] = useState(storedCodeTheme);
   // Frozen for this visit. The next open reads whatever was chosen.
@@ -105,11 +107,14 @@ export function ThemeSwitch() {
   const codeList = useRef<HTMLUListElement>(null);
   const pick = (id: string) => { applyTheme(id); setTheme(id); };
   const pickCode = (id: string) => { applyCodeTheme(id); setCode(id); };
-  const show = () => {
+  // Each open starts from what is saved now.
+  useEffect(() => {
+    if (!open) return;
+    setTheme(storedTheme());
+    setCode(storedCodeTheme());
     setTopTheme(storedTheme());
     setTopCode(storedCodeTheme());
-    setOpen(true);
-  };
+  }, [open]);
   const pinnedTheme = currentChoice(THEMES, topTheme);
   const pinnedCode = currentChoice(CODE_THEMES, topCode);
   useLayoutEffect(() => {
@@ -124,12 +129,6 @@ export function ThemeSwitch() {
   }, [open, topTheme, topCode]);
   return (
     <>
-      <Tip content={t("Theme")} side="right">
-        <button type="button" aria-label={t("Theme")} aria-haspopup="dialog" onClick={show}
-          className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-control text-cinder hover:bg-rule-soft hover:text-soot">
-          <Palette size={16} />
-        </button>
-      </Tip>
       <Dialog open={open} onClose={() => setOpen(false)} className="relative z-[60]">
         <DialogBackdrop transition className="fixed inset-0 bg-soot/30 data-closed:opacity-0 motion-safe:transition motion-safe:duration-100" />
         <div className="fixed inset-0 flex items-center justify-center p-4">
