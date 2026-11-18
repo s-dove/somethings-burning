@@ -30,8 +30,8 @@ export function SourceMapsPage() {
     try {
       const res = await fetch(`/api/projects/${id}/sourcemaps`, { method: "POST", body: form });
       const body = (await res.json()) as { detail?: string; uploaded?: string[] };
-      if (!res.ok) throw new Error(body.detail ?? `Upload failed (${res.status}).`);
-      toast(`Uploaded ${plural(body.uploaded?.length ?? 0, "map")}`);
+      if (!res.ok) throw new Error(body.detail ?? t("Upload failed ({status}).", { status: res.status }));
+      toast(t("Uploaded {what}", { what: plural(body.uploaded?.length ?? 0, "map") }));
       setFiles([]);
       reload();
     } catch (err) {
@@ -57,42 +57,42 @@ export function SourceMapsPage() {
       settings={settings.data}
       error={settings.error || error}
       back={backToSettings(settings.data)}
-      title={(name) => `${name} source maps`}
-      hint="Turn minified JavaScript stack frames back into your code."
+      title={(name) => t("{name} source maps", { name })}
+      hint={t("Turn minified JavaScript stack frames back into your code.")}
     >
       {() => (
         <div className="grid gap-6">
           <section className={section}>
             <h2 className={sectionTitle}>
-              How it works <span className="text-xs font-normal text-cinder">{t("maps are per release")}</span>
+              {t("How it works")} <span className="text-xs font-normal text-cinder">{t("maps are per release")}</span>
             </h2>
             <p className="text-[13px] leading-relaxed text-cinder">
-              Upload each <span className="mono">.map</span> under the URL path of its script, with <span className="mono">~</span> for any host. The map of <span className="mono">https://shop.example.com/static/js/app.min.js</span> is <span className="mono">~/static/js/app.min.js.map</span>. Events of that release then show the original file, line, function, and code, including events already stored.
+              {t("Upload each .map under the URL path of its script, with ~ for any host. The map of https://shop.example.com/static/js/app.min.js is ~/static/js/app.min.js.map. Events of that release then show the original file, line, function, and code, including events already stored.")}
             </p>
             <pre className="mono mt-3 overflow-x-auto rounded-control bg-smoke p-3 text-xs leading-relaxed">{`curl -X POST ${origin}/api/projects/${id}/sourcemaps \\
   -H "Authorization: Bearer $BURNING_TOKEN" \\
   -F release="$RELEASE" -F prefix="~/static/js/" \\
   -F file=@dist/app.min.js.map`}</pre>
-            <p className="mt-2 text-xs text-cinder"><span className="mono">$RELEASE</span> must be exactly what the SDK reports. A map only applies to events of that release.</p>
+            <p className="mt-2 text-xs text-cinder">{t("$RELEASE must be exactly what the SDK reports. A map only applies to events of that release.")}</p>
           </section>
           {admin && (
             <form className={`${section} grid gap-3`} onSubmit={(e) => void upload(e)}>
               <h2 className={sectionTitle}>{t("Upload")}</h2>
               <div className="flex flex-wrap gap-2">
-                <input className={`${input} mono h-9 min-w-48 flex-1`} placeholder="release, like shop@1.2.0" value={release} onChange={(e) => setRelease(e.target.value)} required />
-                <input className={`${input} mono h-9 w-56`} placeholder="~/static/js/" aria-label="Path prefix" value={prefix} onChange={(e) => setPrefix(e.target.value)} />
+                <input className={`${input} mono h-9 min-w-48 flex-1`} placeholder={t("release, like shop@1.2.0")} value={release} onChange={(e) => setRelease(e.target.value)} required />
+                <input className={`${input} mono h-9 w-56`} placeholder="~/static/js/" aria-label={t("Path prefix")} value={prefix} onChange={(e) => setPrefix(e.target.value)} />
               </div>
               <input type="file" accept=".map,application/json" multiple className="text-xs" onChange={(e) => setFiles([...(e.target.files ?? [])])} />
               <div>
                 <Button variant="primary" type="submit" disabled={busy || !files.length || !release.trim()} icon={<Upload aria-hidden="true" />}>
-                  {busy ? "Uploading…" : files.length ? `Upload ${plural(files.length, "file")}` : "Upload"}
+                  {busy ? t("Uploading…") : files.length ? t("Upload {what}", { what: plural(files.length, "file") }) : t("Upload")}
                 </Button>
               </div>
             </form>
           )}
           <section className={section}>
             <h2 className={sectionTitle}>
-              Uploaded <span className="text-xs font-normal text-cinder">{plural(data?.artifacts.length ?? 0, "map")}</span>
+              {t("Uploaded")} <span className="text-xs font-normal text-cinder">{plural(data?.artifacts.length ?? 0, "map")}</span>
             </h2>
             {byRelease.size === 0 && <p className="text-[13px] text-cinder">{t("No source maps yet.")}</p>}
             {[...byRelease].map(([rel, list]) => (

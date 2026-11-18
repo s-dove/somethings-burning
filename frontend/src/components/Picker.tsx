@@ -29,7 +29,7 @@ export function Picker<T extends string>({ label, value, options, onChange, disa
     <>
       <button
         type="button"
-        aria-label={`${label}: ${current?.label ?? "choose"}. Change`}
+        aria-label={t("{label}: {value}. Change", { label, value: current?.label ?? t("choose") })}
         aria-haspopup="dialog"
         disabled={disabled}
         onClick={() => setOpen(true)}

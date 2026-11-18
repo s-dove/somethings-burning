@@ -81,10 +81,10 @@ export function SiteSettingsPage() {
 }
 
 function SignInSection({ s }: { s: SiteSettings["signIn"] }) {
-  const on = [s.password.enabled && "passwords", s.oidc.enabled && "OIDC", s.github.enabled && "GitHub"].filter(Boolean) as string[];
-  const methods = on.length > 1 ? `${on.slice(0, -1).join(", ")} and ${on[on.length - 1]}` : (on[0] ?? "");
+  const on = [s.password.enabled && t("passwords"), s.oidc.enabled && "OIDC", s.github.enabled && "GitHub"].filter(Boolean) as string[];
+  const methods = on.length > 1 ? t("{list} and {last}", { list: on.slice(0, -1).join(", "), last: on[on.length - 1] }) : (on[0] ?? "");
   return (
-    <Section id="signin" icon={<KeyRound aria-hidden="true" />} title="Sign-in" hint="How people sign in. Any of these ways can be on." status={methods ? `On: ${methods}` : "Off"} on={!!methods}>
+    <Section id="signin" icon={<KeyRound aria-hidden="true" />} title={t("Sign-in")} hint={t("How people sign in. Any of these ways can be on.")} status={methods ? t("On: {methods}", { methods }) : t("Off")} on={!!methods}>
       <dl className="m-0 divide-y divide-rule overflow-hidden rounded-card border border-rule bg-ash">
         <Row label="Passwords" env="BURNING_PASSWORD_FILE">
           {s.password.enabled ? <>{mono(s.password.file)}<span className="text-cinder">{t(", one email:hash[:groups] per line")}</span></> : <span className="text-cinder">{t("Off")}</span>}
@@ -114,7 +114,7 @@ function SignInSection({ s }: { s: SiteSettings["signIn"] }) {
           {s.github.enabled ? (
             <>
               {mono(s.github.clientId)}
-              <span className="text-cinder">{s.github.secretSet ? " · secret set" : " · no secret"}</span>
+              <span className="text-cinder">{s.github.secretSet ? t(" · secret set") : t(" · no secret")}</span>
             </>
           ) : (
             <span className="text-cinder">{t("Off")}</span>
@@ -122,24 +122,24 @@ function SignInSection({ s }: { s: SiteSettings["signIn"] }) {
         </Row>
         {s.github.enabled && (
           <>
-            <Row label="GitHub redirect URL" env="BURNING_GITHUB_REDIRECT_URL, BURNING_GITHUB_URL">
+            <Row label={t("GitHub redirect URL")} env="BURNING_GITHUB_REDIRECT_URL, BURNING_GITHUB_URL">
               {s.github.redirectURL ? mono(s.github.redirectURL) : unset}
               {s.github.webURL !== "https://github.com" && <span className="text-cinder"> · {mono(s.github.webURL)}</span>}
             </Row>
-            <Row label="Who may sign in with GitHub" env="BURNING_GITHUB_ALLOWED_EMAILS, BURNING_GITHUB_ORGS">
+            <Row label={t("Who may sign in with GitHub")} env="BURNING_GITHUB_ALLOWED_EMAILS, BURNING_GITHUB_ORGS">
               {s.github.allowedEmails === -1
-                ? "Anyone with a verified email"
+                ? t("Anyone with a verified email")
                 : [
-                    s.github.allowedEmails > 0 && `${s.github.allowedEmails} ${s.github.allowedEmails === 1 ? "email" : "emails"}`,
-                    s.github.orgs.length > 0 && `members of ${s.github.orgs.join(", ")}`,
+                    s.github.allowedEmails > 0 && (s.github.allowedEmails === 1 ? t("{n} email", { n: 1 }) : t("{n} emails", { n: s.github.allowedEmails })),
+                    s.github.orgs.length > 0 && t("members of {orgs}", { orgs: s.github.orgs.join(", ") }),
                   ]
                     .filter(Boolean)
-                    .join(", and ")}
+                    .join(t(", and "))}
             </Row>
           </>
         )}
-        <Row label="Site admins" env="BURNING_SITE_ADMINS">
-          {s.siteAdmins ? `${s.siteAdmins} ${s.siteAdmins === 1 ? "entry" : "entries"}, admin on every project` : <span className="text-cinder">None. Projects are managed by their own admins.</span>}
+        <Row label={t("Site admins")} env="BURNING_SITE_ADMINS">
+          {s.siteAdmins ? (s.siteAdmins === 1 ? t("{n} entry, admin on every project", { n: 1 }) : t("{n} entries, admin on every project", { n: s.siteAdmins })) : <span className="text-cinder">{t("None. Projects are managed by their own admins.")}</span>}
         </Row>
         <Row label="Session secret" env="BURNING_SESSION_SECRET">{s.sessionSecretSet ? "Set" : <span className="text-cinder">{t("Not set: a random one kept in the database")}</span>}</Row>
       </dl>

@@ -26,7 +26,7 @@ export function ProfileNotifications() {
   async function test(x: Receiver) {
     try {
       await api("/profile/notifications/test", { method: "POST", body: x });
-      toast(`Test sent to ${x.target}`);
+      toast(t("Test sent to {target}", { target: x.target }));
     } catch (err) {
       toast.error(`${x.target}: ${(err as Error).message}`);
     }
@@ -36,13 +36,11 @@ export function ProfileNotifications() {
     <section className={card}>
       <h2 className="text-base">{t("Notifications")}</h2>
       <p className="mt-1 mb-4 text-xs leading-relaxed text-cinder">
-        How alerts that a project sends to you as a person reach you: by email, by Mattermost message, or not at all (sink).
-        Routes work like a project's: tried from the top, all conditions must match, and you can match on <span className="mono">project</span> too.
-        Nothing matching means nothing is sent. Email addresses and channels in a project's routing are not affected.
-        {saved.initial && " You have not changed anything yet, so this is the starting route."}
+        {t("How alerts that a project sends to you as a person reach you: by email, by Mattermost message, or not at all (sink). Routes work like a project's: tried from the top, all conditions must match, and you can match on project too. Nothing matching means nothing is sent. Email addresses and channels in a project's routing are not affected.")}
+        {saved.initial && ` ${t("You have not changed anything yet, so this is the starting route.")}`}
       </p>
 
-      <RouteList routes={routes} readOnly={false} empty="No routes. You get no notifications." unavailable={unavailable}
+      <RouteList routes={routes} readOnly={false} empty={t("No routes. You get no notifications.")} unavailable={unavailable}
         onReorder={reorder} onOpen={i => setEditing({ index: i, route: routes[i]! })} />
       <Button size="sm" className="mt-3" icon={<Plus aria-hidden="true" />} onClick={() => setEditing({ index: -1, route: newRoute() })}>{t("Add route")}</Button>
 

@@ -11,9 +11,8 @@ import { api, useApi, type Profile, type Session } from "../shared/api";
 import { ago, stamp } from "../shared/format";
 import { input } from "../shared/ui";
 import { Tip } from "../components/Tip";
-import { LangGrid } from "../components/LangSwitch";
 import { ProfileGroups } from "./ProfileGroups";
-import { chooseLang, lang, t } from "../shared/i18n";
+import { t } from "../shared/i18n";
 
 const card = "mt-6 rounded-card border border-rule bg-smoke p-6";
 const MAX_NAME = 80;
@@ -33,7 +32,7 @@ export function ProfilePage() {
         after={user ? <p className="mt-2 text-sm text-cinder"><span className="font-semibold text-soot">{user.displayName}</span> · {user.email}</p> : undefined}
         spaceBelow="mb-2"
       />
-      <div className="max-w-[720px]">
+      <div>
         {!user && <div className="mt-8 rounded-card border border-rule bg-smoke p-6">
           <p className="text-sm text-cinder">{t("Sign in to see your profile.")}</p>
           <a href="/login?next=/profile" className="ui-button ui-button-primary ui-button-md mt-5 no-underline">{t("Sign in")}<ArrowRight aria-hidden="true" /></a>
@@ -50,22 +49,15 @@ export function ProfilePage() {
 
 function ProfileDetails({ profile: p, onSaved }: { profile: Profile; onSaved: () => void }) {
   const rows: [string, string, string?][] = [
-    ["Email", p.email, "email claim"],
-    ["Name", p.name || "none", "name claim"],
-    ["Issuer", p.issuer, "iss claim"],
-    ["Subject", p.subject, "sub claim"],
-    ["First sign-in", stamp(p.firstLogin)],
-    ["Last sign-in", `${stamp(p.lastLogin)} (${ago(p.lastLogin)})`],
-    ["ID token expires", p.tokenExpires ? stamp(p.tokenExpires * 1000) : "unknown"],
+    [t("Email"), p.email, t("email claim")],
+    [t("Name"), p.name || t("none"), t("name claim")],
+    [t("Issuer"), p.issuer, t("iss claim")],
+    [t("First sign-in"), stamp(p.firstLogin)],
+    [t("Last sign-in"), `${stamp(p.lastLogin)} (${ago(p.lastLogin)})`],
   ];
   return (
     <>
       <Names profile={p} onSaved={onSaved} />
-      <section className={card}>
-        <h2 className="text-base">{t("Language")}</h2>
-        <p className="mt-1 mb-4 text-xs text-cinder">{t("Language follows your account.")}</p>
-        <LangGrid cols={2} onPick={(l) => void chooseLang(l, true)} current={lang} />
-      </section>
       <Link to="/profile/notifications" className={`${card} flex items-center gap-4 text-soot no-underline hover:bg-rule-soft`}>
         <span className="grid size-9 shrink-0 place-items-center rounded-control border border-rule bg-ash text-cinder"><Bell aria-hidden="true" /></span>
         <span className="min-w-0 flex-1">
@@ -103,7 +95,7 @@ function ProfileDetails({ profile: p, onSaved }: { profile: Profile; onSaved: ()
           ))}
         </dl>
         <h3 className="mt-6 mb-1 text-sm font-semibold">{t("All claims")}</h3>
-        <p className="mb-3 text-xs text-cinder">Everything else the provider said about you. Claims about the token itself (exp, aud, nonce, …) are left out, and groups are listed below.</p>
+        <p className="mb-3 text-xs text-cinder">{t("Everything else the provider said about you. Claims about the token itself (exp, aud, nonce, …) are left out, and groups are listed below.")}</p>
         <dl className={facts}>
           {p.claims.filter(([k]) => k !== "groups").map(([k, v]) => (
             <div key={k} className="contents">
@@ -112,11 +104,8 @@ function ProfileDetails({ profile: p, onSaved }: { profile: Profile; onSaved: ()
             </div>
           ))}
         </dl>
-      </section>
-
-      <section className={card}>
-        <h2 className="text-base">{t("Groups")}</h2>
-        <p className="mt-1 mb-4 text-xs text-cinder">Taken from the groups claim at sign-in. Project roles can be granted to a group.</p>
+        <h3 className="mt-6 mb-1 text-sm font-semibold">{t("Groups")}</h3>
+        <p className="mb-3 text-xs text-cinder">{t("Taken from the groups claim at sign-in. Project roles can be granted to a group.")}</p>
         <ProfileGroups groups={p.groups} />
       </section>
     </>
@@ -142,7 +131,7 @@ function Names({ profile: p, onSaved }: { profile: Profile; onSaved: () => void 
       setValue(next.displayName);
       onSaved();
       void mutate("/session");
-      toast("Display name saved");
+      toast(t("Display name saved"));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -158,9 +147,9 @@ function Names({ profile: p, onSaved }: { profile: Profile; onSaved: () => void 
         <div>
           <form className="flex flex-wrap items-center gap-2" onSubmit={save}>
             <input id="display-name" className={`${input} h-9 max-w-80 flex-1`} value={value} maxLength={MAX_NAME} placeholder={p.username} onChange={e => setValue(e.target.value)} />
-            <Button type="submit" variant="primary" size="sm" disabled={busy || !changed}>{busy ? "Saving…" : "Save"}</Button>
+            <Button type="submit" variant="primary" size="sm" disabled={busy || !changed}>{busy ? t("Saving…") : t("Save")}</Button>
           </form>
-          <p className="mt-1.5 text-xs text-cinder">What everyone sees on access lists and in routing. Empty means your username.</p>
+          <p className="mt-1.5 text-xs text-cinder">{t("What everyone sees on access lists and in routing. Empty means your username.")}</p>
           {error && <p role="alert" className="mt-1.5 text-xs text-ember-ink">{error}</p>}
         </div>
 
@@ -168,7 +157,7 @@ function Names({ profile: p, onSaved }: { profile: Profile; onSaved: () => void 
         <div>
           <span className="mono text-[13px]">{p.username}</span>
           <p className="mt-1.5 text-xs text-cinder">
-            Set by sign-in from the preferred_username claim, or your email before the @.
+            {t("Set by sign-in from the preferred_username claim, or your email before the @.")}
           </p>
         </div>
       </div>

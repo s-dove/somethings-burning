@@ -28,7 +28,7 @@ export function ProfileNotificationsPage() {
         spaceBelow="mb-2"
       />
       {data.user ? (
-        <div className="max-w-[720px]">
+        <div>
           <ProfileDigest />
           <ProfileNotifications />
         </div>

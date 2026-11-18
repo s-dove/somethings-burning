@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { t } from "../shared/i18n";
 import { toast } from "sonner";
 import { api, type Route } from "../shared/api";
 
@@ -28,8 +29,8 @@ export function useRouteTable<T extends { routes: Route[] }>(path: string, data:
     routes,
     // Finishing a route's editor: index -1 adds it at the end.
     finish: (index: number, r: Route) =>
-      persist(index < 0 ? [...routes, r] : routes.map((x, j) => (j === index ? r : x)), index < 0 ? "Route added" : "Route saved"),
-    remove: (index: number) => persist(routes.filter((_, j) => j !== index), "Route deleted"),
+      persist(index < 0 ? [...routes, r] : routes.map((x, j) => (j === index ? r : x)), index < 0 ? t("Route added") : t("Route saved")),
+    remove: (index: number) => persist(routes.filter((_, j) => j !== index), t("Route deleted")),
     // Reordering shows the new order at once and puts it back if saving fails.
     reorder: (from: number, to: number) => {
       const before = routes;
@@ -37,7 +38,7 @@ export function useRouteTable<T extends { routes: Route[] }>(path: string, data:
       const [r] = next.splice(from, 1);
       next.splice(to, 0, r!);
       setRoutes(next);
-      void persist(next, "Order saved").then(err => {
+      void persist(next, t("Order saved")).then(err => {
         if (err) {
           setRoutes(before);
           toast.error(err);

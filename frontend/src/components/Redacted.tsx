@@ -6,7 +6,7 @@ import { Tip } from "./Tip";
 // "[Filtered]". They get a look of their own and say why on hover.
 
 export const FILTERED = "[Filtered]";
-const TIP = "Removed before storage by data scrubbing: it looked like a secret (a password, token, key, or card number). The original was never kept.";
+const TIP = t("Removed before storage by data scrubbing: it looked like a secret (a password, token, key, or card number). The original was never kept.");
 
 function Mark({ tip }: { tip: boolean }) {
   if (!tip) return <span className="redacted">{t("filtered")}</span>;
@@ -32,6 +32,6 @@ export function Redacted({ text, tip = true }: { text: string; tip?: boolean }):
 /** Highlighted code HTML with each "[Filtered]" marked. A native title says why, since it is not React. */
 export function redactHtml(html: string): string {
   if (!html.includes(FILTERED)) return html;
-  const title = TIP.replace(/"/g, "&quot;");
-  return html.replaceAll(FILTERED, `<span class="redacted" title="${title}">{t("filtered")}</span>`);
+  const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+  return html.replaceAll(FILTERED, `<span class="redacted" title="${esc(TIP)}">${esc(t("filtered"))}</span>`);
 }

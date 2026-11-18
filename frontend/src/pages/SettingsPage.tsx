@@ -9,10 +9,10 @@ import { Loading } from "../components/Loading";
 import { PageHeader } from "../components/PageHeader";
 import { api, useApi, type ProjectSettings } from "../shared/api";
 import { stamp } from "../shared/format";
-import { input, section, sectionTitle } from "../shared/ui";
+import { input } from "../shared/ui";
 import { Button } from "../ui/components/Button";
 import { Tip } from "../components/Tip";
-import { ArrowLeft, Bell, ChevronRight, Code, FileText, GitMerge, KeyRound, LockKeyhole, Rocket, Settings2, Shield, Trash2, Users } from "../ui/icons";
+import { ArrowLeft, Bell, ChevronRight, Code, FileText, GitMerge, KeyRound, LockKeyhole, Pencil, Rocket, Settings2, Shield, Trash2, TriangleAlert, Users } from "../ui/icons";
 import { t } from "../shared/i18n";
 
 /** Loads a project's settings for the settings pages. */
@@ -45,7 +45,7 @@ export function SettingsFrame({ settings, error, back, title, hint, action, chil
     );
   }
   const { project } = settings;
-  const to = back ?? { to: `/p/${project.id}`, label: "Back to issues" };
+  const to = back ?? { to: `/p/${project.id}`, label: t("Back to issues") };
   return (
     <Layout project={project} nav="settings">
       <PageHeader
@@ -67,9 +67,9 @@ export function SettingsFrame({ settings, error, back, title, hint, action, chil
 }
 
 /** Back to the settings list, for the pages under it. */
-export const backToSettings = (s: ProjectSettings | null) => (s ? { to: `/p/${s.project.id}/settings`, label: "Back to settings" } : undefined);
+export const backToSettings = (s: ProjectSettings | null) => (s ? { to: `/p/${s.project.id}/settings`, label: t("Back to settings") } : undefined);
 
-// SettingsPage lists a project's settings pages, then its name and deletion.
+// SettingsPage: the project's name first, then its settings pages, then deleting it.
 export function SettingsPage() {
   const { data, error, reload } = useSettings();
   return (
@@ -95,6 +95,7 @@ export function SettingsPage() {
         return (
           <>
             <div className="grid gap-8">
+              {project.role === "admin" && <NameGroup settings={data!} onChange={reload} />}
               <Group id="connect" icon={<KeyRound aria-hidden="true" />} title={t("Connect")} hint={t("How the service and its CI reach this project.")}>
                 <Row to={`${base}/dsn`} icon={<KeyRound aria-hidden="true" />} title={t("DSN")} detail={t("The address your SDK reports to, and how to set it up.")} />
                 <Row to={`${base}/tokens`} icon={<KeyRound aria-hidden="true" />} title={t("API tokens")} detail={t("Let CI create releases and mark deploys. Shown once.")} />
@@ -111,8 +112,8 @@ export function SettingsPage() {
                 <Row to={`${base}/grouping`} icon={<GitMerge aria-hidden="true" />} title={t("Grouping")} detail={t("Which events count as one issue, instead of the default grouping.")} />
                 <Row to={`${base}/scrubbing`} icon={<LockKeyhole aria-hidden="true" />} title={t("Data scrubbing")} detail={t("Passwords, tokens, card numbers, and your own fields, filtered before storage.")} />
               </Group>
+              {project.role === "admin" && <DangerZone settings={data!} />}
             </div>
-            {project.role === "admin" && <General settings={data!} onChange={reload} />}
           </>
         );
       }}
@@ -120,16 +121,22 @@ export function SettingsPage() {
   );
 }
 
+function GroupHead({ id, icon, title, hint, danger }: { id: string; icon: ReactNode; title: string; hint: string; danger?: boolean }) {
+  return (
+    <div className="mb-3 flex items-center gap-3">
+      <span className={`grid size-9 shrink-0 place-items-center rounded-control border ${danger ? "border-ember-ink/30 bg-ember-soft text-ember-ink" : "border-rule bg-smoke text-cinder"}`}>{icon}</span>
+      <div className="min-w-0">
+        <h2 id={`${id}-title`} className="text-lg">{title}</h2>
+        <p className="text-xs text-cinder">{hint}</p>
+      </div>
+    </div>
+  );
+}
+
 function Group({ id, icon, title, hint, children }: { id: string; icon: ReactNode; title: string; hint: string; children: ReactNode }) {
   return (
     <section aria-labelledby={`${id}-title`}>
-      <div className="mb-3 flex items-center gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-control border border-rule bg-smoke text-cinder">{icon}</span>
-        <div className="min-w-0">
-          <h2 id={`${id}-title`} className="text-lg">{title}</h2>
-          <p className="text-xs text-cinder">{hint}</p>
-        </div>
-      </div>
+      <GroupHead id={id} icon={icon} title={title} hint={hint} />
       <ul className="m-0 w-full list-none divide-y divide-rule overflow-hidden rounded-card border border-rule bg-ash p-0">{children}</ul>
     </section>
   );
@@ -150,23 +157,23 @@ function Row({ to, icon, title, detail }: { to: string; icon: ReactNode; title: 
   );
 }
 
-// General is the project's name, and deleting it. Admins only.
-function General({ settings: { project }, onChange }: { settings: ProjectSettings; onChange: () => void }) {
+const refreshBoard = (mutate: ReturnType<typeof useSWRConfig>["mutate"]) => void mutate((key) => typeof key === "string" && key.startsWith("/board"));
+
+// NameGroup is the project's name, at the top. Admins only.
+function NameGroup({ settings: { project }, onChange }: { settings: ProjectSettings; onChange: () => void }) {
   const { mutate } = useSWRConfig();
-  const navigate = useNavigate();
   const [name, setName] = useState(project.name);
   const [busy, setBusy] = useState(false);
   useEffect(() => setName(project.name), [project.name]);
-  const refreshBoard = () => void mutate((key) => typeof key === "string" && key.startsWith("/board"));
 
   const rename = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
       await api(`/projects/${project.id}`, { method: "PATCH", body: { name } });
-      toast("Project renamed");
+      toast(t("Project renamed"));
       onChange();
-      refreshBoard();
+      refreshBoard(mutate);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -174,39 +181,49 @@ function General({ settings: { project }, onChange }: { settings: ProjectSetting
     }
   };
 
+  return (
+    <section aria-labelledby="general-title">
+      <GroupHead id="general" icon={<Pencil aria-hidden="true" />} title={t("General")} hint={t("Created {when}", { when: stamp(project.createdAt) })} />
+      <form className="flex flex-wrap items-end gap-3 rounded-card border border-rule bg-ash px-5 py-4" onSubmit={rename}>
+        <label className="grid min-w-56 flex-1 gap-1.5 text-xs font-medium">
+          {t("Name")}
+          <input className={`${input} h-9`} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} required />
+        </label>
+        <Button type="submit" disabled={busy || !name.trim() || name.trim() === project.name}>
+          {t("Rename")}
+        </Button>
+      </form>
+    </section>
+  );
+}
+
+// DangerZone deletes the project, at the bottom. Admins only.
+function DangerZone({ settings: { project } }: { settings: ProjectSettings }) {
+  const { mutate } = useSWRConfig();
+  const navigate = useNavigate();
   const remove = async () => {
     if (!(await confirmDialog({ title: t("Delete {name}?", { name: project.name }), body: t("The project goes, with all its issues and events."), confirm: t("Delete"), danger: true }))) return;
     try {
       await api(`/projects/${project.id}`, { method: "DELETE" });
-      toast(`Deleted ${project.name}`);
-      refreshBoard();
+      toast(t("Deleted {name}", { name: project.name }));
+      refreshBoard(mutate);
       navigate("/");
     } catch (err) {
       toast.error((err as Error).message);
     }
   };
-
   return (
-    <>
-      <section className={section}>
-        <h2 className={sectionTitle}>
-          Name <span className="text-xs font-normal text-cinder">created {stamp(project.createdAt)}</span>
-        </h2>
-        <form className="flex flex-wrap gap-3" onSubmit={rename}>
-          <input className={`${input} flex-1`} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} required aria-label="Project name" />
-          <Button type="submit" disabled={busy || !name.trim() || name.trim() === project.name}>
-            Rename
-          </Button>
-        </form>
-      </section>
-      <section className={section}>
-        <h2 className={sectionTitle}>
-          Delete <span className="text-xs font-normal text-cinder">removes the project with its issues and events</span>
-        </h2>
+    <section aria-labelledby="danger-title">
+      <GroupHead id="danger" icon={<TriangleAlert aria-hidden="true" />} title={t("Danger zone")} hint={t("This cannot be undone.")} danger />
+      <div className="flex flex-wrap items-center gap-4 rounded-card border border-ember-ink/30 bg-ash px-5 py-4">
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold">{t("Delete this project")}</span>
+          <span className="block text-xs text-cinder">{t("The project goes, with all its issues and events.")}</span>
+        </span>
         <Button variant="danger" icon={<Trash2 aria-hidden="true" />} onClick={remove}>
-          Delete project
+          {t("Delete project")}
         </Button>
-      </section>
-    </>
+      </div>
+    </section>
   );
 }

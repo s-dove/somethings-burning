@@ -23,7 +23,7 @@ export function ReleasesPage() {
         <>
           <PageHeader
             title={t("Releases")}
-            after={<p className="mt-2 text-[13px] text-cinder">Each release the SDKs reported, or CI created, newest first. Open one to see its issues.</p>}
+            after={<p className="mt-2 text-[13px] text-cinder">{t("Each release the SDKs reported, or CI created, newest first. Open one to see its issues.")}</p>}
             spaceBelow="mb-6"
           />
           {data.releases.length === 0 ? (
@@ -47,16 +47,16 @@ export function ReleasesPage() {
                       <TimeTip at={r.firstSeen}><span>first seen {ago(r.firstSeen)}</span></TimeTip>
                       {r.commit && <Tip content={r.commit}><span className="mono">commit {r.commit.slice(0, 7)}</span></Tip>}
                       {r.deploys.map((d, i) => (
-                        <Tip key={i} content={<>Deployed {ago(d.at)}{d.url ? <><br />{d.url}</> : null}</>}>
-                          <span className="inline-flex items-center gap-1"><Rocket size={11} aria-hidden="true" /><Tag name="deploy" value={d.environment || "deployed"} /></span>
+                        <Tip key={i} content={<>{t("Deployed {when}", { when: ago(d.at) })}{d.url ? <><br />{d.url}</> : null}</>}>
+                          <span className="inline-flex items-center gap-1"><Rocket size={11} aria-hidden="true" /><Tag name="deploy" value={d.environment || t("deployed")} /></span>
                         </Tip>
                       ))}
                     </div>
                   </div>
-                  <Num n={r.newIssues} hot label="new issues" />
-                  <Num n={r.regressions} hot label="fired again" />
-                  <Num n={r.issues} label="issues" />
-                  <Num n={r.events} label="events" />
+                  <Num n={r.newIssues} hot label={t("new issues")} />
+                  <Num n={r.regressions} hot label={t("fired again")} />
+                  <Num n={r.issues} label={t("issues")} />
+                  <Num n={r.events} label={t("events")} />
                 </article>
               ))}
             </div>

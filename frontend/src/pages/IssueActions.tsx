@@ -7,7 +7,7 @@ import { RotateCcw, Volume2, VolumeX } from "../ui/icons";
 import { api, type Issue } from "../shared/api";
 import { t } from "../shared/i18n";
 
-const DONE = { resolve: "Issue resolved", unresolve: "Issue unresolved", mute: "Issue muted", unmute: "Issue unmuted" } as const;
+const DONE = { resolve: t("Issue resolved"), unresolve: t("Issue unresolved"), mute: t("Issue muted"), unmute: t("Issue unmuted") } as const;
 type Action = keyof typeof DONE;
 const PATH: Record<Action, string> = { resolve: "resolve", unresolve: "reopen", mute: "mute", unmute: "reopen" };
 

@@ -54,7 +54,7 @@ export function Layout({ project: given, nav, children }: Props) {
           )}
         </header>
         <div className="min-h-0 flex-1 [overflow-anchor:none] lg:overflow-y-auto">
-          <main className={`mx-auto px-5 py-7 sm:px-6 lg:px-9 lg:py-9 ${nav === "settings" || nav === "profile" || nav === "site" ? "max-w-[1100px]" : "max-w-[1500px]"}`}>
+          <main className="px-5 py-7 sm:px-6 lg:px-9 lg:py-9">
             {children}
           </main>
         </div>

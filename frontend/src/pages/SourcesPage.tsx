@@ -68,8 +68,8 @@ export function SourcesPage() {
       settings={settings.data}
       error={settings.error || error}
       back={backToSettings(settings.data)}
-      title={name => `${name} code`}
-      hint="The repositories its stack frames come from, for source links and AI analysis."
+      title={name => t("{name} code", { name })}
+      hint={t("The repositories its stack frames come from, for source links and AI analysis.")}
       action={admin ? <div className="flex gap-2">
         {sources.length > 0 && <Button icon={<FlaskConical aria-hidden="true" />} disabled={busy} onClick={() => { setEditing(null); void runTest(sources); }}>{t("Test")}</Button>}
         <Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => { setProblem(""); setTest(null); setEditing({ index: -1, draft: newSource(sources.length === 0) }); }}>{t("Add source")}</Button>
@@ -93,7 +93,7 @@ export function SourcesPage() {
                           {note && <Tip content={note}><CircleAlert size={14} className="shrink-0 text-ember-ink" aria-label={note} /></Tip>}
                         </span>
                         <span className="mt-1 block truncate text-xs text-cinder">
-                          {s.mappings.map(m => m.prefix).join(", ")} · release: {RELEASE[s.release.kind].label}{s.release.value && ` ${s.release.value}`} · branch {s.branch}{s.context && ` · context ${s.context}`}
+                          {s.mappings.map(m => m.prefix).join(", ")} · {t("release:")} {RELEASE[s.release.kind].label}{s.release.value && ` ${s.release.value}`} · {t("branch")} {s.branch}{s.context && ` · ${t("context")} ${s.context}`}
                         </span>
                       </span>
                       <ChevronRight className="shrink-0 text-cinder" aria-hidden="true" />
@@ -106,14 +106,14 @@ export function SourcesPage() {
           {!editing && test && <div className="mt-6"><SourceTestResult test={test.result} sources={test.sources} projectId={view.project.id} /></div>}
           {!admin && <p className="mt-6 text-xs text-cinder">{t("Only project admins can change code sources.")}</p>}
 
-          <Sheet open={!!editing} onClose={() => setEditing(null)} back="Back to code"
-            title={editing?.index === -1 ? "New source" : editing?.draft.repo || "Source"}
+          <Sheet open={!!editing} onClose={() => setEditing(null)} back={t("Back to code")}
+            title={editing?.index === -1 ? t("New source") : editing?.draft.repo || t("Source")}
             actions={!admin ? <Button size="sm" onClick={() => setEditing(null)}>{t("Close")}</Button> : editing && <>
               {editing.index >= 0 && <Button size="sm" variant="ghost" className="hover:text-ember-ink" icon={<Trash2 aria-hidden="true" />} disabled={busy}
                 onClick={() => { void confirmDialog({ title: t("Delete this source?"), confirm: t("Delete"), danger: true }).then((ok) => { if (ok) void save(withDraft(editing.index, null), t("Source deleted")); }); }}>{t("Delete")}</Button>}
               <Button size="sm" icon={<FlaskConical aria-hidden="true" />} disabled={busy} onClick={() => void runTest(withDraft(editing.index, editing.draft))}>{t("Test")}</Button>
               <Button size="sm" disabled={busy} onClick={() => setEditing(null)}>{t("Cancel")}</Button>
-              <Button size="sm" variant="primary" disabled={busy} onClick={() => void save(withDraft(editing.index, editing.draft), editing.index < 0 ? "Source added" : "Source saved")}>{busy ? "Saving…" : editing.index < 0 ? "Add source" : "Done"}</Button>
+              <Button size="sm" variant="primary" disabled={busy} onClick={() => void save(withDraft(editing.index, editing.draft), editing.index < 0 ? t("Source added") : t("Source saved"))}>{busy ? t("Saving…") : editing.index < 0 ? t("Add source") : t("Done")}</Button>
             </>}>
             {problem && <p role="alert" className="mb-5 rounded-card border border-ember-ink/30 bg-ember-soft px-4 py-3 text-[13px] text-ember-ink">{problem}</p>}
             {editing && <SourceEditor source={editing.draft} hosts={view.hosts} sshKey={view.sshKey} readOnly={!admin} onChange={draft => { setEditing({ ...editing, draft }); setProblem(""); }} />}

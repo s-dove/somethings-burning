@@ -9,15 +9,16 @@ import { Tip } from "../components/Tip";
 import { t } from "../shared/i18n";
 
 const ROLE_HELP: Record<Role, string> = {
-  viewer: "Sees issues and events.",
-  member: "Also resolves, mutes, and reopens issues, and gets alerts by the default route.",
-  admin: "Also changes access, notifications, and the project.",
+  viewer: t("Sees issues and events."),
+  member: t("Also resolves, mutes, and reopens issues, and gets alerts by the default route."),
+  admin: t("Also changes access, notifications, and the project."),
 };
-const roleLabel = (role: Role) => role[0]!.toUpperCase() + role.slice(1);
+const ROLE_LABEL: Record<Role, string> = { viewer: t("Viewer"), member: t("Member"), admin: t("Admin") };
+const roleLabel = (role: Role) => ROLE_LABEL[role];
 const roleOptions = (roles: Role[]): SelectOption<Role>[] => roles.map(r => ({ value: r, label: roleLabel(r), hint: ROLE_HELP[r] }));
 const KIND_OPTIONS: SelectOption<Grant["kind"]>[] = [
-  { value: "user", label: "User", hint: "One person, by email.", icon: <UserRound size={14} /> },
-  { value: "group", label: "Group", hint: "Everyone in a sign-in group.", icon: <Users size={14} /> },
+  { value: "user", label: t("User"), hint: t("One person, by email."), icon: <UserRound size={14} /> },
+  { value: "group", label: t("Group"), hint: t("Everyone in a sign-in group."), icon: <Users size={14} /> },
 ];
 const youTag = "shrink-0 rounded-full bg-ember-soft px-2 py-px text-[11px] font-medium text-ember-ink";
 
@@ -42,7 +43,7 @@ export function AccessSection({ settings, onChange }: { settings: ProjectSetting
     setError("");
     try {
       onChange(await api<ProjectSettings>(`/projects/${project.id}/access`, { method, body }));
-      toast(method === "DELETE" ? "Access removed" : "Access saved");
+      toast(method === "DELETE" ? t("Access removed") : t("Access saved"));
       return true;
     } catch (err) {
       setError((err as Error).message);
@@ -67,28 +68,28 @@ export function AccessSection({ settings, onChange }: { settings: ProjectSetting
             <Tip content={g.subject}><span className="min-w-0 truncate text-sm">
               {g.name && g.name !== g.subject ? <>{g.name} <span className="text-xs text-cinder">{g.subject}</span></> : g.subject}
             </span></Tip>
-            {mine(g) && <span className={youTag}>{g.kind === "user" ? "You" : "You're in this group"}</span>}
+            {mine(g) && <span className={youTag}>{g.kind === "user" ? t("You") : t("You're in this group")}</span>}
           </span>
           {admin
             ? <>
               <Select
-                label={`Role for ${g.subject}`}
+                label={t("Role for {who}", { who: g.subject })}
                 hideLabel
                 size="sm"
                 className="w-32"
                 value={g.role}
                 options={roleOptions(roles)}
                 disabled={busy}
-                title={lastAdmin(g) ? "The last user who is admin keeps the admin role." : undefined}
+                title={lastAdmin(g) ? t("The last user who is admin keeps the admin role.") : undefined}
                 onChange={role => { if (role !== g.role) void send("PUT", { kind: g.kind, subject: g.subject, role }); }}
               />
-              <Tip content={lastAdmin(g) ? "The last user who is admin cannot be removed." : "Remove"}><span className="inline-flex"><button type="button" className="cursor-pointer rounded-control p-2 text-cinder hover:bg-rule-soft hover:text-ember-ink disabled:cursor-not-allowed disabled:opacity-50" disabled={busy || lastAdmin(g)} aria-label={`Remove ${g.subject}`} onClick={() => void send("DELETE", { kind: g.kind, subject: g.subject })}><Trash2 /></button></span></Tip>
+              <Tip content={lastAdmin(g) ? t("The last user who is admin cannot be removed.") : t("Remove")}><span className="inline-flex"><button type="button" className="cursor-pointer rounded-control p-2 text-cinder hover:bg-rule-soft hover:text-ember-ink disabled:cursor-not-allowed disabled:opacity-50" disabled={busy || lastAdmin(g)} aria-label={t("Remove {who}", { who: g.subject })} onClick={() => void send("DELETE", { kind: g.kind, subject: g.subject })}><Trash2 /></button></span></Tip>
             </>
             : <span className="text-xs text-cinder">{roleLabel(g.role)}</span>}
         </li>)}
       </ul>}
       {admin && grants.length > 0 && <p className="mt-3 text-xs text-cinder">{t("At least one user must stay admin. Group admins do not count.")}</p>}
-      {!admin && <p className="mt-3 text-xs text-cinder">{project.role ? `Only admins change access. Your role here is ${project.role}.` : "You no longer have access to this project."}</p>}
+      {!admin && <p className="mt-3 text-xs text-cinder">{project.role ? t("Only admins change access. Your role here is {role}.", { role: roleLabel(project.role) }) : t("You no longer have access to this project.")}</p>}
     </section>
   );
 }
@@ -102,11 +103,11 @@ function AddGrant({ roles, busy, onAdd }: { roles: Role[]; busy: boolean; onAdd:
       e.preventDefault();
       if (await onAdd(kind, subject, role)) setSubject("");
     }}>
-      <Select label="Type" className="w-32" value={kind} options={KIND_OPTIONS} onChange={setKind} />
-      <label className="grid min-w-[220px] flex-1 gap-1.5 text-xs font-medium">{kind === "user" ? "Email" : "Group name"}
-        <input className={`${input} h-9`} value={subject} onChange={e => setSubject(e.target.value)} required type={kind === "user" ? "email" : "text"} placeholder={kind === "user" ? "name@example.com" : "e.g. platform-eng"} />
+      <Select label={t("Type")} className="w-32" value={kind} options={KIND_OPTIONS} onChange={setKind} />
+      <label className="grid min-w-[220px] flex-1 gap-1.5 text-xs font-medium">{kind === "user" ? t("Email") : t("Group name")}
+        <input className={`${input} h-9`} value={subject} onChange={e => setSubject(e.target.value)} required type={kind === "user" ? "email" : "text"} placeholder={kind === "user" ? "name@example.com" : t("e.g. platform-eng")} />
       </label>
-      <Select label="Role" className="w-36" value={role} options={roleOptions(roles)} onChange={setRole} />
+      <Select label={t("Role")} className="w-36" value={role} options={roleOptions(roles)} onChange={setRole} />
       <Button variant="primary" type="submit" disabled={busy}>{t("Grant access")}</Button>
     </form>
   );

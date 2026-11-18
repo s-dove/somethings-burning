@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from "react";
+import { t } from "../shared/i18n";
 import type { ProjectPulse, ProjectRef } from "../shared/api";
 import { ago, shortRelease, stamp } from "../shared/format";
 import { Link } from "./common/Link";
@@ -12,7 +13,7 @@ export function ProjectPulseLine({ project }: { project: ProjectRef & { pulse: P
   if (pulse.lastEvent) {
     parts.push(
       <>
-        Last event{" "}
+        {t("Last event")}{" "}
         <TimeTip at={pulse.lastEvent}>
           <span className="text-soot">{ago(pulse.lastEvent)}</span>
         </TimeTip>
@@ -21,24 +22,23 @@ export function ProjectPulseLine({ project }: { project: ProjectRef & { pulse: P
   } else {
     parts.push(
       <>
-        No events yet.{" "}
+        {t("No events yet.")}{" "}
         <Link to={`/p/${project.id}/settings/dsn`} className="text-soot">
-          Set up the DSN
-        </Link>{" "}
-        to start reporting.
+          {t("Set up the DSN to start reporting.")}
+        </Link>
       </>,
     );
   }
   if (pulse.release) {
     parts.push(
       <>
-        latest release{" "}
+        {t("latest release")}{" "}
         <Tip
           content={
             <>
               {pulse.release}
               <br />
-              First seen {stamp(pulse.releaseSeen)}
+              {t("First seen {when}", { when: stamp(pulse.releaseSeen) })}
             </>
           }
         >
