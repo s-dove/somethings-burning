@@ -2,7 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { mutate } from "swr";
 import { Button } from "../ui/components/Button";
-import { ArrowRight, Bell, ChevronRight, LogOut } from "../ui/icons";
+import { ArrowRight, Bell, Bot, ChevronRight, KeyRound, LogOut } from "../ui/icons";
 import { Link } from "../components/common/Link";
 import { Layout } from "../components/Layout";
 import { PageHeader } from "../components/PageHeader";
@@ -71,6 +71,22 @@ function ProfileDetails({ profile: p, onSaved }: { profile: Profile; onSaved: ()
         <span className="min-w-0 flex-1">
           <span className="block text-base font-semibold">{t("Your notifications")}</span>
           <span className="block text-xs text-cinder">{t("How alerts reach you, and the daily summary.")}</span>
+        </span>
+        <ChevronRight className="shrink-0 text-cinder" aria-hidden="true" />
+      </Link>
+      <Link to="/profile/tokens" className={`${card} flex items-center gap-4 text-soot no-underline hover:bg-rule-soft`}>
+        <span className="grid size-9 shrink-0 place-items-center rounded-control border border-rule bg-ash text-cinder"><KeyRound aria-hidden="true" /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-base font-semibold">{t("Access tokens")}</span>
+          <span className="block text-xs text-cinder">{t("Tokens for scripts and AI agents. A token acts as you, with your roles.")}</span>
+        </span>
+        <ChevronRight className="shrink-0 text-cinder" aria-hidden="true" />
+      </Link>
+      <Link to="/profile/mcp" className={`${card} flex items-center gap-4 text-soot no-underline hover:bg-rule-soft`}>
+        <span className="grid size-9 shrink-0 place-items-center rounded-control border border-rule bg-ash text-cinder"><Bot aria-hidden="true" /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-base font-semibold">{t("Connect an AI agent (MCP)")}</span>
+          <span className="block text-xs text-cinder">{t("Let AI agents look up and triage issues.")}</span>
         </span>
         <ChevronRight className="shrink-0 text-cinder" aria-hidden="true" />
       </Link>

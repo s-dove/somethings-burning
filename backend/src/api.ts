@@ -14,6 +14,7 @@ import { assignRoutes } from "./assign.js";
 import { mergedInto, mergeRoutes } from "./merge.js";
 import { releaseRoutes } from "./releases.js";
 import { tokenProject, tokenRoutes } from "./tokens.js";
+import { personalTokenRoutes, personalTokenUser, type Scope } from "./personal-tokens.js";
 import { getSources } from "./sources.js";
 import { sourcesRoutes } from "./sources-api.js";
 import { listActivity } from "./activity.js";
@@ -33,8 +34,9 @@ import { dsn } from "./url.js";
 import { people } from "./users.js";
 
 // user: who is signed in. token: the project an API token is for, when a
-// request comes with one instead of a session.
-export type AppEnv = { Variables: { user?: User; token?: number } };
+// request comes with one instead of a session. pat: the personal access
+// token a request came with; user is then its person.
+export type AppEnv = { Variables: { user?: User; token?: number; pat?: { id: number; scope: Scope } } };
 
 // What an API token may do: its own project's releases, deploys, and source maps.
 const TOKEN_PATHS = /^\/api\/projects\/(\d+)\/(releases|deploys|sourcemaps)\/?$/;
@@ -69,8 +71,19 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
   // How to sign in, and who is signed in. Readable without a session.
   app.get("/session", async (c) => c.json({ methods: auth.methods, user: await auth.user(c) }));
 
-  // Everything below needs a session, or an API token for the few routes CI uses.
+  // Everything below needs a session, a personal access token, or an API
+  // token for the few routes CI uses.
   app.use("*", async (c, next) => {
+    const personal = /^Bearer\s+(brp_\S+)$/i.exec(c.req.header("authorization") ?? "")?.[1];
+    if (personal) {
+      const found = await personalTokenUser(db, personal);
+      if (!found) return c.json({ detail: "invalid or expired personal access token" }, 401);
+      if (c.req.path.startsWith("/api/profile/tokens")) return c.json({ detail: "a token cannot see or make tokens; use the web app" }, 403);
+      if (found.scope === "read" && !["GET", "HEAD"].includes(c.req.method)) return c.json({ detail: "this token is read-only" }, 403);
+      c.set("user", found.user);
+      c.set("pat", { id: found.id, scope: found.scope });
+      return next();
+    }
     const bearer = /^Bearer\s+(brn_\S+)$/i.exec(c.req.header("authorization") ?? "")?.[1];
     if (bearer) {
       const projectId = await tokenProject(db, bearer);
@@ -288,6 +301,7 @@ export function apiRoutes(db: Db, deps: ApiDeps): Hono<AppEnv> {
   app.route("/", settingsRoutes(db, access, deps.baseURL));
   app.route("/", routingRoutes(db, access, deps.senders));
   app.route("/", profileRoutes(db, deps.senders));
+  app.route("/", personalTokenRoutes(db));
 
   return app;
 }

@@ -10,6 +10,7 @@ import { ingestRoutes } from "./ingest.js";
 import { Outbox, Senders } from "./notify/deliver.js";
 import { Mattermost } from "./notify/mattermost.js";
 import { LiveAlerts } from "./live.js";
+import { mcpRoutes } from "./mcp.js";
 import { IngestQueue, TokenBucket } from "./queue.js";
 import { selfReport } from "./self-report.js";
 import { CodeSources } from "./source/index.js";
@@ -61,5 +62,20 @@ export function createApp(db: Db, deps: AppDeps = {}): { app: Hono; outbox: Outb
   const access = new Access(db, config.siteAdmins);
   app.route("/api", apiRoutes(db, { auth, access, senders, baseURL: config.baseURL, config, live, code }));
   app.all("/api/*", (c) => c.json({ detail: "not found" }, 404));
+  // MCP for AI agents. Its tools call the API above with the agent's token.
+  const call = async (method: string, path: string, auth: string, body?: unknown) => {
+    const headers: Record<string, string> = { authorization: auth };
+    if (body !== undefined) headers["content-type"] = "application/json";
+    const res = await app.request(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    const text = await res.text();
+    let data: unknown = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = { detail: text };
+    }
+    return { status: res.status, data };
+  };
+  app.route("/", mcpRoutes(db, { call, baseURL: config.baseURL, version: "1" }));
   return { app, outbox, queue, live, access, senders };
 }

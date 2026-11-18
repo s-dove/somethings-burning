@@ -394,6 +394,20 @@ CREATE TABLE IF NOT EXISTS api_tokens (
   last_used  BIGINT NOT NULL DEFAULT 0
 );
 
+-- Personal access tokens: "brp_" and 40 hex characters, acting as one person.
+CREATE TABLE IF NOT EXISTS personal_tokens (
+  id         ${ID},
+  email      TEXT NOT NULL,
+  name       TEXT NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  prefix     TEXT NOT NULL,
+  scope      TEXT NOT NULL DEFAULT 'read',
+  created_at BIGINT NOT NULL,
+  expires_at BIGINT NOT NULL DEFAULT 0,
+  last_used  BIGINT NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS personal_tokens_email ON personal_tokens (email);
+
 -- Uploaded files a release needs to read its events: JS source maps.
 CREATE TABLE IF NOT EXISTS artifacts (
   project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -428,6 +442,8 @@ CREATE TABLE IF NOT EXISTS issue_users (
 const ADDED_COLUMNS: [string, string, string][] = [
   // The person's interface language; "" until they choose one.
   ["users", "lang", "TEXT NOT NULL DEFAULT ''"],
+  // The groups from the person's last sign-in, JSON; personal access tokens act with them.
+  ["users", "groups", "TEXT NOT NULL DEFAULT '[]'"],
   // A route's spike condition, JSON { events, factor }; "" for none.
   ["project_routes", "spike", "TEXT NOT NULL DEFAULT ''"],
   // Triage: open, resolved, or muted; see triage.ts.

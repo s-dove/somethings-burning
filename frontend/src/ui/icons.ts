@@ -5,6 +5,7 @@ export {
   LuArrowRight as ArrowRight,
   LuBan as Ban,
   LuBell as Bell,
+  LuBot as Bot,
   LuBraces as Braces,
   LuCalendarClock as CalendarClock,
   LuCheck as Check,

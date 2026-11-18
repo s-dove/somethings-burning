@@ -63,7 +63,7 @@ export function tokenRoutes(db: Db, access: Access): Hono<AppEnv> {
   app.post(
     `${P}/tokens`,
     withRole("admin", async (c, f) => {
-      if (c.get("token")) return c.json({ detail: "a token cannot make tokens" }, 403);
+      if (c.get("token") || c.get("pat")) return c.json({ detail: "a token cannot make tokens" }, 403);
       const name = String((await body<{ name?: unknown }>(c)).name ?? "").trim();
       if (!name || name.length > 80) return c.json({ detail: 'name the token, like "CI"' }, 400);
       return c.json(await createToken(db, f.project.id, name, actor(c)), 201);
