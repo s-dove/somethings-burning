@@ -10,6 +10,7 @@
   "dependencies": {
     "@headlessui/react": "^2.2.10",
     "@radix-ui/react-tooltip": "^1.4.1",
+    "@sentry/browser": "^11.14.0",
     "prismjs": "^1.30.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

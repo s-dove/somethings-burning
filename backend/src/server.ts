@@ -10,9 +10,11 @@ import { sendDueDigests } from "./digest.js";
 import { expireMutes, prune } from "./issues.js";
 import { GitHubLogin, githubProblem } from "./github.js";
 import { PasswordLogin } from "./passwords.js";
+import { selfReport, startSelfReport, webSettingsTag } from "./self-report.js";
 
 loadEnvFile(process.env.BURNING_ENV_FILE ?? ".env");
 const config = readConfig();
+startSelfReport(config.sentry, config.baseURL);
 const db = await openDb(config.db);
 console.log(`database: ${isPostgresURL(config.db) ? "postgres" : `sqlite ${config.db}`}`);
 
@@ -52,6 +54,8 @@ const root = path.resolve(config.staticDir);
 let index = "";
 try {
   index = readFileSync(path.join(root, "index.html"), "utf8");
+  // Where the page reports its own errors (frontend/src/shared/sentry.ts).
+  index = index.replace("</head>", `${webSettingsTag(config.sentry)}</head>`);
 } catch {
   console.log(`no web app at ${root}: serving the API only`);
 }
@@ -64,6 +68,9 @@ if (index) {
     },
     serveStatic({ root }),
   );
+  // index.html always comes from memory, with the settings put in above.
+  app.get("/", (c) => c.html(index));
+  app.get("/index.html", (c) => c.html(index));
   app.use("*", serveStatic({ root }));
   app.get("*", (c) => c.html(index));
   console.log(`web app from ${root}`);
@@ -71,7 +78,11 @@ if (index) {
 
 // Background work: the outbox, timed mutes, and retention.
 const every = (ms: number, name: string, fn: () => Promise<unknown>) => {
-  const run = () => void fn().catch((err) => console.error(`${name}:`, err));
+  const run = () =>
+    void fn().catch((err) => {
+      console.error(`${name}:`, err);
+      selfReport(err);
+    });
   run();
   return setInterval(run, ms).unref();
 };

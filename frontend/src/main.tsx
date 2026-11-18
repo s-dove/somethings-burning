@@ -25,7 +25,9 @@ import { SourceMapsPage } from "./pages/SourceMapsPage";
 import { TokensPage } from "./pages/TokensPage";
 import "./styles.css";
 import { loadDictionary } from "./shared/i18n";
+import { startSentry } from "./shared/sentry";
 
+startSentry();
 watchSystemTheme();
 
 void loadDictionary().then(() => {

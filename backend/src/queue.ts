@@ -4,6 +4,7 @@ import type { SentryEvent } from "./event.js";
 import { recordEvent } from "./issues.js";
 import type { LiveAlerts } from "./live.js";
 import type { Project } from "./projects.js";
+import { selfReport } from "./self-report.js";
 
 /**
  * TokenBucket is the ingest limit for the whole server. Over it, SDKs get a
@@ -78,6 +79,7 @@ export class IngestQueue {
         }
       } catch (err) {
         console.error(`ingest event project=${job.project.name}:`, err);
+        selfReport(err, { projectId: job.project.id });
       }
     }
     this.draining = false;
